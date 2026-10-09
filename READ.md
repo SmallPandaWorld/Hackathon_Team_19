@@ -4,6 +4,10 @@
 3.  ```
    pip install -r requirements.txt
    ```
+4. The backend uses SQLite by default. Its database file is created at
+   `backend/users.db` the first time the app starts. To use another SQLAlchemy
+   database URL, set the `DATABASE_URL` environment variable before starting
+   the backend (and install that database's Python driver).
 
 ### How to Start le Backend [don't be in the backend folder]: 
 ```

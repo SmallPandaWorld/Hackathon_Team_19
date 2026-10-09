@@ -1,9 +1,22 @@
-from fastapi import FastAPI, Depends, status
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from uuid import UUID
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-app = FastAPI(root_path="/api")
+from backend.database import Base, engine, get_db
+from backend.models import User
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(root_path="/api", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,25 +26,27 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Einfacher In-Memory-Speicher
-users_db: list[str] = []
-
-
 class UserCreate(BaseModel):
     name: str
+
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
+
 @app.post("/users", status_code=status.HTTP_201_CREATED)
-def add_user(user: UserCreate):
-    """Speichert einen neuen Benutzernamen."""
-    users_db.append(user.name)
+def add_user(user: UserCreate, db: Session = Depends(get_db)):
+    """Persist a new user name."""
+    db_user = User(name=user.name)
+    db.add(db_user)
+    db.commit()
     return {"message": f"User '{user.name}' erfolgreich gespeichert."}
 
 
 @app.get("/users")
-def get_users():
-    """Gibt alle gespeicherten Benutzer zurück."""
-    return {"users": users_db, "count": len(users_db)}
+def get_users(db: Session = Depends(get_db)):
+    """Return all saved users."""
+    users = db.scalars(select(User).order_by(User.id)).all()
+    names = [user.name for user in users]
+    return {"users": names, "count": len(names)}
