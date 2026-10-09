@@ -6,9 +6,14 @@
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
+  QueryClient,
   QueryFunction,
   QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -46,7 +51,7 @@ export type rootGetResponseSuccess = rootGetResponse200 & {
 export type rootGetResponse = rootGetResponseSuccess;
 
 export const getRootGetUrl = () => {
-  return `http://localhost:8000/`;
+  return `/api/`;
 };
 
 /**
@@ -67,14 +72,16 @@ export const rootGet = async (
 };
 
 export const getRootGetQueryKey = () => {
-  return [`http://localhost:8000/`] as const;
+  return [`/api/`] as const;
 };
 
 export const getRootGetQueryOptions = <
   TData = Awaited<ReturnType<typeof rootGet>>,
   TError = unknown,
 >(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>;
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+  >;
   fetch?: RequestInit;
 }) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
@@ -89,7 +96,7 @@ export const getRootGetQueryOptions = <
     Awaited<ReturnType<typeof rootGet>>,
     TError,
     TData
-  > & { queryKey: QueryKey };
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
 export type RootGetQueryResult = NonNullable<
@@ -97,6 +104,64 @@ export type RootGetQueryResult = NonNullable<
 >;
 export type RootGetQueryError = unknown;
 
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof rootGet>>,
+          TError,
+          Awaited<ReturnType<typeof rootGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof rootGet>>,
+          TError,
+          Awaited<ReturnType<typeof rootGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
 /**
  * @summary Root
  */
@@ -104,15 +169,23 @@ export type RootGetQueryError = unknown;
 export function useRootGet<
   TData = Awaited<ReturnType<typeof rootGet>>,
   TError = unknown,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>;
-  fetch?: RequestInit;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
   const queryOptions = getRootGetQueryOptions(options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
@@ -128,7 +201,7 @@ export type getUsersUsersGetResponseSuccess = getUsersUsersGetResponse200 & {
 export type getUsersUsersGetResponse = getUsersUsersGetResponseSuccess;
 
 export const getGetUsersUsersGetUrl = () => {
-  return `http://localhost:8000/users`;
+  return `/api/users`;
 };
 
 /**
@@ -154,17 +227,15 @@ export const getUsersUsersGet = async (
 };
 
 export const getGetUsersUsersGetQueryKey = () => {
-  return [`http://localhost:8000/users`] as const;
+  return [`/api/users`] as const;
 };
 
 export const getGetUsersUsersGetQueryOptions = <
   TData = Awaited<ReturnType<typeof getUsersUsersGet>>,
   TError = unknown,
 >(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getUsersUsersGet>>,
-    TError,
-    TData
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof getUsersUsersGet>>, TError, TData>
   >;
   fetch?: RequestInit;
 }) => {
@@ -180,7 +251,7 @@ export const getGetUsersUsersGetQueryOptions = <
     Awaited<ReturnType<typeof getUsersUsersGet>>,
     TError,
     TData
-  > & { queryKey: QueryKey };
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
 export type GetUsersUsersGetQueryResult = NonNullable<
@@ -188,6 +259,76 @@ export type GetUsersUsersGetQueryResult = NonNullable<
 >;
 export type GetUsersUsersGetQueryError = unknown;
 
+export function useGetUsersUsersGet<
+  TData = Awaited<ReturnType<typeof getUsersUsersGet>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getUsersUsersGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersUsersGet>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersUsersGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetUsersUsersGet<
+  TData = Awaited<ReturnType<typeof getUsersUsersGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getUsersUsersGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersUsersGet>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersUsersGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetUsersUsersGet<
+  TData = Awaited<ReturnType<typeof getUsersUsersGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getUsersUsersGet>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
 /**
  * @summary Get Users
  */
@@ -195,19 +336,27 @@ export type GetUsersUsersGetQueryError = unknown;
 export function useGetUsersUsersGet<
   TData = Awaited<ReturnType<typeof getUsersUsersGet>>,
   TError = unknown,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getUsersUsersGet>>,
-    TError,
-    TData
-  >;
-  fetch?: RequestInit;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getUsersUsersGet>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
   const queryOptions = getGetUsersUsersGetQueryOptions(options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
@@ -233,7 +382,7 @@ export type addUserUsersPostResponse =
   addUserUsersPostResponseSuccess | addUserUsersPostResponseError;
 
 export const getAddUserUsersPostUrl = () => {
-  return `http://localhost:8000/users`;
+  return `/api/users`;
 };
 
 /**
@@ -339,19 +488,22 @@ export type AddUserUsersPostMutationVariables = { data: UserCreate };
 export const useAddUserUsersPost = <
   TError = HTTPValidationError,
   TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof addUserUsersPost>>,
-    TError,
-    AddUserUsersPostMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationResult<
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof addUserUsersPost>>,
+      TError,
+      AddUserUsersPostMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
   Awaited<ReturnType<typeof addUserUsersPost>>,
   TError,
   AddUserUsersPostMutationVariables,
   TContext
 > => {
-  return useMutation(getAddUserUsersPostMutationOptions(options));
+  return useMutation(getAddUserUsersPostMutationOptions(options), queryClient);
 };
