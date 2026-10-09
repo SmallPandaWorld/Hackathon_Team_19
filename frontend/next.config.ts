@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const BACKEND_URL = "http://localhost:8000";
+
 const nextConfig: NextConfig = {
   /* config options here */
   experimental: {
@@ -11,7 +13,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://backend:8000/:path*",
+        destination: `${BACKEND_URL}/:path*`,
       },
     ];
   },
