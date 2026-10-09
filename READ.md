@@ -18,6 +18,7 @@ http://127.0.0.1:8000/docs#/
 1. install Node.js (v22.20.0)
     https://nodesource.com/products/distributions
 2. npm install
+3. check whether orval and prettier are installed
 
 ### After each backend change : 
 ```
