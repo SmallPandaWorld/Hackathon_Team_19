@@ -6,8 +6,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.database import Base, engine, get_db
-from backend.models import User
+from database import Base, engine, get_db
+from models import User
 
 
 @asynccontextmanager

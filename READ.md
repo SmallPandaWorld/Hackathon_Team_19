@@ -9,12 +9,12 @@
    database URL, set the `DATABASE_URL` environment variable before starting
    the backend (and install that database's Python driver).
 
-### How to Start le Backend [don't be in the backend folder]: 
+### How to Start le Backend [be in the backend folder]:
 ```
-uvicorn backend.main:app --reload
+uvicorn main:app --reload
 ```
 
-### How to access the backend in the browser : 
+### How to access the backend in the browser:
 http://127.0.0.1:8000/docs#/
 (optionally change ip)
 
@@ -24,12 +24,12 @@ http://127.0.0.1:8000/docs#/
 2. npm install
 3. check whether orval and prettier are installed
 
-### After each backend change : 
+### After each backend change:
 ```
 npx orval
 ```
 
-### To Run frontend 
+### To Run frontend
 ```
 npm run dev
 ```
