@@ -3,8 +3,7 @@ import { defineConfig } from 'orval';
 export default defineConfig({
     Hackathon: {
         input: {
-            target: 'http://127.0.0.1:8000/openapi.json',
-            validation: false,
+            target: 'http://backend:8000/openapi.json',
         },
         output: {
             target: './src/lib/api/hackathon.ts',
