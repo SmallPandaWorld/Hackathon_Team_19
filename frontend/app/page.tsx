@@ -4,7 +4,7 @@ import {
   useAddUserUsersPost,
   useGetUsersUsersGet,
 } from "@/src/lib/api/default";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 type UsersResponse = {
   users: string[];
@@ -31,6 +31,17 @@ export default function Home() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const users = isUsersResponse(data?.data) ? data.data.users : [];
 
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    const headers = (data as { headers?: Headers }).headers;
+    console.log("X-User-Id:", headers?.get("X-User-Id") ?? null);
+    console.log("X-User-Name:", headers?.get("X-User-Name") ?? null);
+  }, [data]);
+
+  
   async function handleAddUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedName = name.trim();
