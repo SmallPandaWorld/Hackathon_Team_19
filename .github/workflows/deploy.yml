@@ -26,7 +26,6 @@ jobs:
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
             cd "/home/${{ secrets.SSH_USER }}/deploy"
-            docker compose build
             docker compose down
-            docker compose up -d
+            docker compose up -d --build
           EOF
