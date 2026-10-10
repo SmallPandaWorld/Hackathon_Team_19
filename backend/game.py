@@ -388,7 +388,10 @@ def complete_quest(db: Session, player: User, quest: Quest,
     if quest.kind in WRONG_ACTION:
         raise bad_request(WRONG_ACTION[quest.kind])
     if quest.requires_code:
-        raise bad_request("Enter the printed code to complete this quest.")
+        raise bad_request(
+            "Scan the QR code shown at the meetup to check in."
+            if quest.kind == MEETUP else
+            "Enter the printed code to complete this quest.")
 
     existing = find_completion(db, player.username, quest.id)
     if quest.kind == MEETUP and existing is None:
@@ -415,7 +418,13 @@ def complete_quest(db: Session, player: User, quest: Quest,
 
 def redeem_quest_code(db: Session, player: User, quest: Quest,
                       code: str) -> CompletionResult:
-    """Check a quest's stable printed code, then award this player once."""
+    """Check a quest's stable printed code, then award this player once.
+
+    Meetups keep their check-in window: the code only works while the
+    meetup is live (players who already checked in get their completion back).
+    """
+    if quest.kind not in (SOLO, MEETUP):
+        raise bad_request(WRONG_ACTION.get(quest.kind, "This quest does not use a printed code."))
     if not quest.requires_code:
         raise bad_request("This quest does not use a printed code.")
     normalized = code.strip().upper()
@@ -423,6 +432,10 @@ def redeem_quest_code(db: Session, player: User, quest: Quest,
         normalized, quest.verification_code or ""
     ):
         raise bad_request("That code is not valid for this quest.")
+    if quest.kind == MEETUP and find_completion(db, player.username, quest.id) is None:
+        state = meetup_state(quest)
+        if state != "live":
+            raise conflict(MEETUP_CLOSED[state])
     completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
 

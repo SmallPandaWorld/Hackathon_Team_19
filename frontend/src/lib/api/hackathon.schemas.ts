@@ -544,7 +544,7 @@ export interface QuestOut {
   kind: QuestOutKind;
   status: QuestOutStatus;
   requires_approval: boolean;
-  /** Enter the printed code or scan its QR to complete */
+  /** Enter the printed code or scan its QR to complete (meetups: to check in) */
   requires_code: boolean;
   /** Map pin (WGS84) */
   latitude?: number | null;
@@ -609,7 +609,8 @@ export interface QuizAction {
 }
 
 /**
- * Redeem a printed code for a solo quest.
+ * Redeem a printed code: completes a solo quest, or checks in at a live
+ * meetup whose organiser shows the QR code.
  */
 export interface RedeemAction {
   type: "redeem";

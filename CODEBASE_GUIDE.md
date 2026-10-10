@@ -44,7 +44,7 @@ There are five quest types:
 | `multi_step` | Work through ordered activities | Complete the steps in order; the last step completes the quest |
 | `meetup` | Attend a scheduled campus event | Check in during the allowed time window |
 
-Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. This is separate from the temporary codes used to join pair quests.
+Printed verification is optional for solo quests and meetups. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. For a meetup it replaces the "I'm here" button: the organiser brings the printed sign and players scan it to check in, still only during the check-in window. This is separate from the temporary codes used to join pair quests.
 
 Players can propose new solo quests and report inappropriate quest content. Maintainers can create and edit quests, publish or retire them, review ideas, approve completion claims, and resolve reports.
 
@@ -437,7 +437,7 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code-verified quests, so the ordinary completion endpoint cannot bypass the code. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
 
-The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest. `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
+The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest or meetup (for a meetup the live check-in window still applies, except for players who already checked in). `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
 
 Approval-required solo quests create pending records. Resubmitting a rejected claim reuses that row, replaces its note and submission time, clears review details, and sets it back to pending.
 
@@ -959,6 +959,7 @@ The editor owns local state for text, reward, kind, completion method, pin, sche
 Type-specific editing:
 
 - Solo: choose player confirmation, printed code/QR, or maintainer approval. The latter two methods cannot be combined.
+- Meetup: choose the "I'm here" button or QR check-in with the printed sign.
 - Meetup: start/end local datetime inputs, cancellation, and Zurich-time preview.
 - Multi-step: ordered titles/details, add/remove controls, minimum two visible steps, maximum 20.
 - Quiz: questions, choice strings, one correct answer per question, minimum two choices, maximum eight choices and 20 questions. Removing a choice adjusts the correct index.
