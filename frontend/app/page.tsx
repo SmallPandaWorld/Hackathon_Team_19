@@ -11,7 +11,7 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
 import { useListQuests } from "@/src/lib/api/quests";
-import { ChevronDown, Lightbulb, Send } from "lucide-react";
+import { ChevronDown, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -78,7 +78,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       <h2 className="flex items-baseline justify-between text-xl font-bold">
         {title}
         <span className="text-sm font-medium text-muted">{count}</span>
@@ -99,17 +99,17 @@ function Collapsible({
 }) {
   return (
     <details
-      className="group rounded-lg border border-outline-variant"
+      className="group rounded-2xl border border-outline-variant bg-surface shadow-card dark:bg-surface-variant"
       open={defaultOpen}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-semibold [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between rounded-2xl px-5 py-4 font-semibold [&::-webkit-details-marker]:hidden">
         {title}
         <ChevronDown
           aria-hidden
           className="h-5 w-5 text-muted transition group-open:rotate-180"
         />
       </summary>
-      <div className="px-4 pb-4">{children}</div>
+      <div className="px-5 pb-5">{children}</div>
     </details>
   );
 }
@@ -128,16 +128,23 @@ export default function Home() {
   return (
     <Page>
       <header className="relative">
-        <p className="text-sm font-medium text-muted">VISCON 2026</p>
-        <h1 className="mt-1 text-4xl font-bold tracking-tight">
+        <p className="text-sm font-semibold uppercase tracking-wider text-link">
+          VISCON 2026
+        </p>
+        <h1 className="mt-1 text-4xl font-bold tracking-tight lg:text-6xl">
           Campus Voyager
         </h1>
-        <CampusMotif className="mt-2 h-16 w-full text-outline" />
+        <CampusMotif className="mt-4 h-28 w-full text-outline sm:h-40 lg:h-52" />
       </header>
 
-      <PlayerSummary />
+      {/* On desktop the user rail shows the player and the code form. */}
+      <div className="lg:hidden">
+        <PlayerSummary />
+      </div>
       <PairInvites />
-      <JoinWithCode />
+      <div className="lg:hidden">
+        <JoinWithCode />
+      </div>
 
       {isLoading ? (
         <LoadingState label="Loading quests..." />
@@ -160,8 +167,8 @@ export default function Home() {
             ) : (
               <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
                 {!quests?.length
-                  ? "No quests yet. Check back soon, or suggest one!"
-                  : "You've done everything available right now. Check the upcoming events, or suggest a new quest!"}
+                  ? "No quests yet. Create one to get things started!"
+                  : "You've done everything available right now. Check the upcoming events, or create a new quest!"}
               </p>
             )}
           </Section>
@@ -206,9 +213,9 @@ export default function Home() {
         />
         <Link
           className={`${buttonStyles.secondary} flex self-start items-center justify-center gap-2`}
-          href="/submit"
+          href="/create"
         >
-          <Lightbulb aria-hidden className="h-4 w-4" /> Suggest a quest
+          <Plus aria-hidden className="h-4 w-4" /> Create a quest
         </Link>
       </div>
     </Page>
@@ -220,7 +227,7 @@ function HowItWorks() {
     <ol className="space-y-2 text-sm text-on-surface-variant">
       {STEPS.map((step, index) => (
         <li className="flex gap-3" key={step}>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-on-accent">
             {index + 1}
           </span>
           {step}

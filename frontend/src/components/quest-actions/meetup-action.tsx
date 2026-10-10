@@ -9,6 +9,7 @@ import type {
 import { formatMeetupTime, MEETUP_LABELS } from "@/src/lib/quest-display";
 import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useState } from "react";
+import { CodeAction, type CodeCopy } from "./code-action";
 import { CompletedNote, ResultBanner } from "./result-banner";
 
 const CLOSED_MESSAGES = {
@@ -16,6 +17,14 @@ const CLOSED_MESSAGES = {
   past: "This meetup is over.",
   cancelled: "This meetup was cancelled.",
 } as const;
+
+// QR meetups: the organiser shows the printed sign, players scan it to check in.
+const MEETUP_CODE_COPY: CodeCopy = {
+  label: "Code from the organiser’s sign",
+  placeholder: "Enter the code shown at the meetup",
+  button: "Check in",
+  hint: "Scan the organiser’s QR code with your phone camera, or type its code. Each player earns the points once.",
+};
 
 export function MeetupAction({ quest }: { quest: QuestOut }) {
   const { perform, pending, error } = useQuestAction(quest.id);
@@ -34,7 +43,7 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg bg-surface dark:bg-surface-variant p-5 ring-1 ring-outline-variant">
+      <div className="rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">When</h2>
           <Chip className={MEETUP_LABELS[state].className}>
@@ -70,17 +79,26 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
       ) : quest.completed ? (
         <CompletedNote completedAt={quest.completed_at} />
       ) : state === "live" ? (
-        <button
-          className={`${buttonStyles.primary} w-full py-4 text-lg`}
-          disabled={pending === "complete"}
-          onClick={handleCheckIn}
-          type="button"
-        >
-          {pending === "complete" ? "Checking in..." : "I'm here: check in"}
-        </button>
+        quest.requires_code ? (
+          <CodeAction copy={MEETUP_CODE_COPY} quest={quest} />
+        ) : (
+          <button
+            className={`${buttonStyles.primary} w-full py-4 text-lg`}
+            disabled={pending === "complete"}
+            onClick={handleCheckIn}
+            type="button"
+          >
+            {pending === "complete" ? "Checking in..." : "I'm here: check in"}
+          </button>
+        )
       ) : (
-        <p className="rounded-lg bg-surface-variant p-4 text-center text-sm text-muted">
+        <p className="rounded-2xl bg-surface-variant p-4 text-center text-sm text-muted">
           {CLOSED_MESSAGES[state]}
+          {quest.requires_code && state === "upcoming" && (
+            <span className="mt-1 block">
+              Then scan the organiser’s QR code to check in.
+            </span>
+          )}
         </p>
       )}
       {error && <ErrorState message={error} />}

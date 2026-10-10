@@ -22,6 +22,7 @@ import type {
 
 import type {
   ErrorResponse,
+  GetLeaderboardParams,
   HTTPValidationError,
   Leaderboard,
   Me,
@@ -74,7 +75,7 @@ export const getGetMeUrl = () => {
 
 /**
  * Everything about the current player: points, badges, hobbies,
- * connection suggestions, open pair invitations and submitted quests.
+ * connection suggestions, open pair invitations and created quests.
  * @summary Get Me
  */
 export const getMe = async (options?: RequestInit): Promise<getMeResponse> => {
@@ -359,6 +360,254 @@ export const useUpdateMe = <
   TContext
 > => {
   return useMutation(getUpdateMeMutationOptions(options), queryClient);
+};
+export type uploadAvatarResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type uploadAvatarResponse400 = {
+  data: ErrorResponse;
+  status: 400;
+};
+
+export type uploadAvatarResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type uploadAvatarResponse413 = {
+  data: ErrorResponse;
+  status: 413;
+};
+
+export type uploadAvatarResponse415 = {
+  data: ErrorResponse;
+  status: 415;
+};
+
+export type uploadAvatarResponseSuccess = uploadAvatarResponse204 & {
+  headers: Headers;
+};
+export type uploadAvatarResponseError = (
+  | uploadAvatarResponse400
+  | uploadAvatarResponse401
+  | uploadAvatarResponse413
+  | uploadAvatarResponse415
+) & {
+  headers: Headers;
+};
+
+export type uploadAvatarResponse =
+  uploadAvatarResponseSuccess | uploadAvatarResponseError;
+
+export const getUploadAvatarUrl = () => {
+  return `/api/me/avatar`;
+};
+
+/**
+ * Set the current player's profile picture (PNG, JPEG, or WebP; 2 MiB max).
+ * @summary Upload Avatar
+ */
+export const uploadAvatar = async (
+  options?: RequestInit,
+): Promise<uploadAvatarResponse> => {
+  const res = await fetch(getUploadAvatarUrl(), {
+    ...options,
+    method: "PUT",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: uploadAvatarResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as uploadAvatarResponse;
+};
+
+export const getUploadAvatarMutationKey = () => ["uploadAvatar"] as const;
+
+export const getUploadAvatarMutationOptions = <
+  TError = ErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getUploadAvatarMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadAvatar>>,
+    void
+  > = () => {
+    return uploadAvatar(fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadAvatar>>
+>;
+
+export type UploadAvatarMutationError = ErrorResponse;
+
+/**
+ * @summary Upload Avatar
+ */
+export const useUploadAvatar = <TError = ErrorResponse, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof uploadAvatar>>,
+      TError,
+      void,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof uploadAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getUploadAvatarMutationOptions(options), queryClient);
+};
+export type deleteAvatarResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deleteAvatarResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type deleteAvatarResponseSuccess = deleteAvatarResponse204 & {
+  headers: Headers;
+};
+export type deleteAvatarResponseError = deleteAvatarResponse401 & {
+  headers: Headers;
+};
+
+export type deleteAvatarResponse =
+  deleteAvatarResponseSuccess | deleteAvatarResponseError;
+
+export const getDeleteAvatarUrl = () => {
+  return `/api/me/avatar`;
+};
+
+/**
+ * Remove the current player's profile picture.
+ * @summary Delete Avatar
+ */
+export const deleteAvatar = async (
+  options?: RequestInit,
+): Promise<deleteAvatarResponse> => {
+  const res = await fetch(getDeleteAvatarUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deleteAvatarResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as deleteAvatarResponse;
+};
+
+export const getDeleteAvatarMutationKey = () => ["deleteAvatar"] as const;
+
+export const getDeleteAvatarMutationOptions = <
+  TError = ErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getDeleteAvatarMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAvatar>>,
+    void
+  > = () => {
+    return deleteAvatar(fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAvatar>>
+>;
+
+export type DeleteAvatarMutationError = ErrorResponse;
+
+/**
+ * @summary Delete Avatar
+ */
+export const useDeleteAvatar = <TError = ErrorResponse, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteAvatar>>,
+      TError,
+      void,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDeleteAvatarMutationOptions(options), queryClient);
 };
 export type dismissSuggestionResponse204 = {
   data: void;
@@ -737,8 +986,9 @@ export const getGetPlayerUrl = (username: string) => {
 /**
  * A player's public profile.
  *
- * Only players who opted in to suggestions are visible to others; a player
- * can always view themselves.
+ * Only players who opted in to suggestions are visible to others, except
+ * that friends and players with an open request between them can always
+ * see each other; a player can always view themselves.
  * @summary Get Player
  */
 export const getPlayer = async (
@@ -889,6 +1139,221 @@ export function useGetPlayer<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export type getPlayerAvatarResponse200 = {
+  data: void;
+  status: 200;
+};
+
+export type getPlayerAvatarResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type getPlayerAvatarResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type getPlayerAvatarResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type getPlayerAvatarResponseSuccess = getPlayerAvatarResponse200 & {
+  headers: Headers;
+};
+export type getPlayerAvatarResponseError = (
+  | getPlayerAvatarResponse401
+  | getPlayerAvatarResponse404
+  | getPlayerAvatarResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPlayerAvatarResponse =
+  getPlayerAvatarResponseSuccess | getPlayerAvatarResponseError;
+
+export const getGetPlayerAvatarUrl = (username: string) => {
+  return `/api/players/${username}/avatar`;
+};
+
+/**
+ * Return a picture only for discoverable players or the current player.
+ * @summary Get Player Avatar
+ */
+export const getPlayerAvatar = async (
+  username: string,
+  options?: RequestInit,
+): Promise<getPlayerAvatarResponse> => {
+  const res = await fetch(getGetPlayerAvatarUrl(username), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPlayerAvatarResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getPlayerAvatarResponse;
+};
+
+export const getGetPlayerAvatarQueryKey = (username: string) => {
+  return [`/api/players/${username}/avatar`] as const;
+};
+
+export const getGetPlayerAvatarQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPlayerAvatar>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  username: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlayerAvatar>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPlayerAvatarQueryKey(username);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlayerAvatar>>> = ({
+    signal,
+  }) => getPlayerAvatar(username, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: username !== null && username !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPlayerAvatar>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPlayerAvatarQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPlayerAvatar>>
+>;
+export type GetPlayerAvatarQueryError = ErrorResponse | HTTPValidationError;
+
+export function useGetPlayerAvatar<
+  TData = Awaited<ReturnType<typeof getPlayerAvatar>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  username: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlayerAvatar>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPlayerAvatar>>,
+          TError,
+          Awaited<ReturnType<typeof getPlayerAvatar>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPlayerAvatar<
+  TData = Awaited<ReturnType<typeof getPlayerAvatar>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  username: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlayerAvatar>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPlayerAvatar>>,
+          TError,
+          Awaited<ReturnType<typeof getPlayerAvatar>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPlayerAvatar<
+  TData = Awaited<ReturnType<typeof getPlayerAvatar>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  username: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlayerAvatar>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Player Avatar
+ */
+
+export function useGetPlayerAvatar<
+  TData = Awaited<ReturnType<typeof getPlayerAvatar>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  username: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPlayerAvatar>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetPlayerAvatarQueryOptions(username, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export type getLeaderboardResponse200 = {
   data: Leaderboard;
   status: 200;
@@ -899,28 +1364,52 @@ export type getLeaderboardResponse401 = {
   status: 401;
 };
 
+export type getLeaderboardResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
 export type getLeaderboardResponseSuccess = getLeaderboardResponse200 & {
   headers: Headers;
 };
-export type getLeaderboardResponseError = getLeaderboardResponse401 & {
+export type getLeaderboardResponseError = (
+  getLeaderboardResponse401 | getLeaderboardResponse422
+) & {
   headers: Headers;
 };
 
 export type getLeaderboardResponse =
   getLeaderboardResponseSuccess | getLeaderboardResponseError;
 
-export const getGetLeaderboardUrl = () => {
-  return `/api/leaderboard`;
+export const getGetLeaderboardUrl = (params?: GetLeaderboardParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/leaderboard?${stringifiedParams}`
+    : `/api/leaderboard`;
 };
 
 /**
  * Players ranked by approved points. Equal points share a rank (1, 1, 3, ...).
+ *
+ * The same scoring applies to both scopes. The global view lists players
+ * with at least one point; the friends view lists you and every accepted
+ * friend, points or not, so the group is always complete.
  * @summary Get Leaderboard
  */
 export const getLeaderboard = async (
+  params?: GetLeaderboardParams,
   options?: RequestInit,
 ): Promise<getLeaderboardResponse> => {
-  const res = await fetch(getGetLeaderboardUrl(), {
+  const res = await fetch(getGetLeaderboardUrl(params), {
     ...options,
     method: "GET",
   });
@@ -935,26 +1424,29 @@ export const getLeaderboard = async (
   } as getLeaderboardResponse;
 };
 
-export const getGetLeaderboardQueryKey = () => {
-  return [`/api/leaderboard`] as const;
+export const getGetLeaderboardQueryKey = (params?: GetLeaderboardParams) => {
+  return [`/api/leaderboard`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetLeaderboardQueryOptions = <
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
-  >;
-  fetch?: RequestInit;
-}) => {
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  params?: GetLeaderboardParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({
     signal,
-  }) => getLeaderboard({ signal, ...fetchOptions });
+  }) => getLeaderboard(params, { signal, ...fetchOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getLeaderboard>>,
@@ -966,12 +1458,13 @@ export const getGetLeaderboardQueryOptions = <
 export type GetLeaderboardQueryResult = NonNullable<
   Awaited<ReturnType<typeof getLeaderboard>>
 >;
-export type GetLeaderboardQueryError = ErrorResponse;
+export type GetLeaderboardQueryError = ErrorResponse | HTTPValidationError;
 
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params: undefined | GetLeaderboardParams,
   options: {
     query: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -992,8 +1485,9 @@ export function useGetLeaderboard<
 };
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params?: GetLeaderboardParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -1014,8 +1508,9 @@ export function useGetLeaderboard<
 };
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params?: GetLeaderboardParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -1032,8 +1527,9 @@ export function useGetLeaderboard<
 
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params?: GetLeaderboardParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -1044,7 +1540,7 @@ export function useGetLeaderboard<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getGetLeaderboardQueryOptions(options);
+  const queryOptions = getGetLeaderboardQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

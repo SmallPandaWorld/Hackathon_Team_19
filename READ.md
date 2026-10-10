@@ -18,7 +18,7 @@ Environment variables:
   no `X-User-Id` header is sent; this dev player is always a maintainer.
   Never set it in deployment.
 - `MAINTAINER_IDS`: comma-separated usernames (`X-User-Id` values) that get
-  the maintainer tools at `/admin` (quest editor, idea reviews, completion
+  the maintainer tools at `/admin` (quest editor, completion
   reviews, reports) in production.
 - `DATABASE_URL`: SQLAlchemy URL, defaults to `backend/users.db`.
 
@@ -31,8 +31,8 @@ curl -H "X-User-Id: alice" -H "X-User-Name: Alice" localhost:8000/me
 The `X-User-Id` value is the player's unique username and primary key; users do
 not have a separate ID. Quest, step, question, completion, session, RSVP,
 report, and suggestion-record IDs are UUIDs. The app starts with no quests:
-maintainers add them in the quest editor (`/admin`), and players can suggest
-some. The tests use sample quests from `backend/tests/sample_quests.py`, which
+maintainers can add them in the quest editor (`/admin`), and players can
+publish them directly at `/create`. The tests use sample quests from `backend/tests/sample_quests.py`, which
 keep stable UUIDs (`backend/ids.py`). A database from
 before usernames were the user key is not migrated: its tables are renamed to
 `legacy_<name>` on startup and fresh tables are created.
@@ -55,12 +55,12 @@ meetup not live), `410` expired/cancelled code.
 
 | Area | Endpoints |
 |---|---|
-| Player | `GET`/`PUT /me` (profile, points, badges, hobby options, suggestions, pair invitations, submitted ideas), `DELETE /me/suggestions/{username}`, `GET /leaderboard`, `GET /players?q=` (search discoverable players), `GET /players/{username}` (public profile) |
-| Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (propose an idea) |
+| Player | `GET`/`PUT /me` (profile, points, badges, hobby options, connection suggestions, pair invitations, created quests), `DELETE /me/suggestions/{username}`, `GET /leaderboard?scope=global|friends`, `GET /players?q=` (search discoverable players), `GET /players/{username}` (public profile) |
+| Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (publish a quest immediately) |
 | Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `pair_start` (optional `invite_username`), `pair_cancel` |
 | Partner quests | `GET`/`POST /pair/{code}` (look up / join a code) |
 | Friends | `GET /friends` (friends + incoming/outgoing requests), `POST /friends/{username}` (send request), `POST /friends/{username}/accept`, `DELETE /friends/{username}` (decline / cancel / remove); `GET /players/{username}` includes `friend_status` |
-| Maintainers | `GET`/`POST /admin/quests`, `GET`/`PATCH /admin/quests/{id}` (`status` publishes/retires/rejects), `GET /admin/completions` (+ `POST …/review`), `GET /admin/reports` (+ `POST …/resolve`) |
+| Maintainers | `GET`/`POST /admin/quests`, `GET`/`PATCH /admin/quests/{id}` (`status` publishes/retires), `GET /admin/completions` (+ `POST …/review`), `GET /admin/reports` (+ `POST …/resolve`) |
 
 ### Game rules (defaults, change them in code)
 - **Points** are granted once per player and quest; completions keep a
@@ -70,11 +70,14 @@ meetup not live), `410` expired/cancelled code.
   `quiz` (all answers right, unlimited retries), `multi_step` (steps in
   order, points with the last step), `meetup` (check-in from 15 min before
   start until the end; RSVP optional; shown in Zurich time).
-- **Publishing**: new quests start as drafts; incomplete quests can't be
-  published. Retiring hides a quest but keeps everyone's points. Once players
-  have progress, a quest's type can't change and steps can only be reworded.
-- **Player ideas** wait for maintainer review (max 5 pending per player).
-  Reported quests show up under Admin → Reports.
+- **Publishing**: maintainer-created quests start as drafts unless published
+  explicitly. Player-created quests publish immediately, always award 10 points,
+  and can be solo, pair, quiz, or multi-step. Player-created solo quests require
+  a creator-set password; players cannot create meetups or choose other solo
+  completion methods. Only maintainers can edit or retire quests. Incomplete
+  quests cannot be published. Retiring hides a quest but keeps everyone's
+  points. Once players have progress, a quest's type can't change and steps can
+  only be reworded. Reported quests show up under Admin → Reports.
 - **Hobbies** are optional; suggestions only include players who opted in,
   only show the shared hobbies, and dismissed players never come back.
   "Invite" on a suggestion starts a partner quest whose code appears on the

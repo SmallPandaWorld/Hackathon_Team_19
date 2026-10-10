@@ -20,7 +20,7 @@ export const MEETUP_LABELS: Record<
   upcoming: { label: "Upcoming", className: "border border-link text-link" },
   live: {
     label: "● Check-in open",
-    className: "border border-success text-success",
+    className: "border border-accent bg-accent text-on-accent",
   },
   past: {
     label: "Over",

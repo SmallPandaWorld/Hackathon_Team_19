@@ -16,17 +16,14 @@ import {
   useAdminListReports,
   useAdminResolveReport,
   useAdminReviewCompletion,
-  useAdminUpdateQuest,
 } from "@/src/lib/api/admin";
-import type { AdminQuestOut } from "@/src/lib/api/hackathon.schemas";
 import { STATUS_LABELS, formatZurich } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import Link from "next/link";
 import { useState } from "react";
 import { KindIcon } from "@/src/components/icons";
-import { MapPin } from "lucide-react";
 
-type Tab = "quests" | "ideas" | "reviews" | "reports";
+type Tab = "quests" | "reviews" | "reports";
 
 function QuestsTab() {
   const { data, isLoading } = useAdminListQuests();
@@ -43,11 +40,11 @@ function QuestsTab() {
       </Link>
       {quests.map((quest) => (
         <Link
-          className="flex items-center gap-3 rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant hover:ring-outline"
+          className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-surface p-4 shadow-card transition hover:border-outline dark:bg-surface-variant"
           href={`/admin/quests/${quest.id}`}
           key={quest.id}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-surface-variant dark:bg-surface-container">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-variant dark:bg-surface-container">
             <KindIcon kind={quest.kind} />
           </span>
           <span className="min-w-0 flex-1">
@@ -64,108 +61,10 @@ function QuestsTab() {
               )}
             </span>
           </span>
-          <span className="shrink-0 rounded-sm bg-primary px-2 py-0.5 text-sm font-bold text-on-primary">
+          <span className="shrink-0 rounded-md bg-accent px-2 py-0.5 text-sm font-bold text-on-accent">
             +{quest.points}
           </span>
         </Link>
-      ))}
-    </div>
-  );
-}
-
-function IdeaCard({ quest }: { quest: AdminQuestOut }) {
-  const updateQuest = useAdminUpdateQuest();
-  const { error, run, refreshAll } = useAction();
-  const [note, setNote] = useState("");
-  const blocked = quest.publish_problems.length > 0;
-
-  async function decide(status: "published" | "rejected") {
-    const call = () =>
-      updateQuest.mutateAsync({
-        questId: quest.id,
-        data:
-          status === "rejected"
-            ? { status, review_note: note.trim() || null }
-            : { status },
-      });
-    if (await run(call)) await refreshAll();
-  }
-
-  return (
-    <Card>
-      <p className="text-xs text-muted">
-        Suggested by {quest.author_name ?? "unknown"}
-      </p>
-      <h3 className="mt-1 font-semibold">{quest.title}</h3>
-      {quest.location && (
-        <p className="flex items-center gap-1 text-sm text-muted">
-          <MapPin aria-hidden className="h-4 w-4 shrink-0" />
-          {quest.location}
-        </p>
-      )}
-      <p className="mt-2 whitespace-pre-line text-sm text-on-surface-variant">
-        {quest.description}
-      </p>
-      <p className="mt-2 text-sm text-muted">Reward: {quest.points} points</p>
-      <label className="mt-3 block text-sm font-medium text-on-surface-variant">
-        Note for the author{" "}
-        <span className="font-normal text-muted">(shown if rejected)</span>
-        <input
-          className={inputStyles}
-          onChange={(e) => setNote(e.target.value)}
-          value={note}
-        />
-      </label>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          className={`${buttonStyles.primary} py-2 text-sm`}
-          disabled={blocked || updateQuest.isPending}
-          onClick={() => decide("published")}
-          type="button"
-        >
-          Publish
-        </button>
-        <button
-          className={`${buttonStyles.danger} py-2 text-sm`}
-          disabled={updateQuest.isPending}
-          onClick={() => decide("rejected")}
-          type="button"
-        >
-          Reject
-        </button>
-        <Link
-          className={`${buttonStyles.secondary} py-2 text-sm`}
-          href={`/admin/quests/${quest.id}`}
-        >
-          Edit first
-        </Link>
-      </div>
-      {blocked && (
-        <p className="mt-2 text-sm text-warning">
-          {quest.publish_problems.join(" ")}
-        </p>
-      )}
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-    </Card>
-  );
-}
-
-function IdeasTab() {
-  const { data, isLoading } = useAdminListQuests({
-    status: "pending_review",
-  });
-  const ideas = data?.status === 200 ? data.data : [];
-  if (isLoading) return <LoadingState label="Loading ideas..." />;
-  if (ideas.length === 0)
-    return (
-      <p className="py-6 text-center text-muted">
-        No quest ideas waiting for review.
-      </p>
-    );
-  return (
-    <div className="flex flex-col gap-3">
-      {ideas.map((quest) => (
-        <IdeaCard key={quest.id} quest={quest} />
       ))}
     </div>
   );
@@ -205,7 +104,7 @@ function ReviewsTab() {
           <h3 className="mt-1 font-semibold">
             {completion.player_name} · {completion.quest_title}
           </h3>
-          <p className="mt-2 rounded bg-surface-variant p-3 text-sm text-on-surface-variant">
+          <p className="mt-2 rounded-xl bg-surface-variant p-3 dark:bg-surface-container text-sm text-on-surface-variant">
             {completion.note ? `“${completion.note}”` : "No description given."}
           </p>
           <label className="mt-3 block text-sm font-medium text-on-surface-variant">
@@ -287,7 +186,7 @@ function ReportsTab() {
             Reported by {report.reporter_name} ·{" "}
             {formatZurich(report.created_at)}
           </p>
-          <p className="mt-2 rounded bg-surface-variant p-3 text-sm text-on-surface-variant">
+          <p className="mt-2 rounded-xl bg-surface-variant p-3 dark:bg-surface-container text-sm text-on-surface-variant">
             “{report.reason}”
           </p>
           <div className="mt-3 flex gap-2">
@@ -314,19 +213,16 @@ function ReportsTab() {
 
 function Dashboard() {
   const [tab, setTab] = useState<Tab>("quests");
-  const ideas = useAdminListQuests({ status: "pending_review" });
   const completions = useAdminListCompletions();
   const reports = useAdminListReports();
   const counts: Record<Tab, number> = {
     quests: 0,
-    ideas: ideas.data?.status === 200 ? ideas.data.data.length : 0,
     reviews:
       completions.data?.status === 200 ? completions.data.data.length : 0,
     reports: reports.data?.status === 200 ? reports.data.data.length : 0,
   };
   const tabs: { key: Tab; label: string }[] = [
     { key: "quests", label: "Quests" },
-    { key: "ideas", label: "Ideas" },
     { key: "reviews", label: "Reviews" },
     { key: "reports", label: "Reports" },
   ];
@@ -334,13 +230,13 @@ function Dashboard() {
   return (
     <>
       <div
-        className="grid grid-cols-4 gap-1 rounded-md bg-surface-container p-1"
+        className="grid grid-cols-3 gap-1 rounded-full bg-surface-container p-1"
         role="tablist"
       >
         {tabs.map(({ key, label }) => (
           <button
             aria-selected={tab === key}
-            className={`rounded px-2 py-2 text-sm font-semibold ${tab === key ? "bg-surface dark:bg-surface-variant text-link " : "text-muted"}`}
+            className={`rounded-full px-2 py-2 text-sm font-semibold ${tab === key ? "bg-surface dark:bg-surface-variant text-link " : "text-muted"}`}
             key={key}
             onClick={() => setTab(key)}
             role="tab"
@@ -356,7 +252,6 @@ function Dashboard() {
         ))}
       </div>
       {tab === "quests" && <QuestsTab />}
-      {tab === "ideas" && <IdeasTab />}
       {tab === "reviews" && <ReviewsTab />}
       {tab === "reports" && <ReportsTab />}
     </>

@@ -16,10 +16,10 @@ export function PairInvites() {
     <section aria-label="Invitations" className="flex flex-col gap-2">
       {invites.map((invite) => (
         <div
-          className="flex items-center gap-3 rounded-lg border-2 border-primary bg-primary/10 p-4"
+          className="flex items-center gap-3 rounded-2xl border border-accent bg-accent/40 p-4 dark:bg-accent/10"
           key={invite.code}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-primary text-on-primary">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary">
             <Users aria-hidden className="h-5 w-5" />
           </span>
           <p className="min-w-0 flex-1 text-sm">

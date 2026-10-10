@@ -1,7 +1,8 @@
 """Game rules shared by the routers: scoring, visibility, meetups, validation."""
 
-import json
+import hashlib
 import hmac
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -25,6 +26,7 @@ from models import (
     SOLO,
     Completion,
     DismissedSuggestion,
+    Friendship,
     MeetupRsvp,
     PairSession,
     Quest,
@@ -36,6 +38,7 @@ from models import (
 )
 from schemas import (
     CompletionResult,
+    CreatedQuestOut,
     ErrorResponse,
     PairSessionOut,
     QuestOut,
@@ -43,7 +46,6 @@ from schemas import (
     QuizResult,
     StepOut,
     Suggestion,
-    SubmissionOut,
     Suggestions,
 )
 
@@ -78,6 +80,8 @@ ERROR_DESCRIPTIONS = {
     404: "Not found",
     409: "Conflicts with the current state",
     410: "Code expired or cancelled",
+    413: "Payload too large",
+    415: "Unsupported media type",
 }
 
 
@@ -275,6 +279,7 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             status=quest.status,
             requires_approval=quest.requires_approval,
             requires_code=quest.requires_code,
+            requires_password=quest.requires_password,
             verification_starts_at=as_utc(quest.verification_starts_at),
             verification_ends_at=as_utc(quest.verification_ends_at),
             latitude=quest.latitude,
@@ -311,12 +316,12 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
 def publish_problems(db: Session, quest: Quest) -> List[str]:
     """Everything that stops a quest from being published."""
     problems = []
-    if len(quest.title.strip()) < 3:
-        problems.append("Title needs at least 3 characters.")
-    if len(quest.description.strip()) < 10:
-        problems.append("Instructions need at least 10 characters.")
+    if len(quest.title.strip()) < 2:
+        problems.append("Title needs at least 2 characters.")
     if quest.points < 1:
         problems.append("Points must be at least 1.")
+    if quest.requires_password and not quest.password_hash:
+        problems.append("Set a password before publishing this quest.")
     if (quest.latitude is None) != (quest.longitude is None):
         problems.append("Map pin needs both coordinates (or neither).")
     if quest.kind == QUIZ:
@@ -325,12 +330,19 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
             problems.append("A quiz needs at least one question.")
         for index, question in enumerate(questions, start=1):
             choices = json.loads(question.choices)
+            if not question.prompt.strip():
+                problems.append(f"Question {index} needs a prompt.")
             if len([c for c in choices if c.strip()]) != len(choices) or len(choices) < 2:
                 problems.append(f"Question {index} needs at least 2 non-empty choices.")
             if not 0 <= question.correct_index < len(choices):
                 problems.append(f"Question {index} has no valid correct answer.")
-    if quest.kind == MULTI_STEP and len(ordered_steps(db, quest.id)) < 2:
-        problems.append("A multi-step quest needs at least 2 steps.")
+    if quest.kind == MULTI_STEP:
+        steps = ordered_steps(db, quest.id)
+        if len(steps) < 2:
+            problems.append("A multi-step quest needs at least 2 steps.")
+        for index, step in enumerate(steps, start=1):
+            if not step.title.strip():
+                problems.append(f"Step {index} needs a title.")
     if quest.kind == MEETUP:
         if quest.starts_at is None or quest.ends_at is None:
             problems.append("A meetup needs a start and end time.")
@@ -341,24 +353,9 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
 
 # --- Creating quests ----------------------------------------------------------
 
-def add_quest(db: Session, **fields) -> Quest:
-    """Insert a quest (with a generated UUID) and commit it."""
-    quest = Quest(**fields)
-    db.add(quest)
-    db.commit()
-    return quest
-
-
-def submission_out(quest: Quest) -> SubmissionOut:
-    """A player-submitted quest as its author sees it."""
-    return SubmissionOut(
-        id=quest.id,
-        title=quest.title,
-        description=quest.description,
-        location=quest.location,
-        status=quest.status,
-        review_note=quest.review_note,
-    )
+def created_quest_out(quest: Quest) -> CreatedQuestOut:
+    return CreatedQuestOut(
+        id=quest.id, title=quest.title, kind=quest.kind, status=quest.status)
 
 
 # --- Quest actions --------------------------------------------------------------
@@ -388,7 +385,12 @@ def complete_quest(db: Session, player: User, quest: Quest,
     if quest.kind in WRONG_ACTION:
         raise bad_request(WRONG_ACTION[quest.kind])
     if quest.requires_code:
-        raise bad_request("Enter the printed code to complete this quest.")
+        raise bad_request(
+            "Scan the QR code shown at the meetup to check in."
+            if quest.kind == MEETUP else
+            "Enter the printed code to complete this quest.")
+    if quest.requires_password:
+        raise bad_request("Enter the password to complete this quest.")
 
     existing = find_completion(db, player.username, quest.id)
     if quest.kind == MEETUP and existing is None:
@@ -415,21 +417,53 @@ def complete_quest(db: Session, player: User, quest: Quest,
 
 def redeem_quest_code(db: Session, player: User, quest: Quest,
                       code: str) -> CompletionResult:
-    """Check a quest's stable printed code, then award this player once."""
-    if not quest.requires_code:
-        raise bad_request("This quest does not use a printed code.")
-    normalized = code.strip().upper()
-    if not normalized.isascii() or not hmac.compare_digest(
-        normalized, quest.verification_code or ""
-    ):
-        raise bad_request("That code is not valid for this quest.")
-    now = utcnow()
-    if quest.verification_starts_at is not None and now < quest.verification_starts_at:
-        raise conflict("This code is not valid yet. Check the start time shown on the quest.")
-    if quest.verification_ends_at is not None and now >= quest.verification_ends_at:
-        raise conflict("This code's validity period has ended. No points can be awarded.")
+    """Check a solo quest's printed code or password, or a live meetup's QR code."""
+    if quest.kind not in (SOLO, MEETUP):
+        raise bad_request(WRONG_ACTION.get(quest.kind, "This quest does not use a code."))
+    if quest.requires_password:
+        if quest.kind != SOLO:
+            raise bad_request("Only solo quests use passwords.")
+        if not verify_quest_password(code.strip(), quest.password_hash):
+            raise bad_request("That password is not valid for this quest.")
+    elif quest.requires_code:
+        normalized = code.strip().upper()
+        if not normalized.isascii() or not hmac.compare_digest(
+            normalized, quest.verification_code or ""
+        ):
+            raise bad_request("That code is not valid for this quest.")
+        now = utcnow()
+        if quest.verification_starts_at is not None and now < quest.verification_starts_at:
+            raise conflict("This code is not valid yet. Check the start time shown on the quest.")
+        if quest.verification_ends_at is not None and now >= quest.verification_ends_at:
+            raise conflict("This code's validity period has ended. No points can be awarded.")
+    else:
+        raise bad_request("This quest does not use a code or password.")
+    if quest.kind == MEETUP and find_completion(db, player.username, quest.id) is None:
+        state = meetup_state(quest)
+        if state != "live":
+            raise conflict(MEETUP_CLOSED[state])
     completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
+
+
+def hash_quest_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return f"sha256$200000${salt.hex()}${digest.hex()}"
+
+
+def verify_quest_password(password: str, saved: Optional[str]) -> bool:
+    if not saved:
+        return False
+    try:
+        algorithm, rounds, salt, expected = saved.split("$")
+        if algorithm != "sha256" or int(rounds) != 200_000:
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(salt), int(rounds))
+        return hmac.compare_digest(digest, bytes.fromhex(expected))
+    except (ValueError, TypeError):
+        return False
 
 
 def submit_quiz(db: Session, player: User, quest: Quest,
@@ -685,7 +719,8 @@ def open_invitations(db: Session, player: User) -> List[PairSessionOut]:
 # Consent rules: only players who opted in (`discoverable`) appear in
 # suggestions, and only they receive suggestions. A suggestion shows the
 # display name and shared hobbies, nothing else. Dismissed players are never
-# suggested again.
+# suggested again; friends and players with an open friend request (either
+# way) aren't suggested while that relation exists.
 
 MAX_SUGGESTIONS = 20
 
@@ -697,12 +732,20 @@ def suggestions_for(db: Session, player: User) -> Suggestions:
     mine = set(parse_hobbies(player.hobbies))
     dismissed = set(db.scalars(select(DismissedSuggestion.dismissed_player_id).where(
         DismissedSuggestion.player_id == player.username)))
+    connected = set()
+    for requester_id, addressee_id in db.execute(
+        select(Friendship.requester_id, Friendship.addressee_id).where(or_(
+            Friendship.requester_id == player.username,
+            Friendship.addressee_id == player.username,
+        ))
+    ):
+        connected.add(addressee_id if requester_id == player.username else requester_id)
     candidates = db.scalars(select(User).where(
         User.discoverable.is_(True), User.username != player.username))
 
     suggestions = []
     for other in candidates:
-        if other.username in dismissed:
+        if other.username in dismissed or other.username in connected:
             continue
         shared = [key for key in parse_hobbies(other.hobbies) if key in mine]
         if shared:

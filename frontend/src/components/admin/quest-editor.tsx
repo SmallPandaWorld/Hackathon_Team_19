@@ -1,6 +1,7 @@
 "use client";
 
 import { CampusMap } from "@/src/components/campus-map";
+import { MeetupPhotoManager } from "@/src/components/admin/meetup-photo-manager";
 import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
 import { useAdminCreateQuest, useAdminUpdateQuest } from "@/src/lib/api/admin";
@@ -9,6 +10,8 @@ import type {
   AdminQuestInKind,
   AdminQuestOut,
   AdminQuestPatch,
+  PlayerQuestIn,
+  PlayerQuestInKind,
   QuizQuestionIn,
   StepIn,
 } from "@/src/lib/api/hackathon.schemas";
@@ -21,6 +24,7 @@ import {
   toZurichInput,
 } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
+import { useCreateQuest } from "@/src/lib/api/quests";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -58,7 +62,6 @@ const STATUS_ACTIONS: Record<
   ],
   pending_review: [
     { status: "published", label: "Publish", style: buttonStyles.primary },
-    { status: "rejected", label: "Reject", style: buttonStyles.danger },
   ],
   published: [
     { status: "draft", label: "Unpublish", style: buttonStyles.secondary },
@@ -76,9 +79,16 @@ const STATUS_ACTIONS: Record<
   ],
 };
 
-export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
+export function QuestEditor({
+  quest,
+  playerCreate = false,
+}: {
+  quest?: AdminQuestOut;
+  playerCreate?: boolean;
+}) {
   const router = useRouter();
   const createQuest = useAdminCreateQuest();
+  const createPlayerQuest = useCreateQuest();
   const updateQuest = useAdminUpdateQuest();
   const { error, run, refreshAll } = useAction();
   const [saved, setSaved] = useState(false);
@@ -101,6 +111,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   const [verificationEndsAt, setVerificationEndsAt] = useState(
     toZurichInput(quest?.verification_ends_at),
   );
+  const [requiresPassword, setRequiresPassword] = useState(
+    playerCreate || (quest?.requires_password ?? false),
+  );
+  const [password, setPassword] = useState("");
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
     quest?.latitude != null && quest?.longitude != null
       ? { lat: quest.latitude, lng: quest.longitude }
@@ -143,13 +157,17 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
       points: Number(points) || 0,
       kind,
       requires_approval: kind === "solo" && requiresApproval,
-      requires_code: kind === "solo" && requiresCode,
+      requires_code: (kind === "solo" || kind === "meetup") && requiresCode,
+      requires_password: kind === "solo" && requiresPassword,
+      ...(kind === "solo" && requiresPassword && password.trim()
+        ? { password: password.trim() }
+        : {}),
       verification_starts_at:
-        kind === "solo" && requiresCode
+        (kind === "solo" || kind === "meetup") && requiresCode
           ? fromZurichInput(verificationStartsAt, quest?.verification_starts_at)
           : null,
       verification_ends_at:
-        kind === "solo" && requiresCode
+        (kind === "solo" || kind === "meetup") && requiresCode
           ? fromZurichInput(verificationEndsAt, quest?.verification_ends_at)
           : null,
       latitude: pin?.lat ?? null,
@@ -162,8 +180,32 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     };
   }
 
+  function buildPlayerInput(): PlayerQuestIn {
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      location: location.trim() || null,
+      kind: kind as PlayerQuestInKind,
+      ...(kind === "solo" ? { password: password.trim() } : {}),
+      latitude: pin?.lat ?? null,
+      longitude: pin?.lng ?? null,
+      steps: kind === "multi_step" ? steps : [],
+      questions: kind === "quiz" ? questions : [],
+    };
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (playerCreate) {
+      const response = await run(() =>
+        createPlayerQuest.mutateAsync({ data: buildPlayerInput() }),
+      );
+      if (response?.status === 201) {
+        await refreshAll();
+        router.replace(`/quests/${response.data.id}`);
+      }
+      return;
+    }
     let data: AdminQuestIn;
     try {
       data = buildInput();
@@ -188,6 +230,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         await run(() => updateQuest.mutateAsync({ questId: quest.id, data }))
       ) {
         setSaved(true);
+        setPassword("");
         await refreshAll();
       }
     } else {
@@ -202,11 +245,6 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   async function changeStatus(status: StatusChange) {
     if (!quest) return;
     const data: AdminQuestPatch = { status };
-    if (status === "rejected") {
-      data.review_note =
-        window.prompt("Why is this idea rejected? (shown to the author)") ??
-        null;
-    }
     if (
       status === "retired" &&
       !window.confirm(
@@ -220,7 +258,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     }
   }
 
-  const saving = createQuest.isPending || updateQuest.isPending;
+  const saving =
+    createQuest.isPending ||
+    createPlayerQuest.isPending ||
+    updateQuest.isPending;
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSave}>
@@ -237,11 +278,11 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           </div>
           {quest.author_name && (
             <p className="mt-2 text-sm text-muted">
-              Suggested by {quest.author_name}
+              Created by {quest.author_name}
             </p>
           )}
           {quest.publish_problems.length > 0 && (
-            <ul className="mt-3 list-disc rounded bg-warning-surface py-2 pl-8 pr-3 text-sm text-warning">
+            <ul className="mt-3 list-disc rounded-xl bg-warning-surface py-2 pl-8 pr-3 text-sm text-warning">
               {quest.publish_problems.map((problem) => (
                 <li key={problem}>{problem}</li>
               ))}
@@ -309,14 +350,18 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             }
             value={kind}
           >
-            {(Object.keys(KIND_LABELS) as AdminQuestInKind[]).map((key) => (
-              <option key={key} value={key}>
-                {KIND_LABELS[key].label}
-              </option>
-            ))}
+            {(Object.keys(KIND_LABELS) as AdminQuestInKind[])
+              .filter((key) => !playerCreate || key !== "meetup")
+              .map((key) => (
+                <option key={key} value={key}>
+                  {KIND_LABELS[key].label}
+                </option>
+              ))}
           </select>
           <span className="mt-1 block text-xs font-normal text-muted">
-            {KIND_HELP[kind]}
+            {playerCreate && kind === "solo"
+              ? "Players enter the password you set after finishing the activity."
+              : KIND_HELP[kind]}
           </span>
         </label>
         <label className="text-sm font-medium text-on-surface-variant">
@@ -324,18 +369,19 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <input
             className={inputStyles}
             maxLength={120}
+            minLength={2}
             onChange={(e) => edited(setTitle)(e.target.value)}
             required
             value={title}
           />
         </label>
         <label className="text-sm font-medium text-on-surface-variant">
-          Instructions
+          Instructions{" "}
+          <span className="font-normal text-muted">(optional)</span>
           <textarea
             className={inputStyles}
             maxLength={2000}
             onChange={(e) => edited(setDescription)(e.target.value)}
-            required
             rows={5}
             value={description}
           />
@@ -351,15 +397,20 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             />
           </label>
           <label className="text-sm font-medium text-on-surface-variant">
-            Points
+            Points {playerCreate && <span className="text-muted">(fixed)</span>}
             <input
-              className={inputStyles}
+              className={`${inputStyles} disabled:cursor-not-allowed disabled:bg-surface-container disabled:text-muted`}
+              disabled={playerCreate}
               max={1000}
               min={0}
-              onChange={(e) => edited(setPoints)(e.target.value)}
+              onChange={
+                playerCreate
+                  ? undefined
+                  : (e) => edited(setPoints)(e.target.value)
+              }
               required
               type="number"
-              value={points}
+              value={playerCreate ? "10" : points}
             />
           </label>
         </div>
@@ -368,86 +419,165 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             Changing points only affects future completions.
           </p>
         )}
-        {kind === "solo" && (
+        {kind === "meetup" && (
           <fieldset className="flex flex-col gap-2 text-sm">
-            <legend className="font-semibold">Completion method</legend>
+            <legend className="font-semibold">Check-in method</legend>
             <label className="flex items-center gap-2">
               <input
-                checked={!requiresApproval && !requiresCode}
-                onChange={() => {
-                  edited(setRequiresApproval)(false);
-                  edited(setRequiresCode)(false);
-                }}
-                name="completion-method"
+                checked={!requiresCode}
+                onChange={() => edited(setRequiresCode)(false)}
+                name="check-in-method"
                 type="radio"
               />
-              Player confirms completion
+              Players tap “I’m here” while the meetup is live
             </label>
             <label className="flex items-center gap-2">
               <input
                 checked={requiresCode}
-                onChange={() => {
-                  edited(setRequiresCode)(true);
-                  edited(setRequiresApproval)(false);
-                }}
-                name="completion-method"
+                onChange={() => edited(setRequiresCode)(true)}
+                name="check-in-method"
                 type="radio"
               />
-              Printed code or QR
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                checked={requiresApproval}
-                onChange={() => {
-                  edited(setRequiresApproval)(true);
-                  edited(setRequiresCode)(false);
-                }}
-                name="completion-method"
-                type="radio"
-              />
-              Maintainer approval
+              Players scan the organiser’s QR code
             </label>
             <p className="text-xs text-muted">
-              For code quests, print the QR sign after saving. Players can scan
-              it with a phone camera or type its code.
+              Print the QR sign after saving and bring it to the meetup. The
+              code only works during the check-in window.
+            </p>
+          </fieldset>
+        )}
+        {kind === "solo" && (
+          <fieldset className="flex flex-col gap-2 text-sm">
+            {!playerCreate && (
+              <legend className="font-semibold">Completion method</legend>
+            )}
+            {!playerCreate && (
+              <>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={
+                      !requiresApproval && !requiresCode && !requiresPassword
+                    }
+                    onChange={() => {
+                      edited(setRequiresApproval)(false);
+                      edited(setRequiresCode)(false);
+                      edited(setRequiresPassword)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Player confirms completion
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={requiresCode}
+                    onChange={() => {
+                      edited(setRequiresCode)(true);
+                      edited(setRequiresApproval)(false);
+                      edited(setRequiresPassword)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Printed code or QR
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={requiresPassword}
+                    onChange={() => {
+                      edited(setRequiresPassword)(true);
+                      edited(setRequiresCode)(false);
+                      edited(setRequiresApproval)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Creator-set password
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={requiresApproval}
+                    onChange={() => {
+                      edited(setRequiresApproval)(true);
+                      edited(setRequiresCode)(false);
+                      edited(setRequiresPassword)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Maintainer approval
+                </label>
+              </>
+            )}
+            {(playerCreate || requiresPassword) && (
+              <label className="font-medium text-on-surface-variant">
+                Quest password
+                <input
+                  autoComplete="new-password"
+                  className={inputStyles}
+                  maxLength={40}
+                  minLength={1}
+                  onChange={(event) => edited(setPassword)(event.target.value)}
+                  placeholder={
+                    quest?.requires_password
+                      ? "Leave blank to keep the current password"
+                      : "Set a password"
+                  }
+                  required={playerCreate || !quest?.requires_password}
+                  type="password"
+                  value={password}
+                />
+                <span className="text-xs font-normal text-muted">
+                  1–40 characters. Capital letters matter; surrounding spaces
+                  are ignored.
+                </span>
+              </label>
+            )}
+            <p className="text-xs text-muted">
+              {playerCreate
+                ? "Share the password with players after they complete the quest. It cannot be viewed after publishing."
+                : "For code quests, print the QR sign after saving. Players can scan it with a phone camera or type its code."}
             </p>
           </fieldset>
         )}
       </Card>
 
-      {kind === "solo" && requiresCode && (
-        <Card className="flex flex-col gap-4">
-          <h2 className="font-semibold">Code validity window</h2>
-          <p className="text-sm text-muted">
-            Optional. Leave both empty to keep the permanent code valid
-            whenever this quest is published. Changing these times keeps
-            the printed code and QR the same.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-on-surface-variant">
-              Valid from (Europe/Zurich)
-              <input
-                className={inputStyles}
-                onChange={(e) =>
-                  edited(setVerificationStartsAt)(e.target.value)
-                }
-                type="datetime-local"
-                value={verificationStartsAt}
-              />
-            </label>
-            <label className="text-sm font-medium text-on-surface-variant">
-              Expires at (Europe/Zurich)
-              <input
-                className={inputStyles}
-                onChange={(e) => edited(setVerificationEndsAt)(e.target.value)}
-                type="datetime-local"
-                value={verificationEndsAt}
-              />
-            </label>
-          </div>
-          {timeError && <ErrorState message={timeError} />}
-        </Card>
-      )}
+      {(kind === "solo" || kind === "meetup") &&
+        requiresCode &&
+        !playerCreate && (
+          <Card className="flex flex-col gap-4">
+            <h2 className="font-semibold">Code validity window</h2>
+            <p className="text-sm text-muted">
+              Optional. Leave both empty to use the quest’s usual availability.
+              Changing these times keeps the printed code and QR the same.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-on-surface-variant">
+                Valid from (Europe/Zurich)
+                <input
+                  className={inputStyles}
+                  onChange={(e) =>
+                    edited(setVerificationStartsAt)(e.target.value)
+                  }
+                  type="datetime-local"
+                  value={verificationStartsAt}
+                />
+              </label>
+              <label className="text-sm font-medium text-on-surface-variant">
+                Expires at (Europe/Zurich)
+                <input
+                  className={inputStyles}
+                  onChange={(e) =>
+                    edited(setVerificationEndsAt)(e.target.value)
+                  }
+                  type="datetime-local"
+                  value={verificationEndsAt}
+                />
+              </label>
+            </div>
+            {timeError && <ErrorState message={timeError} />}
+          </Card>
+        )}
 
       {kind === "meetup" && (
         <Card className="flex flex-col gap-4">
@@ -491,6 +621,9 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           </label>
         </Card>
       )}
+      {kind === "meetup" && quest?.kind === "meetup" && (
+        <MeetupPhotoManager questId={quest.id} />
+      )}
 
       {kind === "multi_step" && (
         <Card className="flex flex-col gap-3">
@@ -502,7 +635,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </p>
           )}
           {steps.map((step, index) => (
-            <div className="rounded-md bg-surface-variant p-3" key={index}>
+            <div
+              className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
+              key={index}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Step {index + 1}</span>
                 <button
@@ -569,7 +705,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 ),
               );
             return (
-              <div className="rounded-md bg-surface-variant p-3" key={qIndex}>
+              <div
+                className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
+                key={qIndex}
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold">
                     Question {qIndex + 1}
@@ -721,11 +860,17 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           disabled={saving}
           type="submit"
         >
-          {saving ? "Saving..." : quest ? "Save changes" : "Create draft"}
+          {saving
+            ? "Saving..."
+            : playerCreate
+              ? "Publish quest"
+              : quest
+                ? "Save changes"
+                : "Create draft"}
         </button>
         {saved && (
           <p
-            className="flex items-center justify-center gap-1 rounded bg-success-surface p-2 text-sm text-success"
+            className="flex items-center justify-center gap-1 rounded-xl bg-success-surface p-2 text-sm text-success"
             role="status"
           >
             <Check aria-hidden className="h-4 w-4" /> Saved

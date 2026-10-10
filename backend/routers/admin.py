@@ -23,8 +23,10 @@ from database import get_db
 from game import (
     QUEST_CREATION_ORDER,
     as_utc,
+    bad_request,
     conflict,
     error_responses,
+    hash_quest_password,
     not_found,
     ordered_questions,
     ordered_steps,
@@ -39,19 +41,19 @@ from models import (
     MEETUP,
     MULTI_STEP,
     PENDING,
-    PENDING_REVIEW,
     PUBLISHED,
     QUIZ,
-    REJECTED,
     RETIRED,
     SOLO,
     Completion,
+    MeetupPhoto,
     Quest,
     QuestReport,
     QuestStep,
     QuizQuestion,
     StepProgress,
     User,
+    new_verification_code,
 )
 from schemas import (
     AdminCompletionOut,
@@ -98,6 +100,7 @@ def admin_quest_out(db: Session, quest: Quest) -> AdminQuestOut:
         status=quest.status,
         requires_approval=quest.requires_approval,
         requires_code=quest.requires_code,
+        requires_password=quest.requires_password,
         verification_code=quest.verification_code,
         verification_starts_at=as_utc(quest.verification_starts_at),
         verification_ends_at=as_utc(quest.verification_ends_at),
@@ -128,6 +131,9 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     has_completions = db.scalar(select(func.count()).where(Completion.quest_id == quest.id))
     if quest.kind != data.kind and has_completions:
         raise conflict("Players already completed this quest, so its type can't change.")
+    has_photos = db.scalar(select(func.count()).where(MeetupPhoto.quest_id == quest.id))
+    if quest.kind != data.kind and has_photos:
+        raise conflict("This meetup has photos, so its type can't change.")
 
     quest.title = data.title.strip()
     quest.description = data.description.strip()
@@ -135,11 +141,24 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     quest.points = data.points
     quest.kind = data.kind
     quest.requires_approval = data.requires_approval and data.kind == SOLO
-    quest.requires_code = data.requires_code and data.kind == SOLO
+    quest.requires_code = data.requires_code and data.kind in (SOLO, MEETUP)
+    if quest.requires_code and not quest.verification_code:
+        code = new_verification_code()
+        while db.scalar(select(Quest.id).where(Quest.verification_code == code)):
+            code = new_verification_code()
+        quest.verification_code = code
     quest.verification_starts_at = (
         to_naive_utc(data.verification_starts_at) if quest.requires_code else None)
     quest.verification_ends_at = (
         to_naive_utc(data.verification_ends_at) if quest.requires_code else None)
+    quest.requires_password = data.requires_password and data.kind == SOLO
+    if quest.requires_password:
+        if data.password is not None:
+            quest.password_hash = hash_quest_password(data.password.strip())
+        elif not quest.password_hash:
+            raise bad_request("Set a password for this quest.")
+    else:
+        quest.password_hash = None
     quest.latitude = data.latitude
     quest.longitude = data.longitude
     is_meetup = data.kind == MEETUP
@@ -193,6 +212,7 @@ def quest_input(db: Session, quest: Quest) -> dict:
         "kind": quest.kind,
         "requires_approval": quest.requires_approval,
         "requires_code": quest.requires_code,
+        "requires_password": quest.requires_password,
         "verification_starts_at": as_utc(quest.verification_starts_at),
         "verification_ends_at": as_utc(quest.verification_ends_at),
         "latitude": quest.latitude,
@@ -220,7 +240,7 @@ def ensure_publishable(db: Session, quest: Quest) -> None:
 
 @router.get("/quests", response_model=List[AdminQuestOut])
 def admin_list_quests(status: Optional[QuestStatus] = None, db: Session = Depends(get_db)):
-    """All quests, newest first. Filter by `status`, e.g. pending_review."""
+    """All quests, newest first. Optionally filter by status."""
     query = select(Quest).order_by(QUEST_CREATION_ORDER.desc())
     if status is not None:
         query = query.where(Quest.status == status)
@@ -253,18 +273,12 @@ def admin_create_quest(data: AdminQuestIn, db: Session = Depends(get_db)):
 def admin_update_quest(quest_id: UUID, patch: AdminQuestPatch, db: Session = Depends(get_db)):
     """Change only the fields you send.
 
-    `status` publishes, unpublishes (draft), retires, or rejects a player
-    submission (only from pending_review; `review_note` is shown to the
-    author). A published quest must stay publishable.
+    `status` publishes, unpublishes (draft), or retires a quest. A published
+    quest must stay publishable.
     """
     quest = get_quest_or_404(db, quest_id)
     changes = patch.model_dump(exclude_unset=True)
     new_status = changes.pop("status", None)
-    has_note = "review_note" in changes
-    review_note = (changes.pop("review_note", None) or "").strip() or None
-
-    if new_status == REJECTED and quest.status != PENDING_REVIEW:
-        raise conflict("Only submitted quests waiting for review can be rejected.")
 
     if changes:
         try:
@@ -276,8 +290,6 @@ def admin_update_quest(quest_id: UUID, patch: AdminQuestPatch, db: Session = Dep
             ])
         apply_quest_input(db, quest, data)
 
-    if new_status == REJECTED or has_note:
-        quest.review_note = review_note
     if new_status is not None:
         quest.status = new_status
     ensure_publishable(db, quest)

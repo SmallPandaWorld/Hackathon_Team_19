@@ -1,4 +1,4 @@
-"""Quest kinds, pair sessions, maintainers, submissions, reports, connections, badges."""
+"""Quest kinds, pair sessions, maintainers, creation, reports, connections, badges."""
 
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -136,6 +136,19 @@ def test_create_as_published(client):
                        json=quest_input(status="retired")).status_code == 422
 
 
+def test_admin_quest_can_publish_with_two_character_title_and_no_instructions(client):
+    payload = quest_input(title="Go", status="published")
+    del payload["description"]
+    response = client.post("/admin/quests", headers=ADMIN, json=payload)
+    assert response.status_code == 201, response.text
+    quest = response.json()
+    assert quest["description"] == ""
+    assert quest["publish_problems"] == []
+    assert patch(client, quest["id"], description="x").json()["description"] == "x"
+    assert patch(client, quest["id"], description="").json()["description"] == ""
+    assert client.get(f"/quests/{quest['id']}", headers=ALICE).json()["description"] == ""
+
+
 def test_admin_list_newest_first_and_filter(client):
     created = client.post("/admin/quests", headers=ADMIN, json=quest_input()).json()
     quests = client.get("/admin/quests", headers=ADMIN).json()
@@ -149,8 +162,8 @@ def test_admin_list_newest_first_and_filter(client):
 
 def test_incomplete_quest_cannot_be_published(client):
     created = client.post("/admin/quests", headers=ADMIN, json=quest_input(
-        kind="quiz", description="short", points=0)).json()
-    assert len(created["publish_problems"]) == 3
+        kind="quiz", description="", points=0)).json()
+    assert len(created["publish_problems"]) == 2
     response = patch(client, created["id"], status="published")
     assert response.status_code == 409
     assert "Can't publish" in response.json()["detail"]
@@ -169,6 +182,9 @@ def test_patch_changes_only_sent_fields(client):
 
 def test_patch_validation(client):
     assert patch(client, SOLO_ID, title=None).status_code == 422
+    assert patch(client, SOLO_ID, title="X").status_code == 422
+    assert patch(client, SOLO_ID, title=" X ").status_code == 422
+    assert patch(client, SOLO_ID, description=None).status_code == 422
     assert patch(client, SOLO_ID, points=-1).status_code == 422
     assert patch(client, SOLO_ID, status="pending_review").status_code == 422
     assert patch(client, SOLO_ID, latitude=95).status_code == 422
@@ -191,6 +207,10 @@ def test_invalid_create_input_is_rejected(client):
                        json=quest_input(latitude=95, longitude=8.5)).status_code == 422
     assert client.post("/admin/quests", headers=ADMIN,
                        json=quest_input(kind="dance")).status_code == 422
+    assert client.post("/admin/quests", headers=ADMIN,
+                       json=quest_input(title="X")).status_code == 422
+    assert client.post("/admin/quests", headers=ADMIN,
+                       json=quest_input(title=" X ")).status_code == 422
 
 
 def test_editing_points_keeps_awarded_points(client):
@@ -239,58 +259,115 @@ def test_admin_sees_answers_players_do_not(client):
     assert "correct_index" not in client.get(f"/quests/{QUIZ_ID}", headers=ALICE).text
 
 
-# --- Player submissions and reports -----------------------------------------
+# --- Player creation and reports ---------------------------------------------
 
-SUBMISSION = {"title": "Sing in the hall", "description": "Sing one song in the main hall."}
+PLAYER_SOLO = {
+    "title": "Sing in the hall",
+    "description": "Sing one song in the main hall.",
+    "kind": "solo",
+    "password": "concert 42",
+}
 
 
-def test_submission_review_flow(client):
-    submitted = client.post("/quests", headers=ALICE, json=SUBMISSION)
-    assert submitted.status_code == 201
-    quest_id = submitted.json()["id"]
-    assert submitted.json()["status"] == "pending_review"
-    assert quest_id not in [q["id"] for q in client.get("/quests", headers=BOB).json()]
-    # The author can see their own submission, others can't.
+def test_player_solo_quest_is_published_immediately(client):
+    created = client.post("/quests", headers=ALICE, json=PLAYER_SOLO)
+    assert created.status_code == 201, created.text
+    quest = created.json()
+    assert quest["status"] == "published"
+    assert quest["points"] == 10
+    assert quest["author_name"] == "Alice"
+    assert quest["requires_password"] is True
+    assert quest["requires_code"] is False
+    assert "concert 42" not in created.text
+    assert quest["id"] in [q["id"] for q in client.get("/quests", headers=BOB).json()]
+    assert client.get(f"/quests/{quest['id']}", headers=BOB).status_code == 200
+    assert me(client, ALICE)["created_quests"][0]["id"] == quest["id"]
+    assert me(client, BOB)["created_quests"] == []
+    assert client.patch(f"/admin/quests/{quest['id']}", headers=ALICE,
+                        json={"title": "Changed"}).status_code == 403
+    assert act(client, BOB, quest["id"], "complete").status_code == 400
+    assert act(client, BOB, quest["id"], "redeem", code="concert 42").json()["completion"]["points_awarded"] == 10
+
+
+def test_player_quest_allows_two_character_title_and_optional_instructions(client):
+    for description in (None, "", "x"):
+        payload = {**PLAYER_SOLO, "title": " Go "}
+        if description is None:
+            del payload["description"]
+        else:
+            payload["description"] = description
+        response = client.post("/quests", headers=ALICE, json=payload)
+        assert response.status_code == 201, response.text
+        quest = response.json()
+        assert quest["status"] == "published"
+        assert quest["title"] == "Go"
+        assert quest["description"] == (description or "")
+
+
+def test_players_can_create_pair_quiz_and_multi_step_quests(client):
+    cases = (
+        {"kind": "pair"},
+        {"kind": "quiz", "questions": [{"prompt": "Which hall?", "choices": ["Main", "Side"], "correct_index": 0}]},
+        {"kind": "multi_step", "steps": [{"title": "Find the hall"}, {"title": "Sing a song"}]},
+    )
+    ids = []
+    for fields in cases:
+        response = client.post("/quests", headers=ALICE,
+                               json={"title": PLAYER_SOLO["title"],
+                                     "description": PLAYER_SOLO["description"], **fields})
+        assert response.status_code == 201, response.text
+        assert response.json()["status"] == "published"
+        assert response.json()["points"] == 10
+        assert response.json()["requires_password"] is False
+        ids.append(response.json()["id"])
+    assert [q["id"] for q in me(client, ALICE)["created_quests"]] == ids[::-1]
+    quiz = client.get(f"/quests/{ids[1]}", headers=BOB).json()
+    assert quiz["questions"][0]["choices"] == ["Main", "Side"]
+    assert "correct_index" not in str(quiz)
+
+
+def test_player_creation_rejects_meetups_privileged_fields_and_incomplete_quests(client):
+    before = len(client.get("/quests", headers=BOB).json())
+    invalid = (
+        ({**PLAYER_SOLO, "title": "X"}, 422),
+        ({**PLAYER_SOLO, "title": " X "}, 422),
+        ({**PLAYER_SOLO, "kind": "meetup"}, 422),
+        ({**PLAYER_SOLO, "status": "draft"}, 422),
+        ({**PLAYER_SOLO, "points": 1000}, 422),
+        ({**PLAYER_SOLO, "requires_code": True}, 422),
+        ({**PLAYER_SOLO, "requires_approval": True}, 422),
+        ({k: v for k, v in PLAYER_SOLO.items() if k != "password"}, 422),
+        ({**PLAYER_SOLO, "password": "   "}, 422),
+        ({**PLAYER_SOLO, "kind": "pair"}, 422),
+        ({"title": "Quiz quest", "description": "Answer this campus quiz.", "kind": "quiz"}, 409),
+        ({"title": "Quiz quest", "description": "Answer this campus quiz.", "kind": "quiz",
+          "questions": [{"prompt": " ", "choices": ["Main", "Side"], "correct_index": 0}]}, 409),
+        ({"title": "Steps quest", "description": "Follow these campus steps.", "kind": "multi_step"}, 409),
+        ({"title": "Steps quest", "description": "Follow these campus steps.", "kind": "multi_step",
+          "steps": [{"title": "Find the hall"}, {"title": " "}]}, 409),
+    )
+    for payload, expected_status in invalid:
+        response = client.post("/quests", headers=ALICE, json=payload)
+        assert response.status_code == expected_status, response.text
+    assert len(client.get("/quests", headers=BOB).json()) == before
+    assert me(client, ALICE)["created_quests"] == []
+    assert patch(client, SOLO_ID, status="rejected").status_code == 422
+
+
+def test_player_can_set_a_one_character_password(client):
+    response = client.post("/quests", headers=ALICE,
+                           json={**PLAYER_SOLO, "password": "x"})
+    assert response.status_code == 201, response.text
+    quest_id = response.json()["id"]
+    assert act(client, BOB, quest_id, "redeem", code="x").json()["completion"]["points_awarded"] == 10
+
+
+def test_creator_can_track_quest_unpublished_by_maintainer(client):
+    quest_id = client.post("/quests", headers=ALICE, json=PLAYER_SOLO).json()["id"]
+    assert patch(client, quest_id, status="draft").status_code == 200
+    assert me(client, ALICE)["created_quests"][0]["status"] == "draft"
     assert client.get(f"/quests/{quest_id}", headers=ALICE).status_code == 200
     assert client.get(f"/quests/{quest_id}", headers=BOB).status_code == 404
-
-    pending = client.get("/admin/quests?status=pending_review", headers=ADMIN).json()
-    assert [q["id"] for q in pending] == [quest_id]
-    assert pending[0]["author_name"] == "Alice"
-
-    rejected = patch(client, quest_id, status="rejected",
-                     review_note="Too loud for the library.")
-    assert rejected.json()["status"] == "rejected"
-    mine = me(client, ALICE)["submissions"]
-    assert mine[0]["status"] == "rejected"
-    assert mine[0]["review_note"] == "Too loud for the library."
-
-
-def test_submissions_listed_newest_first(client):
-    first = client.post("/quests", headers=ALICE, json=SUBMISSION).json()["id"]
-    second = client.post("/quests", headers=ALICE, json={
-        **SUBMISSION, "title": "Second idea"}).json()["id"]
-    assert [s["id"] for s in me(client, ALICE)["submissions"]] == [second, first]
-    assert me(client, BOB)["submissions"] == []
-
-
-def test_submission_can_be_published(client):
-    quest_id = client.post("/quests", headers=ALICE, json=SUBMISSION).json()["id"]
-    patch(client, quest_id, status="published")
-    assert client.get(f"/quests/{quest_id}", headers=BOB).json()["author_name"] == "Alice"
-    assert me(client, ALICE)["submissions"][0]["status"] == "published"
-
-
-def test_submission_validation_and_limit(client):
-    assert client.post("/quests", headers=ALICE,
-                       json={"title": "x", "description": "short"}).status_code == 422
-    for _ in range(5):
-        assert client.post("/quests", headers=ALICE, json=SUBMISSION).status_code == 201
-    assert client.post("/quests", headers=ALICE, json=SUBMISSION).status_code == 409
-
-
-def test_only_pending_submissions_can_be_rejected(client):
-    assert patch(client, SOLO_ID, status="rejected").status_code == 409
 
 
 def test_report_and_remove_quest(client):

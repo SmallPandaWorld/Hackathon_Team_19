@@ -2,6 +2,8 @@
 
 import { buttonStyles, Chip, inputStyles } from "@/src/components/page";
 import { MeetupAction } from "@/src/components/quest-actions/meetup-action";
+import { MeetupPhotoGallery } from "@/src/components/meetup-photo-gallery";
+import { QuestPhotoGallery } from "@/src/components/quest-photo-gallery";
 import { CodeAction } from "@/src/components/quest-actions/code-action";
 import { PairAction } from "@/src/components/quest-actions/pair-action";
 import { QuizAction } from "@/src/components/quest-actions/quiz-action";
@@ -15,7 +17,7 @@ import { KIND_LABELS, STATUS_LABELS } from "@/src/lib/quest-display";
 import { useQuestAction } from "@/src/lib/use-quest-action";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { KindIcon } from "@/src/components/icons";
 import { MapPin } from "lucide-react";
 
@@ -28,7 +30,7 @@ const UUID_PATTERN =
 function QuestAction({ quest }: { quest: QuestOut }) {
   if (quest.status !== "published") {
     return (
-      <p className="rounded-lg bg-surface-variant p-4 text-center text-sm text-muted">
+      <p className="rounded-2xl bg-surface-variant p-4 text-center text-sm text-muted">
         {quest.status === "retired"
           ? "This quest is no longer available. Your progress and points are kept."
           : "This quest isn't published, so it can't be played yet."}
@@ -45,7 +47,7 @@ function QuestAction({ quest }: { quest: QuestOut }) {
     case "meetup":
       return <MeetupAction quest={quest} />;
     case "solo":
-      return quest.requires_code ? (
+      return quest.requires_code || quest.requires_password ? (
         <CodeAction quest={quest} />
       ) : (
         <SoloAction quest={quest} />
@@ -87,7 +89,7 @@ function ReportQuest({ quest }: { quest: QuestOut }) {
   }
   return (
     <form
-      className="rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant"
+      className="rounded-2xl border border-outline-variant bg-surface p-4 shadow-card dark:bg-surface-variant"
       onSubmit={handleSubmit}
     >
       <label
@@ -146,6 +148,17 @@ export function QuestDetail() {
   });
 
   const quest = data?.status === 200 ? data.data : undefined;
+  const questId = quest?.id;
+  useEffect(() => {
+    if (!questId || window.location.hash !== "#quest-photos") return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("quest-photos")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [questId]);
   const loadError = !validId
     ? "Quest not found."
     : isError
@@ -177,7 +190,7 @@ export function QuestDetail() {
     <div className="flex flex-col gap-6">
       <BackLink />
 
-      <article className="rounded-lg bg-surface dark:bg-surface-variant p-6 ring-1 ring-outline-variant">
+      <article className="rounded-2xl border border-outline-variant bg-surface p-6 shadow-card dark:bg-surface-variant">
         <div className="flex flex-wrap items-center gap-2">
           <Chip className="border border-outline-variant text-on-surface-variant">
             <KindIcon className="mr-1 h-3.5 w-3.5" kind={quest.kind} />
@@ -191,7 +204,7 @@ export function QuestDetail() {
         </div>
         <div className="mt-3 flex items-start justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight">{quest.title}</h1>
-          <span className="shrink-0 rounded-sm bg-primary px-3 py-1 text-sm font-bold text-on-primary">
+          <span className="shrink-0 rounded-lg bg-accent px-3 py-1 text-sm font-bold text-on-accent">
             +{quest.points}
           </span>
         </div>
@@ -221,18 +234,29 @@ export function QuestDetail() {
         )}
         {quest.author_name && (
           <p className="mt-1 text-xs text-muted">
-            Suggested by {quest.author_name}
+            Created by {quest.author_name}
           </p>
         )}
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
-          Instructions
-        </h2>
-        <p className="mt-2 whitespace-pre-line leading-relaxed text-on-surface-variant">
-          {quest.description}
-        </p>
+        {quest.description && (
+          <>
+            <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
+              Instructions
+            </h2>
+            <p className="mt-2 whitespace-pre-line leading-relaxed text-on-surface-variant">
+              {quest.description}
+            </p>
+          </>
+        )}
       </article>
 
       <QuestAction quest={quest} />
+
+      {quest.kind === "meetup" && <MeetupPhotoGallery questId={quest.id} />}
+      {["meetup", "pair", "multi_step"].includes(quest.kind) && (
+        <div className="scroll-mt-6" id="quest-photos">
+          <QuestPhotoGallery questId={quest.id} />
+        </div>
+      )}
 
       {quest.status === "published" && <ReportQuest quest={quest} />}
     </div>

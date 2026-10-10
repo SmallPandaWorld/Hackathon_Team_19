@@ -1,16 +1,22 @@
 import { buttonStyles } from "@/src/components/page";
 import type { CompletionResult } from "@/src/lib/api/hackathon.schemas";
 import Link from "next/link";
-import { Check, Hourglass, PartyPopper } from "lucide-react";
+import { Camera, Check, Hourglass, PartyPopper } from "lucide-react";
 
-export function ResultBanner({ result }: { result: CompletionResult }) {
+export function ResultBanner({
+  result,
+  photoQuestId,
+}: {
+  result: CompletionResult;
+  photoQuestId?: string;
+}) {
   const pending = result.status === "pending";
   return (
     <div
-      className={`rounded-lg p-5 ring-1 ${
+      className={`rounded-2xl border p-5 ${
         pending
-          ? "bg-warning-surface text-warning ring-warning/40"
-          : "bg-success-surface text-success ring-success/40"
+          ? "border-warning/30 bg-warning-surface text-warning"
+          : "border-success/30 bg-success-surface text-success"
       }`}
       role="status"
     >
@@ -34,7 +40,18 @@ export function ResultBanner({ result }: { result: CompletionResult }) {
           : `Your total: ${result.total_points} points`}
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Link className={`${buttonStyles.primary} py-2 text-sm`} href="/">
+        {photoQuestId && (
+          <Link
+            className={`${buttonStyles.primary} inline-flex items-center gap-2 py-2 text-sm`}
+            href={`/quests/${photoQuestId}#quest-photos`}
+          >
+            <Camera aria-hidden className="h-4 w-4" /> Add a photo
+          </Link>
+        )}
+        <Link
+          className={`${photoQuestId ? buttonStyles.secondary : buttonStyles.primary} py-2 text-sm`}
+          href="/"
+        >
           Back to quests
         </Link>
         <Link
@@ -54,7 +71,7 @@ export function CompletedNote({
   completedAt?: string | null;
 }) {
   return (
-    <div className="rounded-lg bg-success-surface p-5 text-success ring-1 ring-success/40">
+    <div className="rounded-2xl bg-success-surface p-5 text-success border border-success/30">
       <p className="flex items-center gap-2 font-semibold">
         <Check aria-hidden className="h-5 w-5" /> You completed this quest.
       </p>

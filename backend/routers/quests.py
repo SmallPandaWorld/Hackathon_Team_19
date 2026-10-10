@@ -1,23 +1,21 @@
-"""Player-facing quests: browse, propose, and act on a quest."""
+"""Player-facing quests: browse, create, and act on a quest."""
 
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth import get_current_player
 from database import get_db
 from game import (
     QUEST_CREATION_ORDER,
-    add_quest,
     can_view,
     cancel_pair,
     complete_quest,
     redeem_quest_code,
     complete_step,
-    conflict,
     error_responses,
     get_playable_quest,
     not_found,
@@ -25,11 +23,12 @@ from game import (
     report_quest,
     set_rsvp,
     start_pair,
-    submission_out,
     submit_quiz,
 )
-from models import MEETUP, MULTI_STEP, PAIR, PENDING_REVIEW, PUBLISHED, QUIZ, SOLO, Quest, User
+from models import DRAFT, MEETUP, MULTI_STEP, PAIR, PUBLISHED, QUIZ, SOLO, Quest, User
+from routers.admin import apply_quest_input, ensure_publishable
 from schemas import (
+    AdminQuestIn,
     CompleteAction,
     RedeemAction,
     PairCancelAction,
@@ -37,20 +36,17 @@ from schemas import (
     QuestAction,
     QuestActionResult,
     QuestOut,
-    QuestSubmission,
+    PlayerQuestIn,
     QuizAction,
     ReportAction,
     RsvpAction,
     StepAction,
-    SubmissionOut,
 )
 
 router = APIRouter(tags=["quests"], responses=error_responses(401))
 
-# Player submissions: default reward (maintainers can change it before
-# publishing) and how many may wait for review at once.
-SUBMISSION_POINTS = 10
-MAX_PENDING_SUBMISSIONS = 5
+# User-created quests have a fixed reward.
+PLAYER_QUEST_POINTS = 10
 
 
 def get_viewable_quest(db: Session, player: User, quest_id: UUID) -> Quest:
@@ -77,7 +73,7 @@ def get_quest(
     """One quest with full instructions and the current player's progress
     (including their latest pair session).
 
-    Also returns retired quests the player completed and their own submissions.
+    Also returns retired quests the player completed or created.
     """
     return quest_views(db, player, [get_viewable_quest(db, player, quest_id)])[0]
 
@@ -85,31 +81,40 @@ def get_quest(
 @router.post(
     "/quests",
     status_code=status.HTTP_201_CREATED,
-    response_model=SubmissionOut,
+    response_model=QuestOut,
     responses=error_responses(409),
 )
-def submit_quest(
-    submission: QuestSubmission,
+def create_quest(
+    data: PlayerQuestIn,
     player: User = Depends(get_current_player),
     db: Session = Depends(get_db),
 ):
-    """Propose a new solo quest. A maintainer reviews it before it is published."""
-    pending = db.scalar(select(func.count()).where(
-        Quest.author_id == player.username, Quest.status == PENDING_REVIEW))
-    if pending >= MAX_PENDING_SUBMISSIONS:
-        raise conflict(
-            f"You already have {MAX_PENDING_SUBMISSIONS} quests waiting for review.")
-    quest = add_quest(
-        db,
-        title=submission.title.strip(),
-        description=submission.description.strip(),
-        location=(submission.location or "").strip() or None,
-        points=SUBMISSION_POINTS,
-        kind=SOLO,
-        status=PENDING_REVIEW,
-        author_id=player.username,
+    """Publish a quest immediately. Players cannot create meetups; solo quests
+    require a creator-set password. The reward is fixed at 10 points."""
+    editor_data = AdminQuestIn(
+        title=data.title,
+        description=data.description,
+        location=data.location,
+        points=PLAYER_QUEST_POINTS,
+        kind=data.kind,
+        requires_password=data.kind == SOLO,
+        password=data.password,
+        latitude=data.latitude,
+        longitude=data.longitude,
+        steps=data.steps,
+        questions=data.questions,
+        status=PUBLISHED,
     )
-    return submission_out(quest)
+    quest = Quest(title=data.title, description=data.description,
+                  points=PLAYER_QUEST_POINTS, kind=data.kind,
+                  status=DRAFT, author_id=player.username)
+    db.add(quest)
+    db.flush()
+    apply_quest_input(db, quest, editor_data)
+    quest.status = PUBLISHED
+    ensure_publishable(db, quest)
+    db.commit()
+    return quest_views(db, player, [quest])[0]
 
 
 @router.post(
@@ -127,7 +132,8 @@ def act_on_quest(
 
     - `complete`: complete a solo quest or check in at a live meetup
       (idempotent; approval quests create a pending completion).
-    - `redeem`: complete a code-verified solo quest with its printed code.
+    - `redeem`: complete a solo quest with its printed code or password,
+      or check in at a live meetup by scanning its QR code.
     - `quiz`: check answers; all must be right, retries are unlimited.
     - `step`: mark the next step of a multi-step quest done (in order).
     - `rsvp`: say you're coming to a meetup (`attending: false` withdraws).
@@ -146,7 +152,7 @@ def act_on_quest(
             quest = get_playable_quest(db, quest_id)
             completion = complete_quest(db, player, quest, note)
         case RedeemAction(code=code):
-            quest = get_playable_quest(db, quest_id, SOLO)
+            quest = get_playable_quest(db, quest_id)
             completion = redeem_quest_code(db, player, quest, code)
         case QuizAction(answers=answers):
             quest = get_playable_quest(db, quest_id, QUIZ)

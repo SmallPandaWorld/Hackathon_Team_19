@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
+  // Keep the dev badge off the sidebar's theme switch (bottom-left).
+  devIndicators: { position: "bottom-right" },
   cacheComponents: true,
   partialPrefetching: true,
   async rewrites() {

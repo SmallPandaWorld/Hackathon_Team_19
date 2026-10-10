@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Annotated, List, Literal, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ErrorResponse(BaseModel):
@@ -81,7 +81,9 @@ class QuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
-    requires_code: bool = Field(description="Enter the printed code or scan its QR to complete")
+    requires_code: bool = Field(
+        description="Enter the printed code or scan its QR to complete (meetups: to check in)")
+    requires_password: bool = Field(description="Enter the creator-set password to complete")
     verification_starts_at: Optional[datetime] = None
     verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
@@ -89,7 +91,7 @@ class QuestOut(BaseModel):
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     meetup_state: Optional[MeetupState] = None
-    author_name: Optional[str] = Field(default=None, description="Set for player-submitted quests")
+    author_name: Optional[str] = Field(default=None, description="Set for player-created quests")
     completed: bool = Field(description="Current player has an approved completion")
     completed_at: Optional[datetime] = Field(
         default=None, description="UTC time of the current player's completion")
@@ -139,7 +141,8 @@ class CompleteAction(BaseModel):
 
 
 class RedeemAction(BaseModel):
-    """Redeem a printed code for a solo quest."""
+    """Redeem a printed code or solo password, or check in at a live meetup
+    whose organiser shows the QR code."""
     type: Literal["redeem"]
     code: str = Field(min_length=1, max_length=40)
 
@@ -196,21 +199,44 @@ class PairJoinResult(BaseModel):
     completion: CompletionResult
 
 
-# --- Player-submitted quests --------------------------------------------------
+# --- Player-created quests ----------------------------------------------------
 
-class QuestSubmission(BaseModel):
-    title: str = Field(min_length=3, max_length=120)
-    description: str = Field(min_length=10, max_length=2000)
+PlayerQuestKind = Literal["solo", "pair", "quiz", "multi_step"]
+
+
+class PlayerQuestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
+    kind: PlayerQuestKind = "solo"
+    password: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    steps: List["StepIn"] = Field(default_factory=list, max_length=20)
+    questions: List["QuizQuestionIn"] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def valid_player_quest(self):
+        if len(self.title.strip()) < 2:
+            raise ValueError("Title needs at least 2 characters")
+        if self.kind == "solo" and (not self.password or not self.password.strip()):
+            raise ValueError("Solo quests need a non-empty password")
+        if self.kind != "solo" and self.password is not None:
+            raise ValueError("Only solo quests use passwords")
+        if self.kind != "multi_step" and self.steps:
+            raise ValueError("Steps are available for multi-step quests only")
+        if self.kind != "quiz" and self.questions:
+            raise ValueError("Questions are available for quizzes only")
+        return self
 
 
-class SubmissionOut(BaseModel):
+class CreatedQuestOut(BaseModel):
     id: UUID
     title: str
-    description: str
-    location: Optional[str] = None
+    kind: QuestKind
     status: QuestStatus
-    review_note: Optional[str] = None
 
 
 # --- Connections --------------------------------------------------------------
@@ -282,22 +308,48 @@ class Me(BaseModel):
     hobby_options: List[HobbyOption] = Field(description="All selectable hobbies")
     suggestions: Suggestions
     invitations: List[PairSessionOut] = Field(description="Open pair invites addressed to me")
-    submissions: List[SubmissionOut] = Field(description="Quests I proposed, newest first")
+    created_quests: List[CreatedQuestOut] = Field(description="Quests I created, newest first")
 
 
 # --- Leaderboard --------------------------------------------------------------
 
 class LeaderboardEntry(BaseModel):
     rank: int = Field(description="Players with equal points share a rank")
+    username: Optional[str] = Field(
+        default=None, description="Username when the viewer may view this profile")
     display_name: str
     points: int
     is_current_player: bool
 
 
+LeaderboardScope = Literal["global", "friends"]
+
+
 class Leaderboard(BaseModel):
+    scope: LeaderboardScope
     entries: List[LeaderboardEntry] = Field(
-        description="Players with at least one point, best first")
+        description="Ranked best first. Global: everyone with at least one point "
+                    "(top 50). Friends: you and all your accepted friends.")
     current_player: LeaderboardEntry
+    friend_count: int = Field(
+        description="Accepted friends of the current player (0 means the Friends view is empty)")
+
+
+class MeetupPhotoOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str
+    uploaded_at: datetime
+
+
+class QuestPhotoOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str
+    uploaded_at: datetime
+    is_mine: bool
+    uploader_username: Optional[str] = None
+    uploader_display_name: Optional[str] = None
 
 
 # --- Maintainers --------------------------------------------------------------
@@ -320,13 +372,15 @@ class QuizQuestionIn(BaseModel):
 
 
 class AdminQuestIn(BaseModel):
-    title: str = Field(min_length=1, max_length=120)
-    description: str = Field(min_length=1, max_length=2000)
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
     points: int = Field(ge=0, le=1000)
     kind: QuestKind = "solo"
     requires_approval: bool = False
     requires_code: bool = False
+    requires_password: bool = False
+    password: Optional[str] = Field(default=None, min_length=1, max_length=40)
     verification_starts_at: Optional[datetime] = None
     verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
@@ -339,11 +393,20 @@ class AdminQuestIn(BaseModel):
     status: Literal["draft", "published"] = "draft"
 
     @model_validator(mode="after")
-    def valid_verification(self):
-        if self.requires_code and self.kind != "solo":
-            raise ValueError("Code verification is available for solo quests only")
-        if self.requires_code and self.requires_approval:
-            raise ValueError("Choose code verification or maintainer approval")
+    def valid_quest(self):
+        if len(self.title.strip()) < 2:
+            raise ValueError("Title needs at least 2 characters")
+        if self.requires_code and self.kind not in ("solo", "meetup"):
+            raise ValueError("Code verification is available for solo and meetup quests only")
+        if self.requires_password and self.kind != "solo":
+            raise ValueError("Password verification is available for solo quests only")
+        if sum((self.requires_code, self.requires_password, self.requires_approval)) > 1:
+            raise ValueError("Choose one solo completion method")
+        if self.password is not None:
+            if not self.requires_password:
+                raise ValueError("A password needs password verification")
+            if not self.password.strip():
+                raise ValueError("Password cannot be blank")
         if self.verification_starts_at is not None and self.verification_ends_at is not None:
             def utc(value: datetime) -> datetime:
                 return (value.replace(tzinfo=timezone.utc) if value.tzinfo is None
@@ -355,20 +418,23 @@ class AdminQuestIn(BaseModel):
 
 # Fields of AdminQuestPatch that may not be sent as null.
 NOT_NULL_PATCH_FIELDS = (
-    "title", "description", "points", "kind", "requires_approval", "requires_code", "cancelled",
+    "title", "description", "points", "kind", "requires_approval", "requires_code",
+    "requires_password", "cancelled",
     "steps", "questions", "status",
 )
 
 
 class AdminQuestPatch(BaseModel):
-    """Change only the fields you send (status changes publish, retire or reject)."""
-    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    description: Optional[str] = Field(default=None, min_length=1, max_length=2000)
+    """Change only the fields you send (status changes publish or retire)."""
+    title: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
     points: Optional[int] = Field(default=None, ge=0, le=1000)
     kind: Optional[QuestKind] = None
     requires_approval: Optional[bool] = None
     requires_code: Optional[bool] = None
+    requires_password: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=1, max_length=40)
     verification_starts_at: Optional[datetime] = None
     verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
@@ -378,9 +444,7 @@ class AdminQuestPatch(BaseModel):
     cancelled: Optional[bool] = None
     steps: Optional[List[StepIn]] = Field(default=None, max_length=20)
     questions: Optional[List[QuizQuestionIn]] = Field(default=None, max_length=20)
-    status: Optional[Literal["draft", "published", "rejected", "retired"]] = None
-    review_note: Optional[str] = Field(
-        default=None, max_length=1000, description="Shown to the author on rejection")
+    status: Optional[Literal["draft", "published", "retired"]] = None
 
     @model_validator(mode="after")
     def required_fields_not_null(self):
@@ -404,7 +468,8 @@ class AdminQuestOut(BaseModel):
     status: QuestStatus
     requires_approval: bool
     requires_code: bool
-    verification_code: str = Field(description="Stable code for the printable QR; maintainers only")
+    requires_password: bool
+    verification_code: Optional[str] = Field(description="Stable code for the printable QR; maintainers only")
     verification_starts_at: Optional[datetime] = None
     verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = None

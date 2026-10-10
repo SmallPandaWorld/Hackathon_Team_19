@@ -85,6 +85,12 @@ def ensure_schema(bind=None) -> None:
             if "requires_code" not in columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE quests ADD COLUMN requires_code BOOLEAN NOT NULL DEFAULT 0")
+            if "requires_password" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quests ADD COLUMN requires_password BOOLEAN NOT NULL DEFAULT 0")
+            if "password_hash" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quests ADD COLUMN password_hash VARCHAR(160)")
             if "verification_code" not in columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE quests ADD COLUMN verification_code VARCHAR(12)")
@@ -95,10 +101,10 @@ def ensure_schema(bind=None) -> None:
                 connection.exec_driver_sql(
                     "ALTER TABLE quests ADD COLUMN verification_ends_at DATETIME")
             rows = connection.execute(text(
-                "SELECT id, verification_code FROM quests")).all()
-            used = {code for _, code in rows if code}
-            for quest_id, code in rows:
-                if code:
+                "SELECT id, verification_code, requires_code FROM quests")).all()
+            used = {code for _, code, _ in rows if code}
+            for quest_id, code, requires_code in rows:
+                if code or not requires_code:
                     continue
                 fresh = new_verification_code()
                 while fresh in used:
