@@ -1,134 +1,102 @@
 "use client";
 
-import {
-  useAddUserUsersPost,
-  useGetUsersUsersGet,
-} from "@/src/lib/api/default";
-import { useState, type FormEvent } from "react";
+import { JoinCodeForm } from "@/src/components/join-code-form";
+import { Card, Page, PageTitle, buttonStyles } from "@/src/components/page";
+import { PlayerSummary } from "@/src/components/player-summary";
+import { QuestCard } from "@/src/components/quest-card";
+import { ShareButton } from "@/src/components/share-button";
+import { ErrorState, LoadingState } from "@/src/components/states";
+import { apiErrorMessage } from "@/src/lib/api-error";
+import { useListQuests } from "@/src/lib/api/quests";
+import Link from "next/link";
 
-type UsersResponse = {
-  users: string[];
-  count: number;
-};
-
-function isUsersResponse(value: unknown): value is UsersResponse {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const response = value as Record<string, unknown>;
-  return (
-    Array.isArray(response.users) &&
-    response.users.every((user) => typeof user === "string") &&
-    typeof response.count === "number"
-  );
-}
+const STEPS = [
+  "Pick a quest below and read the instructions.",
+  "Go out on campus and do the activity, some with a partner or a group.",
+  "Confirm it in the app to collect your points and badges.",
+];
 
 export default function Home() {
-  const { data, isLoading, isError, refetch } = useGetUsersUsersGet();
-  const addUser = useAddUserUsersPost();
-  const [name, setName] = useState("");
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const users = isUsersResponse(data?.data) ? data.data.users : [];
-
-  async function handleAddUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedName = name.trim();
-
-    if (!trimmedName) {
-      setSubmitError("Please enter a name.");
-      return;
-    }
-
-    setSubmitError(null);
-
-    try {
-      const response = await addUser.mutateAsync({ data: { name: trimmedName } });
-
-      if (response.status !== 201) {
-        setSubmitError("Unable to add this user.");
-        return;
-      }
-
-      setName("");
-      const refreshedUsers = await refetch();
-      if (refreshedUsers.isError) {
-        setSubmitError("User added, but the list could not be refreshed.");
-      }
-    } catch {
-      setSubmitError("Unable to add this user. Please try again.");
-    }
-  }
+  const { data, isLoading, isError, refetch } = useListQuests();
+  const quests = data?.status === 200 ? data.data : undefined;
+  const error = isError
+    ? "Could not load quests. Check your connection."
+    : apiErrorMessage(data);
+  const openCount = quests?.filter((quest) => !quest.completed).length ?? 0;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-900">
-      <div className="mx-auto max-w-2xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-          Hackathon users
-        </p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight">User list</h1>
-        <p className="mt-3 text-slate-600">
-          Everyone currently registered for the hackathon.
-        </p>
+    <Page>
+      <PageTitle eyebrow="VISCON 2026">Campus Voyager</PageTitle>
 
-        <form
-          className="mt-8 flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-end"
-          onSubmit={handleAddUser}
+      <PlayerSummary />
+
+      <Card>
+        <h2 className="font-semibold">How it works</h2>
+        <ol className="mt-3 space-y-2 text-sm text-slate-600">
+          {STEPS.map((step, index) => (
+            <li className="flex gap-3" key={step}>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
+                {index + 1}
+              </span>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">Got a code from another player?</h2>
+        <p className="mb-3 mt-1 text-sm text-slate-600">
+          Enter it to complete a partner quest together.
+        </p>
+        <JoinCodeForm />
+      </Card>
+
+      <section>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-xl font-bold">Quests</h2>
+          {quests && (
+            <span className="text-sm text-slate-500">{openCount} open</span>
+          )}
+        </div>
+
+        {isLoading ? (
+          <LoadingState label="Loading quests..." />
+        ) : error || !quests ? (
+          <ErrorState
+            message={error ?? "Could not load quests."}
+            onRetry={() => refetch()}
+          />
+        ) : quests.length === 0 ? (
+          <p className="py-8 text-center text-slate-500">
+            No quests available yet.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {quests.map((quest) => (
+              <li key={quest.id}>
+                <QuestCard quest={quest} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ShareButton
+          className={`${buttonStyles.secondary} w-full`}
+          label="📨 Invite a friend"
+          path="/"
+          text="Join me on Campus Voyager: explore ETH and complete quests together!"
+          title="Campus Voyager"
+        />
+        <Link
+          className={`${buttonStyles.secondary} text-center`}
+          href="/submit"
         >
-          <label className="flex-1 text-sm font-medium text-slate-700" htmlFor="user-name">
-            Add a user
-            <input
-              className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base font-normal outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              id="user-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Enter a name"
-              value={name}
-            />
-          </label>
-          <button
-            className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={addUser.isPending}
-            type="submit"
-          >
-            {addUser.isPending ? "Adding..." : "Add user"}
-          </button>
-          {submitError && (
-            <p className="basis-full text-sm text-red-600" role="alert">
-              {submitError}
-            </p>
-          )}
-        </form>
-
-        <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          {isLoading ? (
-            <p className="text-slate-500">Loading users...</p>
-          ) : isError || !isUsersResponse(data?.data) ? (
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-red-600">Unable to load users.</p>
-              <button
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-                onClick={() => refetch()}
-                type="button"
-              >
-                Try again
-              </button>
-            </div>
-          ) : users.length === 0 ? (
-            <p className="text-slate-500">No users have registered yet.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {users.map((user, index) => (
-                <li className="flex items-center gap-3 py-4 first:pt-0 last:pb-0" key={`${user}-${index}`}>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
-                    {user.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="font-medium">{user}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          💡 Suggest a quest
+        </Link>
       </div>
-    </main>
+    </Page>
   );
 }

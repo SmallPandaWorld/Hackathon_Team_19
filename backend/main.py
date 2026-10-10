@@ -1,22 +1,36 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from fastapi.routing import APIRoute
 
-from database import Base, engine, get_db
-from models import User
+import models  # noqa: F401  (registers all tables)
+from database import Base, SessionLocal, engine, upgrade_legacy_schema
+from quests import seed_quests
+from routers import admin, leaderboard, pair, players, quests, social
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    upgrade_legacy_schema()
     Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        seed_quests(db)
     yield
 
 
-app = FastAPI(root_path="/api", lifespan=lifespan)
+def use_function_name(route: APIRoute) -> str:
+    # Gives Orval readable hook names, e.g. useListQuests instead of
+    # useListQuestsQuestsGet.
+    return route.name
+
+
+app = FastAPI(
+    title="Campus Voyager",
+    root_path="/api",
+    lifespan=lifespan,
+    generate_unique_id_function=use_function_name,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,27 +40,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-class UserCreate(BaseModel):
-    name: str
 
-
-@app.get("/")
+@app.get("/", tags=["health"])
 async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/users", status_code=status.HTTP_201_CREATED)
-def add_user(user: UserCreate, db: Session = Depends(get_db)):
-    """Persist a new user name."""
-    db_user = User(name=user.name)
-    db.add(db_user)
-    db.commit()
-    return {"message": f"User '{user.name}' erfolgreich gespeichert."}
-
-
-@app.get("/users")
-def get_users(db: Session = Depends(get_db)):
-    """Return all saved users."""
-    users = db.scalars(select(User).order_by(User.id)).all()
-    names = [user.name for user in users]
-    return {"users": names, "count": len(names)}
+for module in (players, quests, pair, social, leaderboard, admin):
+    app.include_router(module.router)

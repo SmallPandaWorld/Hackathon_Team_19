@@ -1,8 +1,18 @@
 services:
   backend:
     build: ./backend
+    # Only reachable from this machine. The app trusts the VISCON identity
+    # headers, so the public must go through the managed proxy -> frontend.
     ports:
-      - 8000:8000
+      - 127.0.0.1:8000:8000
+    environment:
+      DATABASE_URL: sqlite:////data/users.db
+      # Comma-separated VISCON user IDs (X-User-Id) of quest maintainers.
+      # Set it on the server, e.g. in a .env file next to this file.
+      MAINTAINER_IDS: ${MAINTAINER_IDS:-}
+    volumes:
+      # Survives `docker compose down` / rebuilds. Never use `down -v`.
+      - backend-data:/data
     restart: unless-stopped
 
   frontend:
@@ -12,3 +22,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  backend-data:

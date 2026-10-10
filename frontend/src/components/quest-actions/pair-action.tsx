@@ -1,0 +1,183 @@
+"use client";
+
+import { JoinCodeForm } from "@/src/components/join-code-form";
+import { buttonStyles } from "@/src/components/page";
+import { ShareButton } from "@/src/components/share-button";
+import { ErrorState } from "@/src/components/states";
+import type { PairSessionOut, QuestOut } from "@/src/lib/api/hackathon.schemas";
+import {
+  useCancelPairSession,
+  useGetPairSession,
+  useStartPairSession,
+} from "@/src/lib/api/pair";
+import { useAction } from "@/src/lib/use-action";
+import { useEffect, useRef, useState } from "react";
+import { CompletedNote } from "./result-banner";
+
+const POLL_MS = 3000;
+
+function useSecondsLeft(expiresAt: string | undefined) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!expiresAt) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [expiresAt]);
+  return expiresAt
+    ? Math.max(0, Math.round((new Date(expiresAt).getTime() - now) / 1000))
+    : 0;
+}
+
+function WaitingForPartner({
+  session,
+  onCancel,
+  cancelling,
+}: {
+  session: PairSessionOut;
+  onCancel: () => void;
+  cancelling: boolean;
+}) {
+  const secondsLeft = useSecondsLeft(session.expires_at);
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = String(secondsLeft % 60).padStart(2, "0");
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-white p-5 text-center shadow-sm ring-1 ring-indigo-200">
+      <p className="text-sm text-slate-600">Show this code to your partner:</p>
+      <p
+        className="font-mono text-5xl font-bold tracking-[0.2em] text-indigo-700"
+        aria-label={`Code ${session.code.split("").join(" ")}`}
+      >
+        {session.code}
+      </p>
+      <p className="text-sm text-slate-500" role="timer">
+        {secondsLeft > 0 ? `Valid for ${minutes}:${seconds}` : "Expired"}
+      </p>
+      <p className="animate-pulse text-sm font-semibold text-indigo-600">
+        Waiting for your partner to join…
+      </p>
+      <ShareButton
+        className={`${buttonStyles.secondary} w-full py-2`}
+        label="📨 Send join link instead"
+        path={`/join/${session.code}`}
+        text={`Join my quest “${session.quest_title}” on Campus Voyager`}
+        title="Campus Voyager"
+      />
+      <button
+        className="text-sm font-semibold text-slate-500 hover:text-red-600"
+        disabled={cancelling}
+        onClick={onCancel}
+        type="button"
+      >
+        Cancel code
+      </button>
+    </div>
+  );
+}
+
+export function PairAction({ quest }: { quest: QuestOut }) {
+  const sessionQuery = useGetPairSession(quest.id, {
+    query: {
+      refetchInterval: (query) => {
+        const response = query.state.data;
+        return response?.status === 200 && response.data?.state === "waiting"
+          ? POLL_MS
+          : false;
+      },
+    },
+  });
+  const startSession = useStartPairSession();
+  const cancelSession = useCancelPairSession();
+  const { error, run, refreshAll } = useAction();
+  const session =
+    sessionQuery.data?.status === 200 ? sessionQuery.data.data : null;
+  const state = session?.state;
+
+  // When the partner joins, points and progress changed: refresh everything once.
+  const previousState = useRef(state);
+  const [partnerJustJoined, setPartnerJustJoined] = useState(false);
+  useEffect(() => {
+    if (previousState.current === "waiting" && state === "completed") {
+      setPartnerJustJoined(true);
+      refreshAll();
+    }
+    previousState.current = state;
+  }, [state, refreshAll]);
+
+  async function handleStart() {
+    if (await run(() => startSession.mutateAsync({ questId: quest.id }))) {
+      await sessionQuery.refetch();
+    }
+  }
+
+  async function handleCancel() {
+    if (await run(() => cancelSession.mutateAsync({ questId: quest.id }))) {
+      await sessionQuery.refetch();
+    }
+  }
+
+  if (quest.completed) {
+    return (
+      <div className="flex flex-col gap-3">
+        {partnerJustJoined && session?.is_host && (
+          <p
+            className="rounded-2xl bg-emerald-50 p-4 text-lg font-bold text-emerald-800 ring-1 ring-emerald-200"
+            role="status"
+          >
+            🎉 {session.partner_name} joined! You both got +{quest.points}{" "}
+            points.
+          </p>
+        )}
+        <CompletedNote completedAt={quest.completed_at} />
+        {session?.state === "completed" && (
+          <p className="text-center text-sm text-slate-600">
+            Completed together with{" "}
+            {session.is_host ? session.partner_name : session.host_name}.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {state === "waiting" && session?.is_host ? (
+        <WaitingForPartner
+          cancelling={cancelSession.isPending}
+          onCancel={handleCancel}
+          session={session}
+        />
+      ) : (
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <h2 className="font-semibold">Start together</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            One of you starts the quest and shows the code; the other enters it.
+            You both get the points.
+          </p>
+          {state === "expired" && (
+            <p className="mt-2 text-sm text-amber-700">
+              Your last code expired.
+            </p>
+          )}
+          <button
+            className={`${buttonStyles.primary} mt-3 w-full py-3`}
+            disabled={startSession.isPending}
+            onClick={handleStart}
+            type="button"
+          >
+            {startSession.isPending
+              ? "Starting..."
+              : "Get a code for my partner"}
+          </button>
+          <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            or enter your partner&apos;s code
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <JoinCodeForm />
+        </div>
+      )}
+      {error && <ErrorState message={error} />}
+    </div>
+  );
+}
