@@ -45,6 +45,9 @@ EXPECTED_OPERATIONS = {
     ("get", "/leaderboard"): "get_leaderboard",
     ("get", "/players"): "search_players",
     ("get", "/players/{username}"): "get_player",
+    ("put", "/me/avatar"): "upload_avatar",
+    ("delete", "/me/avatar"): "delete_avatar",
+    ("get", "/players/{username}/avatar"): "get_player_avatar",
     ("get", "/quests"): "list_quests",
     ("get", "/quests/{quest_id}"): "get_quest",
     ("post", "/quests"): "submit_quest",
@@ -295,8 +298,12 @@ def test_leaderboard_ranks_ties_and_current_player(client):
 
 
 def test_leaderboard_hides_external_identity(client):
+    # Usernames (VISCON IDs) appear only for players whose profile the viewer
+    # may open: themselves, discoverable players, friends. Alice did not opt in.
     complete(client, ALICE, 1)
-    assert "alice-id" not in client.get("/leaderboard", headers=ALICE).text
+    assert "alice-id" not in client.get("/leaderboard", headers=BOB).text
+    mine = client.get("/leaderboard", headers=ALICE).json()
+    assert mine["current_player"]["username"] == "alice-id"
 
 
 # --- Schema setup -----------------------------------------------------------------

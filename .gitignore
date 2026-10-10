@@ -18,6 +18,7 @@ venv/
 .ruff_cache/
 *.db
 *.sqlite*
+/backend/avatars/
 
 # Node / Next.js
 node_modules/
@@ -25,6 +26,7 @@ node_modules/
 out/
 build/
 coverage/
+/frontend/public/zxing_reader.wasm
 *.tsbuildinfo
 next-env.d.ts
 npm-debug.log*

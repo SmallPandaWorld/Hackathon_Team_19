@@ -6,10 +6,10 @@ import {
   Chip,
   inputStyles,
   Page,
-  PageTitle,
 } from "@/src/components/page";
 import { FriendActions, FriendsCard } from "@/src/components/friends";
 import { BadgeIcon } from "@/src/components/icons";
+import { ProfilePicture } from "@/src/components/profile-picture";
 import { ShareButton } from "@/src/components/share-button";
 import { ThemeSwitch } from "@/src/components/theme-switch";
 import { ErrorState, LoadingState } from "@/src/components/states";
@@ -175,7 +175,11 @@ function Achievements({ player }: { player: Me }) {
               </span>
               <span className="shrink-0 text-xs font-semibold text-muted">
                 {badge.earned ? (
-                  <Check aria-label="Earned" className="h-4 w-4 text-success" strokeWidth={2.5} />
+                  <Check
+                    aria-label="Earned"
+                    className="h-4 w-4 text-success"
+                    strokeWidth={2.5}
+                  />
                 ) : (
                   `${badge.progress}/${badge.target}`
                 )}
@@ -265,7 +269,8 @@ function HobbyEditor({ player }: { player: Me }) {
           </span>
           <span className="block text-muted">
             Other players who also turned this on see your name and the hobbies
-            you share, and you see theirs.
+            you share, and you see theirs. Your profile picture is visible to
+            other players only while this is on.
           </span>
         </span>
       </label>
@@ -470,9 +475,11 @@ function SearchResults({ query }: { query: string }) {
             className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 dark:bg-surface-container transition hover:ring-2 hover:ring-primary"
             href={profileHref(result.username)}
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
-              {result.display_name.charAt(0).toUpperCase()}
-            </span>
+            <ProfilePicture
+              displayName={result.display_name}
+              size="small"
+              username={result.username}
+            />
             <span className="min-w-0 flex-1 truncate font-semibold">
               {result.display_name}
             </span>
@@ -593,10 +600,7 @@ function OtherProfile({
 
   return (
     <Card className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-on-primary">
-          {player.display_name.charAt(0).toUpperCase()}
-        </span>
+      <div className="flex items-center justify-between gap-3">
         <div className="flex-1">
           <p className="text-3xl font-bold">{player.total_points}</p>
           <p className="text-sm text-muted">points</p>
@@ -731,9 +735,32 @@ function ProfileContent() {
     );
   }
 
+  const profileForHeading =
+    isOwn && myself
+      ? {
+          username: myself.username,
+          displayName: myself.display_name,
+          editable: true,
+        }
+      : !isOwn && otherPlayer
+        ? {
+            username: otherPlayer.username,
+            displayName: otherPlayer.display_name,
+            editable: false,
+          }
+        : undefined;
+
   return (
     <Page>
-      <PageTitle eyebrow="Profile">{title}</PageTitle>
+      <header>
+        <p className="text-sm font-semibold text-link">Profile</p>
+        <div className="mt-1 flex items-center justify-between gap-4">
+          <h1 className="min-w-0 flex-1 break-words text-4xl font-bold tracking-tight sm:text-5xl">
+            {title}
+          </h1>
+          {profileForHeading && <ProfilePicture {...profileForHeading} />}
+        </div>
+      </header>
       {body}
     </Page>
   );

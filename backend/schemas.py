@@ -81,7 +81,8 @@ class QuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
-    requires_code: bool = Field(description="Enter the printed code or scan its QR to complete")
+    requires_code: bool = Field(
+        description="Enter the printed code or scan its QR to complete (meetups: to check in)")
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
@@ -137,7 +138,8 @@ class CompleteAction(BaseModel):
 
 
 class RedeemAction(BaseModel):
-    """Redeem a printed code for a solo quest."""
+    """Redeem a printed code: completes a solo quest, or checks in at a live
+    meetup whose organiser shows the QR code."""
     type: Literal["redeem"]
     code: str = Field(min_length=1, max_length=40)
 
@@ -287,15 +289,24 @@ class Me(BaseModel):
 
 class LeaderboardEntry(BaseModel):
     rank: int = Field(description="Players with equal points share a rank")
+    username: Optional[str] = Field(
+        default=None, description="Username when the viewer may view this profile")
     display_name: str
     points: int
     is_current_player: bool
 
 
+LeaderboardScope = Literal["global", "friends"]
+
+
 class Leaderboard(BaseModel):
+    scope: LeaderboardScope
     entries: List[LeaderboardEntry] = Field(
-        description="Players with at least one point, best first")
+        description="Ranked best first. Global: everyone with at least one point "
+                    "(top 50). Friends: you and all your accepted friends.")
     current_player: LeaderboardEntry
+    friend_count: int = Field(
+        description="Accepted friends of the current player (0 means the Friends view is empty)")
 
 
 # --- Maintainers --------------------------------------------------------------
@@ -336,8 +347,8 @@ class AdminQuestIn(BaseModel):
 
     @model_validator(mode="after")
     def valid_verification(self):
-        if self.requires_code and self.kind != "solo":
-            raise ValueError("Code verification is available for solo quests only")
+        if self.requires_code and self.kind not in ("solo", "meetup"):
+            raise ValueError("Code verification is available for solo and meetup quests only")
         if self.requires_code and self.requires_approval:
             raise ValueError("Choose code verification or maintainer approval")
         return self
