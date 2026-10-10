@@ -202,9 +202,15 @@ function FriendRow({
   );
 }
 
+// Poll so requests from other players show up without a reload (paused while
+// the tab is in the background).
+const FRIENDS_POLL_MS = 3_000;
+
 // Friends, incoming and outgoing requests on the player's own profile.
 export function FriendsCard() {
-  const { data, isLoading, isError, refetch } = useListFriends();
+  const { data, isLoading, isError, refetch } = useListFriends({
+    query: { refetchInterval: FRIENDS_POLL_MS },
+  });
   const actions = useFriendActions();
   const friends = data?.status === 200 ? data.data : undefined;
   const error = isError
