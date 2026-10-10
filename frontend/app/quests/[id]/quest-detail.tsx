@@ -47,7 +47,7 @@ function QuestAction({ quest }: { quest: QuestOut }) {
     case "meetup":
       return <MeetupAction quest={quest} />;
     case "solo":
-      return quest.requires_code ? (
+      return quest.requires_code || quest.requires_password ? (
         <CodeAction quest={quest} />
       ) : (
         <SoloAction quest={quest} />
@@ -234,7 +234,7 @@ export function QuestDetail() {
         )}
         {quest.author_name && (
           <p className="mt-1 text-xs text-muted">
-            Suggested by {quest.author_name}
+            Created by {quest.author_name}
           </p>
         )}
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">

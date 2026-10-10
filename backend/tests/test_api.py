@@ -48,10 +48,20 @@ EXPECTED_OPERATIONS = {
     ("put", "/me/avatar"): "upload_avatar",
     ("delete", "/me/avatar"): "delete_avatar",
     ("get", "/players/{username}/avatar"): "get_player_avatar",
+    ("get", "/players/{username}/meetup-photos"): "list_profile_meetup_photos",
+    ("get", "/players/{username}/meetup-photos/{photo_id}/image"): "get_profile_meetup_photo",
+    ("get", "/players/{username}/quest-photos"): "list_profile_quest_photos",
+    ("get", "/players/{username}/quest-photos/{photo_id}/image"): "get_profile_quest_photo",
     ("get", "/quests"): "list_quests",
     ("get", "/quests/{quest_id}"): "get_quest",
-    ("post", "/quests"): "submit_quest",
+    ("post", "/quests"): "create_quest",
     ("post", "/quests/{quest_id}/actions"): "act_on_quest",
+    ("get", "/quests/{quest_id}/photos"): "list_meetup_photos",
+    ("get", "/quests/{quest_id}/player-photos"): "list_quest_photos",
+    ("post", "/quests/{quest_id}/player-photos"): "upload_quest_photo",
+    ("delete", "/quests/{quest_id}/player-photos/{photo_id}"): "delete_quest_photo",
+    ("get", "/meetup-photos/{photo_id}"): "get_meetup_photo",
+    ("get", "/quest-photos/{photo_id}"): "get_quest_photo",
     ("get", "/pair/{code}"): "get_pair_code",
     ("post", "/pair/{code}"): "join_pair_session",
     ("get", "/friends"): "list_friends",
@@ -62,6 +72,9 @@ EXPECTED_OPERATIONS = {
     ("get", "/admin/quests/{quest_id}"): "admin_get_quest",
     ("post", "/admin/quests"): "admin_create_quest",
     ("patch", "/admin/quests/{quest_id}"): "admin_update_quest",
+    ("get", "/admin/quests/{quest_id}/photos"): "admin_list_meetup_photos",
+    ("post", "/admin/quests/{quest_id}/photos"): "upload_meetup_photo",
+    ("delete", "/admin/quests/{quest_id}/photos/{photo_id}"): "delete_meetup_photo",
     ("get", "/admin/completions"): "admin_list_completions",
     ("post", "/admin/completions/{completion_id}/review"): "admin_review_completion",
     ("get", "/admin/reports"): "admin_list_reports",
@@ -110,7 +123,7 @@ def test_player_is_created_once_and_reused(client):
     assert first["display_name"] == "Alice"
     assert first["total_points"] == 0
     assert first["is_maintainer"] is False
-    assert first["invitations"] == [] and first["submissions"] == []
+    assert first["invitations"] == [] and first["created_quests"] == []
     assert first["suggestions"] == {"enabled": False, "suggestions": []}
     assert len(first["hobby_options"]) >= 10
 

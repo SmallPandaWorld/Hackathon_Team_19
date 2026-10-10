@@ -54,6 +54,13 @@ const SOLO_COPY: CodeCopy = {
   hint: "Scan the sign or enter its printed code. Each player earns points once.",
 };
 
+const PASSWORD_COPY: CodeCopy = {
+  label: "Quest password",
+  placeholder: "Enter the password",
+  button: "Verify completion",
+  hint: "Enter the password shared by the quest creator. Each player earns points once.",
+};
+
 export function CodeAction({
   quest,
   copy = SOLO_COPY,
@@ -61,7 +68,9 @@ export function CodeAction({
   quest: QuestOut;
   copy?: CodeCopy;
 }) {
-  const scannedCode = useSearchParams().get("code");
+  const searchParams = useSearchParams();
+  const scannedCode = quest.requires_password ? null : searchParams.get("code");
+  const activeCopy = quest.requires_password ? PASSWORD_COPY : copy;
   const [code, setCode] = useState(scannedCode ?? "");
   const [result, setResult] = useState<CompletionResult | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -114,7 +123,7 @@ export function CodeAction({
 
   return (
     <div className="flex flex-col gap-3">
-      {!scannerOpen && (
+      {!quest.requires_password && !scannerOpen && (
         <button
           aria-expanded={scannerOpen}
           className={`${buttonStyles.primary} flex w-full items-center justify-center gap-2`}
@@ -130,7 +139,7 @@ export function CodeAction({
         </button>
       )}
 
-      {scannerOpen && (
+      {!quest.requires_password && scannerOpen && (
         <QrScanner
           onClose={() => setScannerOpen(false)}
           onDecode={handleQrDecode}
@@ -143,15 +152,22 @@ export function CodeAction({
           className="text-sm font-medium text-on-surface-variant"
           htmlFor="quest-code"
         >
-          {copy.label}
+          {activeCopy.label}
           <input
             autoComplete="off"
             className={`${inputStyles} font-mono`}
             id="quest-code"
             maxLength={40}
-            onChange={(event) => setCode(event.target.value.toUpperCase())}
-            placeholder={copy.placeholder}
+            onChange={(event) =>
+              setCode(
+                quest.requires_password
+                  ? event.target.value
+                  : event.target.value.toUpperCase(),
+              )
+            }
+            placeholder={activeCopy.placeholder}
             required
+            type={quest.requires_password ? "password" : "text"}
             value={code}
           />
         </label>
@@ -160,10 +176,14 @@ export function CodeAction({
           disabled={!!pending || !code.trim()}
           type="submit"
         >
-          {pending ? "Checking code..." : copy.button}
+          {pending
+            ? quest.requires_password
+              ? "Checking password..."
+              : "Checking code..."
+            : activeCopy.button}
         </button>
       </form>
-      <p className="text-center text-xs text-muted">{copy.hint}</p>
+      <p className="text-center text-xs text-muted">{activeCopy.hint}</p>
       {error && <ErrorState message={error} />}
     </div>
   );

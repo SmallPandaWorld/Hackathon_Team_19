@@ -16,17 +16,14 @@ import {
   useAdminListReports,
   useAdminResolveReport,
   useAdminReviewCompletion,
-  useAdminUpdateQuest,
 } from "@/src/lib/api/admin";
-import type { AdminQuestOut } from "@/src/lib/api/hackathon.schemas";
 import { STATUS_LABELS, formatZurich } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import Link from "next/link";
 import { useState } from "react";
 import { KindIcon } from "@/src/components/icons";
-import { MapPin } from "lucide-react";
 
-type Tab = "quests" | "ideas" | "reviews" | "reports";
+type Tab = "quests" | "reviews" | "reports";
 
 function QuestsTab() {
   const { data, isLoading } = useAdminListQuests();
@@ -68,104 +65,6 @@ function QuestsTab() {
             +{quest.points}
           </span>
         </Link>
-      ))}
-    </div>
-  );
-}
-
-function IdeaCard({ quest }: { quest: AdminQuestOut }) {
-  const updateQuest = useAdminUpdateQuest();
-  const { error, run, refreshAll } = useAction();
-  const [note, setNote] = useState("");
-  const blocked = quest.publish_problems.length > 0;
-
-  async function decide(status: "published" | "rejected") {
-    const call = () =>
-      updateQuest.mutateAsync({
-        questId: quest.id,
-        data:
-          status === "rejected"
-            ? { status, review_note: note.trim() || null }
-            : { status },
-      });
-    if (await run(call)) await refreshAll();
-  }
-
-  return (
-    <Card>
-      <p className="text-xs text-muted">
-        Suggested by {quest.author_name ?? "unknown"}
-      </p>
-      <h3 className="mt-1 font-semibold">{quest.title}</h3>
-      {quest.location && (
-        <p className="flex items-center gap-1 text-sm text-muted">
-          <MapPin aria-hidden className="h-4 w-4 shrink-0" />
-          {quest.location}
-        </p>
-      )}
-      <p className="mt-2 whitespace-pre-line text-sm text-on-surface-variant">
-        {quest.description}
-      </p>
-      <p className="mt-2 text-sm text-muted">Reward: {quest.points} points</p>
-      <label className="mt-3 block text-sm font-medium text-on-surface-variant">
-        Note for the author{" "}
-        <span className="font-normal text-muted">(shown if rejected)</span>
-        <input
-          className={inputStyles}
-          onChange={(e) => setNote(e.target.value)}
-          value={note}
-        />
-      </label>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          className={`${buttonStyles.primary} py-2 text-sm`}
-          disabled={blocked || updateQuest.isPending}
-          onClick={() => decide("published")}
-          type="button"
-        >
-          Publish
-        </button>
-        <button
-          className={`${buttonStyles.danger} py-2 text-sm`}
-          disabled={updateQuest.isPending}
-          onClick={() => decide("rejected")}
-          type="button"
-        >
-          Reject
-        </button>
-        <Link
-          className={`${buttonStyles.secondary} py-2 text-sm`}
-          href={`/admin/quests/${quest.id}`}
-        >
-          Edit first
-        </Link>
-      </div>
-      {blocked && (
-        <p className="mt-2 text-sm text-warning">
-          {quest.publish_problems.join(" ")}
-        </p>
-      )}
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-    </Card>
-  );
-}
-
-function IdeasTab() {
-  const { data, isLoading } = useAdminListQuests({
-    status: "pending_review",
-  });
-  const ideas = data?.status === 200 ? data.data : [];
-  if (isLoading) return <LoadingState label="Loading ideas..." />;
-  if (ideas.length === 0)
-    return (
-      <p className="py-6 text-center text-muted">
-        No quest ideas waiting for review.
-      </p>
-    );
-  return (
-    <div className="flex flex-col gap-3">
-      {ideas.map((quest) => (
-        <IdeaCard key={quest.id} quest={quest} />
       ))}
     </div>
   );
@@ -314,19 +213,16 @@ function ReportsTab() {
 
 function Dashboard() {
   const [tab, setTab] = useState<Tab>("quests");
-  const ideas = useAdminListQuests({ status: "pending_review" });
   const completions = useAdminListCompletions();
   const reports = useAdminListReports();
   const counts: Record<Tab, number> = {
     quests: 0,
-    ideas: ideas.data?.status === 200 ? ideas.data.data.length : 0,
     reviews:
       completions.data?.status === 200 ? completions.data.data.length : 0,
     reports: reports.data?.status === 200 ? reports.data.data.length : 0,
   };
   const tabs: { key: Tab; label: string }[] = [
     { key: "quests", label: "Quests" },
-    { key: "ideas", label: "Ideas" },
     { key: "reviews", label: "Reviews" },
     { key: "reports", label: "Reports" },
   ];
@@ -334,7 +230,7 @@ function Dashboard() {
   return (
     <>
       <div
-        className="grid grid-cols-4 gap-1 rounded-full bg-surface-container p-1"
+        className="grid grid-cols-3 gap-1 rounded-full bg-surface-container p-1"
         role="tablist"
       >
         {tabs.map(({ key, label }) => (
@@ -356,7 +252,6 @@ function Dashboard() {
         ))}
       </div>
       {tab === "quests" && <QuestsTab />}
-      {tab === "ideas" && <IdeasTab />}
       {tab === "reviews" && <ReviewsTab />}
       {tab === "reports" && <ReportsTab />}
     </>

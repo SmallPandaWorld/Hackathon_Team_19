@@ -1,4 +1,4 @@
-"""The current player (profile, badges, suggestions, invites, submissions)
+"""The current player (profile, badges, suggestions, invites, created quests)
 and the leaderboard."""
 
 import hashlib
@@ -22,12 +22,15 @@ from game import (
     error_responses,
     not_found,
     open_invitations,
-    submission_out,
+    created_quest_out,
     suggestions_for,
     total_points,
 )
 from hobbies import HOBBIES, parse_hobbies, serialize_hobbies
-from models import APPROVED, Completion, DismissedSuggestion, Friendship, Quest, User
+from models import (
+    APPROVED, DRAFT, PUBLISHED, RETIRED, Completion, DismissedSuggestion,
+    Friendship, Quest, User,
+)
 from schemas import (
     HobbyOption,
     Leaderboard,
@@ -81,8 +84,9 @@ def _avatar_not_found(what: str) -> HTTPException:
 
 
 def me_out(db: Session, player: User) -> Me:
-    submissions = db.scalars(
-        select(Quest).where(Quest.author_id == player.username)
+    created_quests = db.scalars(
+        select(Quest).where(Quest.author_id == player.username,
+                            Quest.status.in_((DRAFT, PUBLISHED, RETIRED)))
         .order_by(QUEST_CREATION_ORDER.desc())).all()
     return Me(
         username=player.username,
@@ -95,14 +99,14 @@ def me_out(db: Session, player: User) -> Me:
         hobby_options=[HobbyOption(key=key, label=label) for key, label in HOBBIES.items()],
         suggestions=suggestions_for(db, player),
         invitations=open_invitations(db, player),
-        submissions=[submission_out(quest) for quest in submissions],
+        created_quests=[created_quest_out(quest) for quest in created_quests],
     )
 
 
 @router.get("/me", response_model=Me)
 def get_me(player: User = Depends(get_current_player), db: Session = Depends(get_db)):
     """Everything about the current player: points, badges, hobbies,
-    connection suggestions, open pair invitations and submitted quests."""
+    connection suggestions, open pair invitations and created quests."""
     return me_out(db, player)
 
 

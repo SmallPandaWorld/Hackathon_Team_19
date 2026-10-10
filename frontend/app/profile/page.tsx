@@ -605,50 +605,43 @@ function SearchPlayers() {
   );
 }
 
-function MySubmissions({ player }: { player: Me }) {
-  const submissions = player.submissions;
+function MyCreatedQuests({ player }: { player: Me }) {
+  const quests = player.created_quests;
 
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-semibold">Your quest ideas</h2>
+        <h2 className="font-semibold">Your quests</h2>
         <Link
           className="text-sm font-semibold text-link hover:underline"
-          href="/submit"
+          href="/create"
         >
-          + Suggest a quest
+          + Create a quest
         </Link>
       </div>
-      {submissions.length === 0 ? (
+      {quests.length === 0 ? (
         <p className="mt-1 text-sm text-muted">
-          You haven&apos;t suggested any quests yet.
+          You haven&apos;t created any quests yet.
         </p>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">
-          {submissions.map((submission) => (
+          {quests.map((quest) => (
             <li
               className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
-              key={submission.id}
+              key={quest.id}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">{submission.title}</p>
-                <Chip className={STATUS_LABELS[submission.status].className}>
-                  {STATUS_LABELS[submission.status].label}
+                <p className="font-semibold">{quest.title}</p>
+                <Chip className={STATUS_LABELS[quest.status].className}>
+                  {STATUS_LABELS[quest.status].label}
                 </Chip>
               </div>
-              {submission.status === "rejected" && submission.review_note && (
-                <p className="mt-1 text-sm text-danger">
-                  Reviewer: “{submission.review_note}”
-                </p>
-              )}
-              {submission.status === "published" && (
-                <Link
-                  className="mt-1 inline-block text-sm font-semibold text-link"
-                  href={`/quests/${submission.id}`}
-                >
-                  View quest
-                </Link>
-              )}
+              <Link
+                className="mt-1 inline-block text-sm font-semibold text-link"
+                href={`/quests/${quest.id}`}
+              >
+                View quest
+              </Link>
             </li>
           ))}
         </ul>
@@ -744,7 +737,7 @@ function OwnProfile({ player }: { player: Me }) {
       <HobbyEditor player={player} />
       <PrivacySettings player={player} />
       <Appearance />
-      <MySubmissions player={player} />
+      <MyCreatedQuests player={player} />
       <ShareButton
         className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
         label={

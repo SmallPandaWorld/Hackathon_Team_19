@@ -75,7 +75,7 @@ export const getGetMeUrl = () => {
 
 /**
  * Everything about the current player: points, badges, hobbies,
- * connection suggestions, open pair invitations and submitted quests.
+ * connection suggestions, open pair invitations and created quests.
  * @summary Get Me
  */
 export const getMe = async (options?: RequestInit): Promise<getMeResponse> => {

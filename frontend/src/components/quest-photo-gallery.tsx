@@ -27,11 +27,7 @@ function errorDetail(data: unknown): string | null {
   return null;
 }
 
-export function QuestPhotoGallery({
-  questId,
-}: {
-  questId: string;
-}) {
+export function QuestPhotoGallery({ questId }: { questId: string }) {
   const collectionUrl = `/api/quests/${encodeURIComponent(questId)}/player-photos`;
   const [photoResult, setPhotoResult] = useState<{
     url: string;
@@ -50,14 +46,11 @@ export function QuestPhotoGallery({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const photos =
-    photoResult.url === collectionUrl ? photoResult.photos : [];
+  const photos = photoResult.url === collectionUrl ? photoResult.photos : [];
   const ownPhotos = photos.filter((photo) => photo.is_mine);
   const otherPhotos = photos.filter(
     (photo) =>
-      !photo.is_mine &&
-      photo.uploader_username &&
-      photo.uploader_display_name,
+      !photo.is_mine && photo.uploader_username && photo.uploader_display_name,
   );
 
   useEffect(() => {
@@ -311,8 +304,8 @@ export function QuestPhotoGallery({
         <h2 className="font-semibold">Quest photos</h2>
         <p className="mt-1 text-sm text-muted">
           Add a photo before or after completing this activity. Other quest
-          viewers see your uploads only if you opt in under Privacy. Photos
-          from other players appear here only when they opt in too.
+          viewers see your uploads only if you opt in under Privacy. Photos from
+          other players appear here only when they opt in too.
         </p>
       </div>
 
@@ -347,10 +340,7 @@ export function QuestPhotoGallery({
             <button
               className={`${buttonStyles.secondary} inline-flex items-center gap-2 py-2`}
               disabled={
-                uploading ||
-                deletingId !== null ||
-                cameraStarting ||
-                capturing
+                uploading || deletingId !== null || cameraStarting || capturing
               }
               onClick={() => void startCamera()}
               type="button"
@@ -361,10 +351,7 @@ export function QuestPhotoGallery({
             <button
               className={`${buttonStyles.primary} py-2`}
               disabled={
-                uploading ||
-                deletingId !== null ||
-                cameraStarting ||
-                capturing
+                uploading || deletingId !== null || cameraStarting || capturing
               }
               onClick={() => inputRef.current?.click()}
               type="button"
@@ -452,13 +439,8 @@ export function ProfileQuestPhotoGallery({
   const photos = photoResult.url === url ? photoResult.photos : [];
 
   useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
-    if (!visible) {
-      setPhotoResult({ url, photos: [] });
-      return () => {
-        cancelled = true;
-      };
-    }
     void fetch(url)
       .then((response) => (response.ok ? response.json() : []))
       .then((data: QuestPhoto[]) => {

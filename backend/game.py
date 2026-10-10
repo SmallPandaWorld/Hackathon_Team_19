@@ -1,7 +1,8 @@
 """Game rules shared by the routers: scoring, visibility, meetups, validation."""
 
-import json
+import hashlib
 import hmac
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -37,6 +38,7 @@ from models import (
 )
 from schemas import (
     CompletionResult,
+    CreatedQuestOut,
     ErrorResponse,
     PairSessionOut,
     QuestOut,
@@ -44,7 +46,6 @@ from schemas import (
     QuizResult,
     StepOut,
     Suggestion,
-    SubmissionOut,
     Suggestions,
 )
 
@@ -278,6 +279,7 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             status=quest.status,
             requires_approval=quest.requires_approval,
             requires_code=quest.requires_code,
+            requires_password=quest.requires_password,
             latitude=quest.latitude,
             longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),
@@ -318,6 +320,8 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
         problems.append("Instructions need at least 10 characters.")
     if quest.points < 1:
         problems.append("Points must be at least 1.")
+    if quest.requires_password and not quest.password_hash:
+        problems.append("Set a password before publishing this quest.")
     if (quest.latitude is None) != (quest.longitude is None):
         problems.append("Map pin needs both coordinates (or neither).")
     if quest.kind == QUIZ:
@@ -326,12 +330,19 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
             problems.append("A quiz needs at least one question.")
         for index, question in enumerate(questions, start=1):
             choices = json.loads(question.choices)
+            if not question.prompt.strip():
+                problems.append(f"Question {index} needs a prompt.")
             if len([c for c in choices if c.strip()]) != len(choices) or len(choices) < 2:
                 problems.append(f"Question {index} needs at least 2 non-empty choices.")
             if not 0 <= question.correct_index < len(choices):
                 problems.append(f"Question {index} has no valid correct answer.")
-    if quest.kind == MULTI_STEP and len(ordered_steps(db, quest.id)) < 2:
-        problems.append("A multi-step quest needs at least 2 steps.")
+    if quest.kind == MULTI_STEP:
+        steps = ordered_steps(db, quest.id)
+        if len(steps) < 2:
+            problems.append("A multi-step quest needs at least 2 steps.")
+        for index, step in enumerate(steps, start=1):
+            if not step.title.strip():
+                problems.append(f"Step {index} needs a title.")
     if quest.kind == MEETUP:
         if quest.starts_at is None or quest.ends_at is None:
             problems.append("A meetup needs a start and end time.")
@@ -342,24 +353,9 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
 
 # --- Creating quests ----------------------------------------------------------
 
-def add_quest(db: Session, **fields) -> Quest:
-    """Insert a quest (with a generated UUID) and commit it."""
-    quest = Quest(**fields)
-    db.add(quest)
-    db.commit()
-    return quest
-
-
-def submission_out(quest: Quest) -> SubmissionOut:
-    """A player-submitted quest as its author sees it."""
-    return SubmissionOut(
-        id=quest.id,
-        title=quest.title,
-        description=quest.description,
-        location=quest.location,
-        status=quest.status,
-        review_note=quest.review_note,
-    )
+def created_quest_out(quest: Quest) -> CreatedQuestOut:
+    return CreatedQuestOut(
+        id=quest.id, title=quest.title, kind=quest.kind, status=quest.status)
 
 
 # --- Quest actions --------------------------------------------------------------
@@ -393,6 +389,8 @@ def complete_quest(db: Session, player: User, quest: Quest,
             "Scan the QR code shown at the meetup to check in."
             if quest.kind == MEETUP else
             "Enter the printed code to complete this quest.")
+    if quest.requires_password:
+        raise bad_request("Enter the password to complete this quest.")
 
     existing = find_completion(db, player.username, quest.id)
     if quest.kind == MEETUP and existing is None:
@@ -419,26 +417,48 @@ def complete_quest(db: Session, player: User, quest: Quest,
 
 def redeem_quest_code(db: Session, player: User, quest: Quest,
                       code: str) -> CompletionResult:
-    """Check a quest's stable printed code, then award this player once.
-
-    Meetups keep their check-in window: the code only works while the
-    meetup is live (players who already checked in get their completion back).
-    """
+    """Check a solo quest's printed code or password, or a live meetup's QR code."""
     if quest.kind not in (SOLO, MEETUP):
-        raise bad_request(WRONG_ACTION.get(quest.kind, "This quest does not use a printed code."))
-    if not quest.requires_code:
-        raise bad_request("This quest does not use a printed code.")
-    normalized = code.strip().upper()
-    if not normalized.isascii() or not hmac.compare_digest(
-        normalized, quest.verification_code or ""
-    ):
-        raise bad_request("That code is not valid for this quest.")
+        raise bad_request(WRONG_ACTION.get(quest.kind, "This quest does not use a code."))
+    if quest.requires_password:
+        if quest.kind != SOLO:
+            raise bad_request("Only solo quests use passwords.")
+        if not verify_quest_password(code.strip(), quest.password_hash):
+            raise bad_request("That password is not valid for this quest.")
+    elif quest.requires_code:
+        normalized = code.strip().upper()
+        if not normalized.isascii() or not hmac.compare_digest(
+            normalized, quest.verification_code or ""
+        ):
+            raise bad_request("That code is not valid for this quest.")
+    else:
+        raise bad_request("This quest does not use a code or password.")
     if quest.kind == MEETUP and find_completion(db, player.username, quest.id) is None:
         state = meetup_state(quest)
         if state != "live":
             raise conflict(MEETUP_CLOSED[state])
     completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
+
+
+def hash_quest_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return f"sha256$200000${salt.hex()}${digest.hex()}"
+
+
+def verify_quest_password(password: str, saved: Optional[str]) -> bool:
+    if not saved:
+        return False
+    try:
+        algorithm, rounds, salt, expected = saved.split("$")
+        if algorithm != "sha256" or int(rounds) != 200_000:
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(salt), int(rounds))
+        return hmac.compare_digest(digest, bytes.fromhex(expected))
+    except (ValueError, TypeError):
+        return False
 
 
 def submit_quiz(db: Session, player: User, quest: Quest,

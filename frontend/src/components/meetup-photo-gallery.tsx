@@ -12,19 +12,14 @@ type MeetupPhoto = {
 };
 
 function usePhotos(url: string, enabled = true) {
-  const [result, setResult] = useState<{ url: string; photos: MeetupPhoto[] }>(
-    { url, photos: [] },
-  );
+  const [result, setResult] = useState<{ url: string; photos: MeetupPhoto[] }>({
+    url,
+    photos: [],
+  });
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
-    if (!enabled) {
-      setResult({ url, photos: [] });
-      return () => {
-        cancelled = true;
-      };
-    }
-
     void fetch(url)
       .then((response) => (response.ok ? response.json() : []))
       .then((data: MeetupPhoto[]) => {

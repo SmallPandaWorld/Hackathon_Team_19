@@ -31,7 +31,7 @@ function Sign({ questId }: { questId: string }) {
       />
     );
   }
-  if (!quest.requires_code) {
+  if (!quest.requires_code || !quest.verification_code) {
     return (
       <ErrorState message="Enable printed code or QR verification for this quest first." />
     );

@@ -15,6 +15,8 @@ type ProfilePictureProps = {
   size?: "small" | "medium" | "large";
 };
 
+type PictureState = "loading" | "loaded" | "missing";
+
 async function responseError(response: Response): Promise<string> {
   const body = (await response.json().catch(() => null)) as {
     detail?: unknown;
@@ -33,9 +35,16 @@ export function ProfilePicture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStream = useRef<MediaStream | null>(null);
   const [pictureVersion, setPictureVersion] = useState(0);
-  const [pictureState, setPictureState] = useState<
-    "loading" | "loaded" | "missing"
-  >(username ? "loading" : "missing");
+  const [pictureResult, setPictureResult] = useState<{
+    username?: string;
+    state: PictureState;
+  }>({ username, state: username ? "loading" : "missing" });
+  const pictureState =
+    pictureResult.username === username
+      ? pictureResult.state
+      : username
+        ? "loading"
+        : "missing";
   const [busy, setBusy] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -63,9 +72,9 @@ export function ProfilePicture({
           ? "text-2xl"
           : "text-3xl";
 
-  useEffect(() => {
-    setPictureState(username ? "loading" : "missing");
-  }, [username]);
+  function setPictureState(state: PictureState) {
+    setPictureResult({ username, state });
+  }
 
   async function uploadPicture(file: File | undefined) {
     if (!file) return;
@@ -115,6 +124,7 @@ export function ProfilePicture({
     if (!cameraOpen) return;
 
     let cancelled = false;
+    const video = videoRef.current;
     async function startCamera() {
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraError("Camera access is unavailable in this browser.");
@@ -131,7 +141,7 @@ export function ProfilePicture({
           return;
         }
         cameraStream.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (video) video.srcObject = stream;
       } catch (cause) {
         if (cancelled) return;
         if (cause instanceof DOMException && cause.name === "NotFoundError") {
@@ -156,7 +166,7 @@ export function ProfilePicture({
       cancelled = true;
       cameraStream.current?.getTracks().forEach((track) => track.stop());
       cameraStream.current = null;
-      if (videoRef.current) videoRef.current.srcObject = null;
+      if (video) video.srcObject = null;
     };
   }, [cameraOpen]);
 
