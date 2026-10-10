@@ -103,7 +103,7 @@ export const getAdminListQuestsUrl = (params?: AdminListQuestsParams) => {
 };
 
 /**
- * All quests, newest first. Filter by `status`, e.g. pending_review.
+ * All quests, newest first. Optionally filter by status.
  * @summary Admin List Quests
  */
 export const adminListQuests = async (
@@ -688,9 +688,8 @@ export const getAdminUpdateQuestUrl = (questId: string) => {
 /**
  * Change only the fields you send.
  *
- * `status` publishes, unpublishes (draft), retires, or rejects a player
- * submission (only from pending_review; `review_note` is shown to the
- * author). A published quest must stay publishable.
+ * `status` publishes, unpublishes (draft), or retires a quest. A published
+ * quest must stay publishable.
  * @summary Admin Update Quest
  */
 export const adminUpdateQuest = async (

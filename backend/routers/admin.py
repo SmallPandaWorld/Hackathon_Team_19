@@ -41,10 +41,8 @@ from models import (
     MEETUP,
     MULTI_STEP,
     PENDING,
-    PENDING_REVIEW,
     PUBLISHED,
     QUIZ,
-    REJECTED,
     RETIRED,
     SOLO,
     Completion,
@@ -230,7 +228,7 @@ def ensure_publishable(db: Session, quest: Quest) -> None:
 
 @router.get("/quests", response_model=List[AdminQuestOut])
 def admin_list_quests(status: Optional[QuestStatus] = None, db: Session = Depends(get_db)):
-    """All quests, newest first. Filter by `status`, e.g. pending_review."""
+    """All quests, newest first. Optionally filter by status."""
     query = select(Quest).order_by(QUEST_CREATION_ORDER.desc())
     if status is not None:
         query = query.where(Quest.status == status)
@@ -263,18 +261,12 @@ def admin_create_quest(data: AdminQuestIn, db: Session = Depends(get_db)):
 def admin_update_quest(quest_id: UUID, patch: AdminQuestPatch, db: Session = Depends(get_db)):
     """Change only the fields you send.
 
-    `status` publishes, unpublishes (draft), retires, or rejects a player
-    submission (only from pending_review; `review_note` is shown to the
-    author). A published quest must stay publishable.
+    `status` publishes, unpublishes (draft), or retires a quest. A published
+    quest must stay publishable.
     """
     quest = get_quest_or_404(db, quest_id)
     changes = patch.model_dump(exclude_unset=True)
     new_status = changes.pop("status", None)
-    has_note = "review_note" in changes
-    review_note = (changes.pop("review_note", None) or "").strip() or None
-
-    if new_status == REJECTED and quest.status != PENDING_REVIEW:
-        raise conflict("Only submitted quests waiting for review can be rejected.")
 
     if changes:
         try:
@@ -286,8 +278,6 @@ def admin_update_quest(quest_id: UUID, patch: AdminQuestPatch, db: Session = Dep
             ])
         apply_quest_input(db, quest, data)
 
-    if new_status == REJECTED or has_note:
-        quest.review_note = review_note
     if new_status is not None:
         quest.status = new_status
     ensure_publishable(db, quest)

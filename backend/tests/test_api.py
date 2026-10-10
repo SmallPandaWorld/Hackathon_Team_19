@@ -47,7 +47,7 @@ EXPECTED_OPERATIONS = {
     ("get", "/players/{username}"): "get_player",
     ("get", "/quests"): "list_quests",
     ("get", "/quests/{quest_id}"): "get_quest",
-    ("post", "/quests"): "submit_quest",
+    ("post", "/quests"): "create_quest",
     ("post", "/quests/{quest_id}/actions"): "act_on_quest",
     ("get", "/pair/{code}"): "get_pair_code",
     ("post", "/pair/{code}"): "join_pair_session",
@@ -107,7 +107,7 @@ def test_player_is_created_once_and_reused(client):
     assert first["display_name"] == "Alice"
     assert first["total_points"] == 0
     assert first["is_maintainer"] is False
-    assert first["invitations"] == [] and first["submissions"] == []
+    assert first["invitations"] == [] and first["created_quests"] == []
     assert first["suggestions"] == {"enabled": False, "suggestions": []}
     assert len(first["hobby_options"]) >= 10
 

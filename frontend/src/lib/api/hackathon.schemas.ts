@@ -89,7 +89,6 @@ export interface AdminQuestIn {
   requires_approval?: boolean;
   requires_code?: boolean;
   requires_password?: boolean;
-  /** @minLength 4 @maxLength 40 */
   password?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -152,7 +151,7 @@ export interface AdminQuestOut {
   requires_approval: boolean;
   requires_code: boolean;
   requires_password: boolean;
-  /** Stable code for the printable QR, when enabled; maintainers only */
+  /** Stable code for the printable QR; maintainers only */
   verification_code: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -186,12 +185,11 @@ export type AdminQuestPatchStatus =
 export const AdminQuestPatchStatus = {
   draft: "draft",
   published: "published",
-  rejected: "rejected",
   retired: "retired",
 } as const;
 
 /**
- * Change only the fields you send (status changes publish, retire or reject).
+ * Change only the fields you send (status changes publish or retire).
  */
 export interface AdminQuestPatch {
   title?: string | null;
@@ -202,7 +200,6 @@ export interface AdminQuestPatch {
   requires_approval?: boolean | null;
   requires_code?: boolean | null;
   requires_password?: boolean | null;
-  /** @minLength 4 @maxLength 40 */
   password?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -212,8 +209,6 @@ export interface AdminQuestPatch {
   steps?: StepIn[] | null;
   questions?: QuizQuestionIn[] | null;
   status?: AdminQuestPatchStatus;
-  /** Shown to the author on rejection */
-  review_note?: string | null;
 }
 
 export type AdminReportOutQuestStatus =
@@ -284,6 +279,35 @@ export interface CompletionResult {
 export interface CompletionReview {
   approve: boolean;
   note?: string | null;
+}
+
+export type CreatedQuestOutKind =
+  (typeof CreatedQuestOutKind)[keyof typeof CreatedQuestOutKind];
+
+export const CreatedQuestOutKind = {
+  solo: "solo",
+  pair: "pair",
+  quiz: "quiz",
+  multi_step: "multi_step",
+  meetup: "meetup",
+} as const;
+
+export type CreatedQuestOutStatus =
+  (typeof CreatedQuestOutStatus)[keyof typeof CreatedQuestOutStatus];
+
+export const CreatedQuestOutStatus = {
+  draft: "draft",
+  pending_review: "pending_review",
+  published: "published",
+  rejected: "rejected",
+  retired: "retired",
+} as const;
+
+export interface CreatedQuestOut {
+  id: string;
+  title: string;
+  kind: CreatedQuestOutKind;
+  status: CreatedQuestOutStatus;
 }
 
 export interface ErrorResponse {
@@ -386,26 +410,6 @@ export interface PairSessionOut {
   invited_name?: string | null;
 }
 
-export type SubmissionOutStatus =
-  (typeof SubmissionOutStatus)[keyof typeof SubmissionOutStatus];
-
-export const SubmissionOutStatus = {
-  draft: "draft",
-  pending_review: "pending_review",
-  published: "published",
-  rejected: "rejected",
-  retired: "retired",
-} as const;
-
-export interface SubmissionOut {
-  id: string;
-  title: string;
-  description: string;
-  location?: string | null;
-  status: SubmissionOutStatus;
-  review_note?: string | null;
-}
-
 export interface Me {
   username: string;
   display_name: string;
@@ -421,8 +425,8 @@ export interface Me {
   suggestions: Suggestions;
   /** Open pair invites addressed to me */
   invitations: PairSessionOut[];
-  /** Quests I proposed, newest first */
-  submissions: SubmissionOut[];
+  /** Quests I created, newest first */
+  created_quests: CreatedQuestOut[];
 }
 
 export const PairCancelActionValue = {
@@ -442,6 +446,38 @@ export interface PairStartAction {
   type: "pair_start";
   /** Invite a suggested username: the code appears on their home screen */
   invite_username?: string | null;
+}
+
+export type PlayerQuestInKind =
+  (typeof PlayerQuestInKind)[keyof typeof PlayerQuestInKind];
+
+export const PlayerQuestInKind = {
+  solo: "solo",
+  pair: "pair",
+  quiz: "quiz",
+  multi_step: "multi_step",
+} as const;
+
+export interface PlayerQuestIn {
+  /**
+   * @minLength 3
+   * @maxLength 120
+   */
+  title: string;
+  /**
+   * @minLength 10
+   * @maxLength 2000
+   */
+  description: string;
+  location?: string | null;
+  kind?: PlayerQuestInKind;
+  password?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  /** @maxItems 20 */
+  steps?: StepIn[];
+  /** @maxItems 20 */
+  questions?: QuizQuestionIn[];
 }
 
 export interface PlayerSearchResult {
@@ -560,7 +596,7 @@ export interface QuestOut {
   starts_at?: string | null;
   ends_at?: string | null;
   meetup_state?: QuestOutMeetupState;
-  /** Set for player-submitted quests */
+  /** Set for player-created quests */
   author_name?: string | null;
   /** Current player has an approved completion */
   completed: boolean;
@@ -593,20 +629,6 @@ export interface QuestActionResult {
   completion?: CompletionResult | null;
   /** Set for type=quiz */
   quiz?: QuizResult | null;
-}
-
-export interface QuestSubmission {
-  /**
-   * @minLength 3
-   * @maxLength 120
-   */
-  title: string;
-  /**
-   * @minLength 10
-   * @maxLength 2000
-   */
-  description: string;
-  location?: string | null;
 }
 
 export interface QuizAction {

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, List, Literal, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ErrorResponse(BaseModel):
@@ -88,7 +88,7 @@ class QuestOut(BaseModel):
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     meetup_state: Optional[MeetupState] = None
-    author_name: Optional[str] = Field(default=None, description="Set for player-submitted quests")
+    author_name: Optional[str] = Field(default=None, description="Set for player-created quests")
     completed: bool = Field(description="Current player has an approved completion")
     completed_at: Optional[datetime] = Field(
         default=None, description="UTC time of the current player's completion")
@@ -195,21 +195,44 @@ class PairJoinResult(BaseModel):
     completion: CompletionResult
 
 
-# --- Player-submitted quests --------------------------------------------------
+# --- Player-created quests ----------------------------------------------------
 
-class QuestSubmission(BaseModel):
+PlayerQuestKind = Literal["solo", "pair", "quiz", "multi_step"]
+
+
+class PlayerQuestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=3, max_length=120)
     description: str = Field(min_length=10, max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
+    kind: PlayerQuestKind = "solo"
+    password: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    steps: List["StepIn"] = Field(default_factory=list, max_length=20)
+    questions: List["QuizQuestionIn"] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def valid_player_quest(self):
+        if len(self.title.strip()) < 3 or len(self.description.strip()) < 10:
+            raise ValueError("Title and instructions need meaningful text")
+        if self.kind == "solo" and (not self.password or not self.password.strip()):
+            raise ValueError("Solo quests need a non-empty password")
+        if self.kind != "solo" and self.password is not None:
+            raise ValueError("Only solo quests use passwords")
+        if self.kind != "multi_step" and self.steps:
+            raise ValueError("Steps are available for multi-step quests only")
+        if self.kind != "quiz" and self.questions:
+            raise ValueError("Questions are available for quizzes only")
+        return self
 
 
-class SubmissionOut(BaseModel):
+class CreatedQuestOut(BaseModel):
     id: UUID
     title: str
-    description: str
-    location: Optional[str] = None
+    kind: QuestKind
     status: QuestStatus
-    review_note: Optional[str] = None
 
 
 # --- Connections --------------------------------------------------------------
@@ -281,7 +304,7 @@ class Me(BaseModel):
     hobby_options: List[HobbyOption] = Field(description="All selectable hobbies")
     suggestions: Suggestions
     invitations: List[PairSessionOut] = Field(description="Open pair invites addressed to me")
-    submissions: List[SubmissionOut] = Field(description="Quests I proposed, newest first")
+    created_quests: List[CreatedQuestOut] = Field(description="Quests I created, newest first")
 
 
 # --- Leaderboard --------------------------------------------------------------
@@ -346,8 +369,8 @@ class AdminQuestIn(BaseModel):
         if self.password is not None:
             if not self.requires_password:
                 raise ValueError("A password needs password verification")
-            if len(self.password.strip()) < 4:
-                raise ValueError("Password needs at least 4 non-space characters")
+            if not self.password.strip():
+                raise ValueError("Password cannot be blank")
         return self
 
 
@@ -360,7 +383,7 @@ NOT_NULL_PATCH_FIELDS = (
 
 
 class AdminQuestPatch(BaseModel):
-    """Change only the fields you send (status changes publish, retire or reject)."""
+    """Change only the fields you send (status changes publish or retire)."""
     title: Optional[str] = Field(default=None, min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, min_length=1, max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
@@ -377,9 +400,7 @@ class AdminQuestPatch(BaseModel):
     cancelled: Optional[bool] = None
     steps: Optional[List[StepIn]] = Field(default=None, max_length=20)
     questions: Optional[List[QuizQuestionIn]] = Field(default=None, max_length=20)
-    status: Optional[Literal["draft", "published", "rejected", "retired"]] = None
-    review_note: Optional[str] = Field(
-        default=None, max_length=1000, description="Shown to the author on rejection")
+    status: Optional[Literal["draft", "published", "retired"]] = None
 
     @model_validator(mode="after")
     def required_fields_not_null(self):

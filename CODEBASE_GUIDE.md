@@ -46,9 +46,9 @@ There are five quest types:
 
 Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. This is separate from the temporary codes used to join pair quests.
 
-Password verification is another solo completion method. A maintainer sets a 4–40 character password in the editor and shares it with players after they finish the activity. The backend stores a salted password hash; admin and player responses never return the password. Maintainers can replace it by entering a new one when editing. Password quests have no QR scanner.
+Password verification is another solo completion method. A creator sets a 1–40 character password and shares it with players after they finish the activity. The backend stores a salted password hash; admin and player responses never return the password. Maintainers can replace it by entering a new one when editing. Password quests have no QR scanner.
 
-Players can propose new solo quests and report inappropriate quest content. Maintainers can create and edit quests, publish or retire them, review ideas, approve completion claims, and resolve reports.
+Players can immediately publish solo, pair, quiz, and multi-step quests. Player-created solo quests require a password, and every player-created quest awards 10 points. Meetups and subsequent editing or retirement remain maintainer-only. Players can report inappropriate quest content; maintainers can resolve reports and review completion claims.
 
 The backend owns identity, permissions, completion eligibility, and scoring. The frontend presents those rules and asks the backend to perform actions. The browser does not decide how many points a player receives.
 
@@ -135,7 +135,7 @@ Hackathon_Team_19/
 │   ├── routers/
 │   │   ├── __init__.py             Empty package marker
 │   │   ├── players.py              Profile, hobbies, badges
-│   │   ├── quests.py               Quest play, RSVP, ideas, reports
+│   │   ├── quests.py               Quest play, creation, RSVP, reports
 │   │   ├── pair.py                 Partner codes, invitations, joins
 │   │   ├── friends.py              Friend requests and friends list
 │   │   ├── social.py               Shared-interest suggestions
@@ -276,7 +276,7 @@ erDiagram
     USERS ||--o{ QUEST_REPORTS : submits
     QUESTS ||--o{ QUEST_REPORTS : receives
     USERS ||--o{ DISMISSED_SUGGESTIONS : hides
-    USERS o|--o{ QUESTS : proposes
+    USERS o|--o{ QUESTS : creates
 ```
 
 The diagram summarizes multiple user references on pair sessions and dismissed suggestions. A pair session can reference a host, a partner, and an invitee; only the host is required.
@@ -328,7 +328,7 @@ Database timestamps are naive UTC: UTC values stored without timezone metadata, 
 | Quest view | `QuestOut`, `StepOut`, `QuizQuestionOut` | Shared content plus the requesting player's progress |
 | Playing | `CompleteRequest`, `CodeRedemption`, `CompletionResult`, `QuizSubmission`, `QuizResult`, `StepResult`, `RsvpResult`, `ReportRequest` | Player actions and results |
 | Pairing | `PairSessionOut`, `PairStartRequest`, `PairJoinResult` | Code/session preview, optional invitee, and join result |
-| Ideas | `QuestSubmission`, `SubmissionOut` | New idea and its review status |
+| Player creation | `PlayerQuestIn`, `CreatedQuestOut` | Published quest input and creator's quest list |
 | Matching | `Suggestion`, `Suggestions` | Whether matching is enabled and the shared interests |
 | Ranking | `LeaderboardEntry`, `Leaderboard` | Top entries plus the current player's own position |
 | Admin content | `StepIn`, `QuizQuestionIn`, `AdminQuestIn`, `AdminQuizQuestionOut`, `AdminQuestOut`, `StatusChange` | Quest editing and publication |
@@ -340,7 +340,7 @@ Player quiz responses contain choices but omit `correct_index`. Admin quiz respo
 
 Some important validation limits:
 
-- Player idea: title 3–120 characters; instructions 10–2000; optional location up to 255.
+- Player-created quest: title 3–120 characters; instructions 10–2000; optional location up to 255; fixed 10-point reward. Only solo, pair, quiz, and multi-step kinds are accepted; solo requires a nonblank password.
 - Completion note: up to 500 characters; optional.
 - Code or password redemption input: 1–40 characters. Printed codes are trimmed and uppercased; passwords are trimmed and case-sensitive. Admin input allows either method only for solo quests, one completion method at a time.
 - Report reason: 5–500 characters before router trimming.
@@ -369,7 +369,7 @@ For example, two taps on a 10-point solo quest yield a saved total of 10 points,
 
 `get_playable_quest()` requires a published quest and optionally checks its type. An unpublished quest is unavailable for ordinary play.
 
-`can_view()` permits a player to view a published quest, their own submission, or a quest for which they have a completion record. This lets players retain access to relevant history even after retirement. Admins use separate admin endpoints to view all content.
+`can_view()` permits a player to view a published quest, one they created, or a quest for which they have a completion record. This lets players retain access to relevant history even after retirement. Admins use separate admin endpoints to view all content.
 
 `quest_views()` builds personalized `QuestOut` objects. Instead of querying every quest's related rows individually, it batches completions, steps, questions, progress, RSVPs, reports, and authors. It does not put quiz answer keys or printed verification codes in the player response.
 
@@ -435,7 +435,7 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | GET | `/quests` | `list_quests`: all published quests, ordered by creation, personalized |
 | GET | `/quests/{quest_id}` | `get_quest`: a quest the player may view |
 | POST | `/quests/{quest_id}/actions` | `act_on_quest`: `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `pair_start`, or `pair_cancel` |
-| POST | `/quests` | `submit_quest`: create a solo idea awaiting review; returns 201 |
+| POST | `/quests` | `create_quest`: immediately publish an allowed player quest; returns 201 |
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code- and password-verified quests, so the ordinary completion endpoint cannot bypass verification. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
 
@@ -451,7 +451,7 @@ Approval-required solo quests create pending records. Resubmitting a rejected cl
 
 RSVP is independent of completion. Players can check in without an RSVP; saying “I'm coming” does not award points. RSVP insertion is repeat-safe. A report duplicate returns a conflict rather than creating another report.
 
-Ideas have a default reward of 10 points and start as `solo` / `pending_review`. At most five ideas per player may await review at once. Maintainers can change content before publishing.
+Player-created quests publish immediately with a fixed reward of 10 points. The request schema forbids meetup creation and privileged fields such as `points`, `status`, `requires_code`, and `requires_approval`. Solo quests require a creator-set password. Invalid publication content rolls back the creation; maintainers manage later edits and retirement.
 
 ### 9.3 `backend/routers/pair.py`
 
@@ -520,7 +520,7 @@ The public entries contain up to 50 players with positive points. `current_playe
 | GET | `/admin/quests/{quest_id}` | `admin_get_quest`: full editable quest and publication problems |
 | POST | `/admin/quests` | `admin_create_quest`: create a draft; returns 201 |
 | PUT | `/admin/quests/{quest_id}` | `admin_update_quest`: replace editable content |
-| POST | `/admin/quests/{quest_id}/status` | `admin_set_quest_status`: publish, move to draft, reject, or retire |
+| PATCH | `/admin/quests/{quest_id}` | `admin_update_quest`: edit content, publish, move to draft, or retire |
 | GET | `/admin/completions` | `admin_list_completions`: claims with selected status, pending by default |
 | POST | `/admin/completions/{completion_id}/review` | `admin_review_completion`: approve or reject a pending claim |
 | GET | `/admin/reports` | `admin_list_reports`: unresolved reports, oldest first |
@@ -539,7 +539,7 @@ Editing protections:
 - Published quests must remain publishable; an invalid update rolls back.
 - Past awarded points are preserved regardless of changes to the current reward.
 
-Status changes accept `draft`, `published`, `rejected`, or `retired`. Publishing requires no publication problems. Rejecting is permitted only while an idea is `pending_review`. The UI offers conventional transitions, while the backend does not implement a strict transition matrix for every other status pair.
+Status changes accept `draft`, `published`, or `retired`. Publishing requires no publication problems. Older `pending_review` and `rejected` rows remain readable for database compatibility, but no new quest enters those states.
 
 Only pending completion claims can be reviewed. Approval records the current quest reward; rejection records zero. Both decisions save reviewer, note, and review time.
 
@@ -550,7 +550,7 @@ Only pending completion claims can be reviewed. Approval records the current que
 | HTTP status | Meaning here |
 | --- | --- |
 | 200 | Successful query/action with JSON |
-| 201 | New quest or submission created |
+| 201 | New quest created |
 | 204 | Successful action without a response body |
 | 400 | Wrong quest mechanism or invalid game action |
 | 401 | Missing trusted player identity |
@@ -566,7 +566,7 @@ Most explicit errors return `{"detail": "Readable explanation"}`. Validation err
 
 ### 10.1 Quests: none built in
 
-The app ships without quests. A fresh database has none, and players see an empty "Available now" section with a link to suggest a quest. Quests appear once a maintainer creates and publishes one in the quest editor (`POST /admin/quests` with `status: "published"`, or a later `PATCH /admin/quests/{id}`), or approves a player's suggestion. App-created quests get random UUIDs; older databases may still hold the former built-in quests, which maintainers can retire in the editor.
+The app ships without quests. A fresh database has none, and players see an empty "Available now" section with a link to create a quest. Quests appear when a player publishes one at `/create` (`POST /quests`) or a maintainer publishes one in the quest editor (`POST /admin/quests` with `status: "published"`, or a later `PATCH /admin/quests/{id}`). App-created quests get random UUIDs; older databases may still hold the former built-in quests, which maintainers can retire in the editor.
 
 `backend/tests/sample_quests.py` keeps seven sample definitions, used only by the tests (`conftest.py` seeds them for the `client` fixture; `empty_client` starts with none):
 
@@ -632,7 +632,7 @@ These files are marked as Orval-generated. Most of their size comes from repeate
 | --- | --- |
 | `frontend/src/lib/api/hackathon.schemas.ts` | Shared TypeScript interfaces, literal unions, and enum-like constants |
 | `frontend/src/lib/api/players.ts` | Profile, preferences, badge, and hobby calls |
-| `frontend/src/lib/api/quests.ts` | Quest views, completion, printed-code redemption, quizzes, steps, RSVP, reporting, and submissions |
+| `frontend/src/lib/api/quests.ts` | Quest views, creation, completion, printed-code redemption, quizzes, steps, RSVP, and reporting |
 | `frontend/src/lib/api/pair.ts` | Partner sessions, invitations, code previews, and joins |
 | `frontend/src/lib/api/connections.ts` | Suggestions and dismissals |
 | `frontend/src/lib/api/leaderboard.ts` | Ranking calls |
@@ -721,8 +721,8 @@ Next.js App Router turns `app/.../page.tsx` paths into URLs. A folder named `[id
 | `/` | `frontend/app/page.tsx` | Home, quest discovery, compact joining, invitations |
 | `/map` | `frontend/app/map/page.tsx` | Campus map and selected-quest sheet |
 | `/leaderboard` | `frontend/app/leaderboard/page.tsx` | Ranking and current-player position |
-| `/profile` | `frontend/app/profile/page.tsx` | Achievements, suggestions, hobbies, submitted ideas |
-| `/submit` | `frontend/app/submit/page.tsx` | Propose a solo quest |
+| `/profile` | `frontend/app/profile/page.tsx` | Achievements, connection suggestions, hobbies, created quests |
+| `/create` | `frontend/app/create/page.tsx` | Publish a player-created quest |
 | `/dev/qr-scanner` | `frontend/app/dev/qr-scanner/page.tsx` | Development-only camera and QR link tester |
 | `/quests/[id]` | `frontend/app/quests/[id]/page.tsx` | Page shell and Suspense for quest detail |
 | `/join/[code]` | `frontend/app/join/[code]/page.tsx` | Page shell and Suspense for joining |
@@ -746,7 +746,7 @@ An unfinished past meetup is omitted because it can no longer be completed. Reje
 
 The page renders a campus motif, compact player summary, incoming pair invitations, and expandable code entry. In development, it also links to `/dev/qr-scanner`. New players see “How it works” expanded; returning players see it collapsed near the bottom. Here, a new player means no completed quests and no pending claims in the loaded quest list.
 
-`QuestList`, `Section`, `Collapsible`, and `HowItWorks` are local display helpers. Collapsibles use native `details`/`summary` elements. The page ends with share and quest-suggestion actions.
+`QuestList`, `Section`, `Collapsible`, and `HowItWorks` are local display helpers. Collapsibles use native `details`/`summary` elements. The page ends with share and quest-creation actions.
 
 ### 12.2 Quest detail: `frontend/app/quests/[id]/quest-detail.tsx`
 
@@ -798,15 +798,15 @@ This page contains four local feature components:
 
 **`HobbyEditor`** keeps selected hobbies and discoverability in local form state until Save. It compares that draft against the fetched player preferences, disables unchanged saves, supports clearing all interests locally, and shows a saved acknowledgment after a successful mutation. It is intentionally not keyed by saved preference values, so refresh does not immediately erase the success message.
 
-**`MySubmissions`** loads the player's ideas, displays review status, shows a reviewer note on rejected ideas, and links published ones to the playable quest.
+**`MyCreatedQuests`** lists the player's creations that are published, retired, or moved to drafts by a maintainer, newest first, with links to their quest pages.
 
-The page order is achievements, suggestions, hobbies, ideas, and sharing. Local preference edits do not become server data until Save succeeds.
+The page order is achievements, connection suggestions, hobbies, created quests, and sharing. Local preference edits do not become server data until Save succeeds.
 
-### 12.7 Suggestions: `frontend/app/submit/page.tsx`
+### 12.7 Creation: `frontend/app/create/page.tsx`
 
-The quest proposal form contains title, instructions, and optional location. It displays activity guidelines, requires a trimmed title of at least three characters and instructions of at least ten, and applies maximum lengths.
+The player creation page renders the shared `QuestEditor` in player mode. It offers solo, pair, quiz, and multi-step kinds, plus title, instructions, location, optional map pin, and type-specific steps or questions. Solo requires a creator-set password. The reward is fixed at 10 points and the meetup option is unavailable.
 
-Submission creates an idea through `useSubmitQuest()`. On 201, the form becomes a success card with links to the profile and an option to suggest another. That option resets local form state. The player cannot choose a quest type or reward in this form.
+The form calls `useCreateQuest()`. A 201 response means the quest is published, and the app opens its playable detail page. The backend separately rejects meetups and privileged fields, so direct API callers cannot bypass the form's choices.
 
 Admin pages are explained together in section 15 because they share the maintainer gate and editing workflow.
 
@@ -932,16 +932,15 @@ It shows the player's total and links to quests/ranking. `CompletedNote` display
 
 ### 15.2 Dashboard: `frontend/app/admin/page.tsx`
 
-The dashboard has four tabs with local component state:
+The dashboard has three tabs with local component state:
 
 | Local component | Behavior |
 | --- | --- |
 | `QuestsTab` | Lists all quests with type, status, completion/report counts, and editor links |
-| `IdeasTab` / `IdeaCard` | Lists pending ideas; publish, reject with note, or open the editor |
 | `ReviewsTab` | Lists pending completion claims; approve/reject with optional notes |
 | `ReportsTab` | Lists unresolved reports; dismiss one or retire the quest |
 
-`Dashboard` also queries queue sizes to place counts on the tabs. Mutations pass through `useAction` and invalidate cached queries. Publication buttons are disabled when the backend's `publish_problems` list is non-empty.
+`Dashboard` also queries review and report queue sizes to place counts on the tabs. Mutations pass through `useAction` and invalidate cached queries. Publication buttons are disabled when the backend's `publish_problems` list is non-empty.
 
 ### 15.3 Editor route wrappers
 
@@ -958,7 +957,7 @@ The editor owns local state for text, reward, kind, completion method, pin, sche
 
 `edited(setter)` wraps local edits so they clear the previous saved acknowledgment. `buildInput()` trims text, converts empty location to `null`, converts points to a number, includes only content relevant to the selected type, and serializes coordinates and dates.
 
-`handleSave()` updates an existing quest or creates a new draft. A new draft's 201 response redirects to its existing-quest editor. Successful saves invalidate queries. Saving does not automatically publish.
+`handleSave()` updates an existing admin quest or creates a new admin draft. In player mode, it sends `PlayerQuestIn` to `/quests` and opens the published quest on 201. Successful saves invalidate queries. Admin drafts still require a separate publish action.
 
 Type-specific editing:
 
@@ -972,7 +971,7 @@ Once a code-verified quest is saved, the editor shows its unchanged code and lin
 
 `toLocalInput()` converts an ISO timestamp into the browser's local `datetime-local` value. `fromLocalInput()` converts it back to an ISO timestamp. The editing timezone follows the maintainer's browser, while the preview and player displays explicitly show Zurich time.
 
-`STATUS_ACTIONS` defines the UI's offered transitions. Drafts can publish; pending ideas can publish/reject; published quests can unpublish/retire; rejected quests can move to drafts; retired quests can publish again. Rejection asks for a note; retirement asks for confirmation. Status actions operate on saved server content, so the editor reminds maintainers to save edits first.
+`STATUS_ACTIONS` defines the UI's offered transitions. Drafts can publish; published quests can unpublish or retire; retired quests can publish again. Legacy pending quests can publish, and legacy rejected quests can move to drafts. Retirement asks for confirmation. Status actions operate on saved server content, so the editor reminds maintainers to save edits first.
 
 The save button is in normal document flow in the current source. It is not a floating control covering the form.
 
@@ -1132,22 +1131,19 @@ Session claiming and each completion save use separate commits. The operation is
 
 This creates a quest invitation, not a persistent friendship, conversation, or contact exchange.
 
-### 18.5 A proposed quest reaches the public list
+### 18.5 A player-created quest reaches the public list
 
 ```text
-Player submits title/instructions/location
-    → POST /api/quests/submissions
-    → save Quest(kind=solo, status=pending_review, author_id=player)
-    → profile shows the idea's status
-
-Maintainer opens Ideas
-    → GET /api/admin/quests?status_filter=pending_review
-    → edit if needed, then change status to published
-    → backend verifies publish_problems() is empty
-    → GET /api/quests now includes it for players
+Player chooses solo, pair, quiz, or multi-step and submits complete content
+    → POST /api/quests
+    → backend validates the allowed kind and fixed reward
+    → solo content must include a password; other kinds use their normal rules
+    → backend checks publish_problems() and saves status=published
+    → GET /api/quests immediately includes it for everyone
+    → the creator sees it under Your quests; maintainers handle later edits
 ```
 
-Rejection records an optional note visible to the author. A rejected idea can be moved to drafts in the editor and subsequently revised/published by a maintainer.
+No maintainer approval queue is involved in creating a player quest.
 
 ### 18.6 A reported quest is removed from play
 
@@ -1327,7 +1323,7 @@ Expanded coverage includes:
 - Retiring content without discarding progress.
 - Type/step editing restrictions once progress exists.
 - Admin answer keys being excluded from player quiz responses.
-- Idea submission, review, validation, and pending limits.
+- Immediate player creation, allowed kinds, password requirement, fixed rewards, and rejected privileged fields.
 - Reports, dismissal, and quest retirement.
 - Pending claims, approval, rejection notes, resubmission, and repeated submissions.
 - Ordered step completion and wrong-type/step errors.
@@ -1397,7 +1393,7 @@ API tests do not replace browser checks. Particularly useful browser cases are s
 | Check-in timing | `backend/game.py` | Quest router and meetup component |
 | Temporary pair-code length, alphabet, lifetime | `backend/routers/pair.py` | Inputs, countdown, invitation copy, tests |
 | Permanent quest-code generation and stability | `backend/models.py`, `backend/database.py` | Redemption endpoint, admin sign, privacy, and tests |
-| Idea submission limits/default points | `backend/routers/quests.py` | Submit UI and schema limits |
+| Player creation rules and fixed reward | `backend/routers/quests.py`, `backend/schemas.py` | Create UI and publication tests |
 | Reviewer or report behavior | `backend/routers/admin.py` | Admin dashboard and approval UI |
 | Ranking rules/list size | `backend/routers/leaderboard.py` | Leaderboard response and screen |
 | Identity/permission handling | `backend/auth.py` | Proxy configuration and environment |
@@ -1423,7 +1419,7 @@ These details matter when reading or extending the code:
 5. **Pair claim and rewards are separate commits.** Conditional claiming protects against competing partners; it does not make the entire multi-player operation transactional as one unit.
 6. **Completion insertion has explicit duplicate protection; not every workflow has the same concurrency guarantees.** Claim review checks pending state before updating, while the code does not use a conditional atomic review update. Sequential-repeat tests should not be read as proof of all concurrent-review outcomes.
 7. **Time-sensitive UI needs fresh data.** Pair waits and incoming invites explicitly poll. Meetup state is recalculated when the server builds quest views, but no dedicated meetup polling timer is added in its action component.
-8. **Some input limits run before trimming.** Schemas validate string length and routers then strip whitespace. Publication validates trimmed content again. Frontend forms also perform trimmed checks for ideas/reports. Direct API callers should not assume every field gets the same post-trim minimum check.
+8. **Some input limits run before trimming.** Schemas validate string length and routers then strip whitespace. Publication validates trimmed content again. The player creation form and report form also perform trimmed checks. Direct API callers should not assume every field gets the same post-trim minimum check.
 9. **Retirement keeps history.** The code has no permanent quest-deletion endpoint and no completion-reset endpoint.
 10. **Legacy migration is limited.** It adds known columns, backfills missing quest verification codes, and creates identity/code indexes; it is not a versioned migration system for arbitrary future schema changes.
 11. **External services remain dependencies.** Login is provided externally; map tiles and Google Maps directions are external. The app has no offline map cache or installed-app/service-worker implementation in the inspected source.

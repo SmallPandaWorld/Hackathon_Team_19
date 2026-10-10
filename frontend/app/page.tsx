@@ -11,7 +11,7 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
 import { useListQuests } from "@/src/lib/api/quests";
-import { ChevronDown, Lightbulb, Send } from "lucide-react";
+import { ChevronDown, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -167,8 +167,8 @@ export default function Home() {
             ) : (
               <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
                 {!quests?.length
-                  ? "No quests yet. Check back soon, or suggest one!"
-                  : "You've done everything available right now. Check the upcoming events, or suggest a new quest!"}
+                  ? "No quests yet. Create one to get things started!"
+                  : "You've done everything available right now. Check the upcoming events, or create a new quest!"}
               </p>
             )}
           </Section>
@@ -213,9 +213,9 @@ export default function Home() {
         />
         <Link
           className={`${buttonStyles.secondary} flex self-start items-center justify-center gap-2`}
-          href="/submit"
+          href="/create"
         >
-          <Lightbulb aria-hidden className="h-4 w-4" /> Suggest a quest
+          <Plus aria-hidden className="h-4 w-4" /> Create a quest
         </Link>
       </div>
     </Page>

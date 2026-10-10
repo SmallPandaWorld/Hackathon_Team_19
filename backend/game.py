@@ -37,6 +37,7 @@ from models import (
 )
 from schemas import (
     CompletionResult,
+    CreatedQuestOut,
     ErrorResponse,
     PairSessionOut,
     QuestOut,
@@ -44,7 +45,6 @@ from schemas import (
     QuizResult,
     StepOut,
     Suggestion,
-    SubmissionOut,
     Suggestions,
 )
 
@@ -327,12 +327,19 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
             problems.append("A quiz needs at least one question.")
         for index, question in enumerate(questions, start=1):
             choices = json.loads(question.choices)
+            if not question.prompt.strip():
+                problems.append(f"Question {index} needs a prompt.")
             if len([c for c in choices if c.strip()]) != len(choices) or len(choices) < 2:
                 problems.append(f"Question {index} needs at least 2 non-empty choices.")
             if not 0 <= question.correct_index < len(choices):
                 problems.append(f"Question {index} has no valid correct answer.")
-    if quest.kind == MULTI_STEP and len(ordered_steps(db, quest.id)) < 2:
-        problems.append("A multi-step quest needs at least 2 steps.")
+    if quest.kind == MULTI_STEP:
+        steps = ordered_steps(db, quest.id)
+        if len(steps) < 2:
+            problems.append("A multi-step quest needs at least 2 steps.")
+        for index, step in enumerate(steps, start=1):
+            if not step.title.strip():
+                problems.append(f"Step {index} needs a title.")
     if quest.kind == MEETUP:
         if quest.starts_at is None or quest.ends_at is None:
             problems.append("A meetup needs a start and end time.")
@@ -343,24 +350,9 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
 
 # --- Creating quests ----------------------------------------------------------
 
-def add_quest(db: Session, **fields) -> Quest:
-    """Insert a quest (with a generated UUID) and commit it."""
-    quest = Quest(**fields)
-    db.add(quest)
-    db.commit()
-    return quest
-
-
-def submission_out(quest: Quest) -> SubmissionOut:
-    """A player-submitted quest as its author sees it."""
-    return SubmissionOut(
-        id=quest.id,
-        title=quest.title,
-        description=quest.description,
-        location=quest.location,
-        status=quest.status,
-        review_note=quest.review_note,
-    )
+def created_quest_out(quest: Quest) -> CreatedQuestOut:
+    return CreatedQuestOut(
+        id=quest.id, title=quest.title, kind=quest.kind, status=quest.status)
 
 
 # --- Quest actions --------------------------------------------------------------

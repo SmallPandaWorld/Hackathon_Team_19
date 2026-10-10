@@ -26,15 +26,14 @@ import type {
   HTTPValidationError,
   PairCancelAction,
   PairStartAction,
+  PlayerQuestIn,
   QuestActionResult,
   QuestOut,
-  QuestSubmission,
   QuizAction,
   RedeemAction,
   ReportAction,
   RsvpAction,
   StepAction,
-  SubmissionOut,
 } from "./hackathon.schemas";
 
 const withQueryKey = <T extends object, K>(
@@ -220,50 +219,51 @@ export function useListQuests<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export type submitQuestResponse201 = {
-  data: SubmissionOut;
+export type createQuestResponse201 = {
+  data: QuestOut;
   status: 201;
 };
 
-export type submitQuestResponse401 = {
+export type createQuestResponse401 = {
   data: ErrorResponse;
   status: 401;
 };
 
-export type submitQuestResponse409 = {
+export type createQuestResponse409 = {
   data: ErrorResponse;
   status: 409;
 };
 
-export type submitQuestResponse422 = {
+export type createQuestResponse422 = {
   data: HTTPValidationError;
   status: 422;
 };
 
-export type submitQuestResponseSuccess = submitQuestResponse201 & {
+export type createQuestResponseSuccess = createQuestResponse201 & {
   headers: Headers;
 };
-export type submitQuestResponseError = (
-  submitQuestResponse401 | submitQuestResponse409 | submitQuestResponse422
+export type createQuestResponseError = (
+  createQuestResponse401 | createQuestResponse409 | createQuestResponse422
 ) & {
   headers: Headers;
 };
 
-export type submitQuestResponse =
-  submitQuestResponseSuccess | submitQuestResponseError;
+export type createQuestResponse =
+  createQuestResponseSuccess | createQuestResponseError;
 
-export const getSubmitQuestUrl = () => {
+export const getCreateQuestUrl = () => {
   return `/api/quests`;
 };
 
 /**
- * Propose a new solo quest. A maintainer reviews it before it is published.
- * @summary Submit Quest
+ * Publish a quest immediately. Players cannot create meetups; solo quests
+ * require a creator-set password. The reward is fixed at 10 points.
+ * @summary Create Quest
  */
-export const submitQuest = async (
-  questSubmission: QuestSubmission,
+export const createQuest = async (
+  playerQuestIn: PlayerQuestIn,
   options?: RequestInit,
-): Promise<submitQuestResponse> => {
+): Promise<createQuestResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -285,46 +285,46 @@ export const submitQuest = async (
     }
     return headers;
   };
-  const res = await fetch(getSubmitQuestUrl(), {
+  const res = await fetch(getCreateQuestUrl(), {
     ...options,
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...getHeaders(options?.headers),
     },
-    body: JSON.stringify(questSubmission),
+    body: JSON.stringify(playerQuestIn),
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: submitQuestResponse["data"] = body ? JSON.parse(body) : {};
+  const data: createQuestResponse["data"] = body ? JSON.parse(body) : {};
   return {
     data,
     status: res.status,
     headers: res.headers,
-  } as submitQuestResponse;
+  } as createQuestResponse;
 };
 
-export const getSubmitQuestMutationKey = () => ["submitQuest"] as const;
+export const getCreateQuestMutationKey = () => ["createQuest"] as const;
 
-export const getSubmitQuestMutationOptions = <
+export const getCreateQuestMutationOptions = <
   TError = ErrorResponse | HTTPValidationError,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof submitQuest>>,
+    Awaited<ReturnType<typeof createQuest>>,
     TError,
-    SubmitQuestMutationVariables,
+    CreateQuestMutationVariables,
     TContext
   >;
   fetch?: RequestInit;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof submitQuest>>,
+  Awaited<ReturnType<typeof createQuest>>,
   TError,
-  SubmitQuestMutationVariables,
+  CreateQuestMutationVariables,
   TContext
 > => {
-  const mutationKey = getSubmitQuestMutationKey();
+  const mutationKey = getCreateQuestMutationKey();
   const { mutation: mutationOptions, fetch: fetchOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -334,48 +334,48 @@ export const getSubmitQuestMutationOptions = <
     : { mutation: { mutationKey }, fetch: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof submitQuest>>,
-    SubmitQuestMutationVariables
+    Awaited<ReturnType<typeof createQuest>>,
+    CreateQuestMutationVariables
   > = (props) => {
     const { data } = props ?? {};
 
-    return submitQuest(data, fetchOptions);
+    return createQuest(data, fetchOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type SubmitQuestMutationResult = NonNullable<
-  Awaited<ReturnType<typeof submitQuest>>
+export type CreateQuestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createQuest>>
 >;
-export type SubmitQuestMutationBody = QuestSubmission;
-export type SubmitQuestMutationError = ErrorResponse | HTTPValidationError;
-export type SubmitQuestMutationVariables = { data: QuestSubmission };
+export type CreateQuestMutationBody = PlayerQuestIn;
+export type CreateQuestMutationError = ErrorResponse | HTTPValidationError;
+export type CreateQuestMutationVariables = { data: PlayerQuestIn };
 
 /**
- * @summary Submit Quest
+ * @summary Create Quest
  */
-export const useSubmitQuest = <
+export const useCreateQuest = <
   TError = ErrorResponse | HTTPValidationError,
   TContext = unknown,
 >(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof submitQuest>>,
+      Awaited<ReturnType<typeof createQuest>>,
       TError,
-      SubmitQuestMutationVariables,
+      CreateQuestMutationVariables,
       TContext
     >;
     fetch?: RequestInit;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof submitQuest>>,
+  Awaited<ReturnType<typeof createQuest>>,
   TError,
-  SubmitQuestMutationVariables,
+  CreateQuestMutationVariables,
   TContext
 > => {
-  return useMutation(getSubmitQuestMutationOptions(options), queryClient);
+  return useMutation(getCreateQuestMutationOptions(options), queryClient);
 };
 export type getQuestResponse200 = {
   data: QuestOut;
@@ -416,7 +416,7 @@ export const getGetQuestUrl = (questId: string) => {
  * One quest with full instructions and the current player's progress
  * (including their latest pair session).
  *
- * Also returns retired quests the player completed and their own submissions.
+ * Also returns retired quests the player completed or created.
  * @summary Get Quest
  */
 export const getQuest = async (

@@ -9,6 +9,8 @@ import type {
   AdminQuestInKind,
   AdminQuestOut,
   AdminQuestPatch,
+  PlayerQuestIn,
+  PlayerQuestInKind,
   QuizQuestionIn,
   StepIn,
 } from "@/src/lib/api/hackathon.schemas";
@@ -18,6 +20,7 @@ import {
   STATUS_LABELS,
 } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
+import { useCreateQuest } from "@/src/lib/api/quests";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -55,7 +58,6 @@ const STATUS_ACTIONS: Record<
   ],
   pending_review: [
     { status: "published", label: "Publish", style: buttonStyles.primary },
-    { status: "rejected", label: "Reject", style: buttonStyles.danger },
   ],
   published: [
     { status: "draft", label: "Unpublish", style: buttonStyles.secondary },
@@ -73,9 +75,16 @@ const STATUS_ACTIONS: Record<
   ],
 };
 
-export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
+export function QuestEditor({
+  quest,
+  playerCreate = false,
+}: {
+  quest?: AdminQuestOut;
+  playerCreate?: boolean;
+}) {
   const router = useRouter();
   const createQuest = useAdminCreateQuest();
+  const createPlayerQuest = useCreateQuest();
   const updateQuest = useAdminUpdateQuest();
   const { error, run, refreshAll } = useAction();
   const [saved, setSaved] = useState(false);
@@ -92,7 +101,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     quest?.requires_code ?? false,
   );
   const [requiresPassword, setRequiresPassword] = useState(
-    quest?.requires_password ?? false,
+    playerCreate || (quest?.requires_password ?? false),
   );
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
@@ -151,8 +160,32 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     };
   }
 
+  function buildPlayerInput(): PlayerQuestIn {
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      location: location.trim() || null,
+      kind: kind as PlayerQuestInKind,
+      ...(kind === "solo" ? { password: password.trim() } : {}),
+      latitude: pin?.lat ?? null,
+      longitude: pin?.lng ?? null,
+      steps: kind === "multi_step" ? steps : [],
+      questions: kind === "quiz" ? questions : [],
+    };
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (playerCreate) {
+      const response = await run(() =>
+        createPlayerQuest.mutateAsync({ data: buildPlayerInput() }),
+      );
+      if (response?.status === 201) {
+        await refreshAll();
+        router.replace(`/quests/${response.data.id}`);
+      }
+      return;
+    }
     if (quest) {
       if (
         await run(() =>
@@ -177,11 +210,6 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   async function changeStatus(status: StatusChange) {
     if (!quest) return;
     const data: AdminQuestPatch = { status };
-    if (status === "rejected") {
-      data.review_note =
-        window.prompt("Why is this idea rejected? (shown to the author)") ??
-        null;
-    }
     if (
       status === "retired" &&
       !window.confirm(
@@ -195,7 +223,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     }
   }
 
-  const saving = createQuest.isPending || updateQuest.isPending;
+  const saving =
+    createQuest.isPending ||
+    createPlayerQuest.isPending ||
+    updateQuest.isPending;
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSave}>
@@ -212,7 +243,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           </div>
           {quest.author_name && (
             <p className="mt-2 text-sm text-muted">
-              Suggested by {quest.author_name}
+              Created by {quest.author_name}
             </p>
           )}
           {quest.publish_problems.length > 0 && (
@@ -274,14 +305,18 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             }
             value={kind}
           >
-            {(Object.keys(KIND_LABELS) as AdminQuestInKind[]).map((key) => (
-              <option key={key} value={key}>
-                {KIND_LABELS[key].label}
-              </option>
-            ))}
+            {(Object.keys(KIND_LABELS) as AdminQuestInKind[])
+              .filter((key) => !playerCreate || key !== "meetup")
+              .map((key) => (
+                <option key={key} value={key}>
+                  {KIND_LABELS[key].label}
+                </option>
+              ))}
           </select>
           <span className="mt-1 block text-xs font-normal text-muted">
-            {KIND_HELP[kind]}
+            {playerCreate && kind === "solo"
+              ? "Players enter the password you set after finishing the activity."
+              : KIND_HELP[kind]}
           </span>
         </label>
         <label className="text-sm font-medium text-on-surface-variant">
@@ -289,6 +324,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <input
             className={inputStyles}
             maxLength={120}
+            minLength={playerCreate ? 3 : 1}
             onChange={(e) => edited(setTitle)(e.target.value)}
             required
             value={title}
@@ -299,6 +335,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <textarea
             className={inputStyles}
             maxLength={2000}
+            minLength={playerCreate ? 10 : 1}
             onChange={(e) => edited(setDescription)(e.target.value)}
             required
             rows={5}
@@ -318,13 +355,18 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <label className="text-sm font-medium text-on-surface-variant">
             Points
             <input
-              className={inputStyles}
+              className={`${inputStyles} disabled:cursor-not-allowed disabled:bg-surface-container disabled:text-muted`}
+              disabled={playerCreate}
               max={1000}
               min={0}
-              onChange={(e) => edited(setPoints)(e.target.value)}
+              onChange={
+                playerCreate
+                  ? undefined
+                  : (e) => edited(setPoints)(e.target.value)
+              }
               required
               type="number"
-              value={points}
+              value={playerCreate ? "10" : points}
             />
           </label>
         </div>
@@ -335,62 +377,68 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         )}
         {kind === "solo" && (
           <fieldset className="flex flex-col gap-2 text-sm">
-            <legend className="font-semibold">Completion method</legend>
-            <label className="flex items-center gap-2">
-              <input
-                checked={
-                  !requiresApproval && !requiresCode && !requiresPassword
-                }
-                onChange={() => {
-                  edited(setRequiresApproval)(false);
-                  edited(setRequiresCode)(false);
-                  edited(setRequiresPassword)(false);
-                }}
-                name="completion-method"
-                type="radio"
-              />
-              Player confirms completion
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                checked={requiresCode}
-                onChange={() => {
-                  edited(setRequiresCode)(true);
-                  edited(setRequiresApproval)(false);
-                  edited(setRequiresPassword)(false);
-                }}
-                name="completion-method"
-                type="radio"
-              />
-              Printed code or QR
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                checked={requiresPassword}
-                onChange={() => {
-                  edited(setRequiresPassword)(true);
-                  edited(setRequiresCode)(false);
-                  edited(setRequiresApproval)(false);
-                }}
-                name="completion-method"
-                type="radio"
-              />
-              Creator-set password
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                checked={requiresApproval}
-                onChange={() => {
-                  edited(setRequiresApproval)(true);
-                  edited(setRequiresCode)(false);
-                  edited(setRequiresPassword)(false);
-                }}
-                name="completion-method"
-                type="radio"
-              />
-              Maintainer approval
-            </label>
-            {requiresPassword && (
+            {!playerCreate && (
+              <legend className="font-semibold">Completion method</legend>
+            )}
+            {!playerCreate && (
+              <>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={
+                      !requiresApproval && !requiresCode && !requiresPassword
+                    }
+                    onChange={() => {
+                      edited(setRequiresApproval)(false);
+                      edited(setRequiresCode)(false);
+                      edited(setRequiresPassword)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Player confirms completion
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={requiresCode}
+                    onChange={() => {
+                      edited(setRequiresCode)(true);
+                      edited(setRequiresApproval)(false);
+                      edited(setRequiresPassword)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Printed code or QR
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={requiresPassword}
+                    onChange={() => {
+                      edited(setRequiresPassword)(true);
+                      edited(setRequiresCode)(false);
+                      edited(setRequiresApproval)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Creator-set password
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={requiresApproval}
+                    onChange={() => {
+                      edited(setRequiresApproval)(true);
+                      edited(setRequiresCode)(false);
+                      edited(setRequiresPassword)(false);
+                    }}
+                    name="completion-method"
+                    type="radio"
+                  />
+                  Maintainer approval
+                </label>
+              </>
+            )}
+            {(playerCreate || requiresPassword) && (
               <label className="font-medium text-on-surface-variant">
                 Quest password
                 <input
@@ -404,7 +452,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                       ? "Leave blank to keep the current password"
                       : "Set a password"
                   }
-                  required={!quest?.requires_password}
+                  required={playerCreate || !quest?.requires_password}
                   type="password"
                   value={password}
                 />
@@ -415,8 +463,9 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
               </label>
             )}
             <p className="text-xs text-muted">
-              For code quests, print the QR sign after saving. Players can scan
-              it with a phone camera or type its code.
+              {playerCreate
+                ? "Share the password with players after they complete the quest. It cannot be viewed after publishing."
+                : "For code quests, print the QR sign after saving. Players can scan it with a phone camera or type its code."}
             </p>
           </fieldset>
         )}
@@ -700,7 +749,13 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           disabled={saving}
           type="submit"
         >
-          {saving ? "Saving..." : quest ? "Save changes" : "Create draft"}
+          {saving
+            ? "Saving..."
+            : playerCreate
+              ? "Publish quest"
+              : quest
+                ? "Save changes"
+                : "Create draft"}
         </button>
         {saved && (
           <p

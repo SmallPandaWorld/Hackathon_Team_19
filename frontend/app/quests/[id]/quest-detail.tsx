@@ -221,7 +221,7 @@ export function QuestDetail() {
         )}
         {quest.author_name && (
           <p className="mt-1 text-xs text-muted">
-            Suggested by {quest.author_name}
+            Created by {quest.author_name}
           </p>
         )}
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
