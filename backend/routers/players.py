@@ -1,17 +1,20 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from auth import get_current_player, is_maintainer
 from badges import player_badges
 from database import get_db
-from game import bad_request, error_responses, total_points
+from game import bad_request, error_responses, not_found, total_points
 from hobbies import HOBBIES, parse_hobbies, serialize_hobbies
 from models import User
-from schemas import Badge, HobbyOption, Player, ProfileUpdate
+from schemas import Badge, HobbyOption, Player, PlayerSearchResult, ProfileUpdate
 
 router = APIRouter(tags=["players"], responses=error_responses(401))
+
+MAX_SEARCH_RESULTS = 20
 
 
 def player_out(db: Session, player: User) -> Player:
@@ -23,6 +26,54 @@ def player_out(db: Session, player: User) -> Player:
         hobbies=parse_hobbies(player.hobbies),
         discoverable=player.discoverable,
     )
+
+
+@router.get("/players/search", response_model=List[PlayerSearchResult])
+def search_players(
+    q: str = Query(min_length=2, max_length=100, description="Part of a display name"),
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """Discoverable players whose name contains the query, A to Z.
+
+    Same consent rule as profile pages: players who did not opt in to
+    suggestions cannot be found.
+    """
+    term = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    if len(term) < 2:
+        return []
+    matches = db.scalars(
+        select(User)
+        .where(
+            User.discoverable.is_(True),
+            User.viscon_user_id.is_not(None),
+            User.id != player.id,
+            User.name.ilike(f"%{term}%", escape="\\"),
+        )
+        .order_by(User.name, User.id)
+        .limit(MAX_SEARCH_RESULTS)
+    )
+    return [PlayerSearchResult(player_id=m.id, display_name=m.name) for m in matches]
+
+
+@router.get("/players/{player_id}", response_model=Player, responses=error_responses(404))
+def get_player(
+    player_id: int,
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """A player's public profile.
+
+    Only players who opted in to suggestions are visible to others; a player
+    can always view themselves.
+    """
+    other = db.get(User, player_id)
+    if other is None or not (other.discoverable or other.id == player.id):
+        raise not_found("Player")
+    out = player_out(db, other)
+    if other.id != player.id:
+        out.is_maintainer = False
+    return out
 
 
 @router.get("/me", response_model=Player)
