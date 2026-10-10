@@ -1,8 +1,7 @@
 import os
 from pathlib import Path
-from uuid import uuid4
 
-from sqlalchemy import Integer, create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
@@ -18,6 +17,15 @@ engine = create_engine(DATABASE_URL, **engine_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
+if DATABASE_URL.startswith("sqlite"):
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -30,121 +38,58 @@ def get_db():
         db.close()
 
 
-def migrate_legacy_users():
-    """Preserve profiles from the original integer-keyed SQLite table."""
-    if engine.dialect.name != "sqlite":
-        return
+# Columns added after a table was first created. create_all() only creates
+# missing tables, so existing databases get these via ALTER TABLE. Defaults
+# keep old rows valid (e.g. MVP quests become published solo quests).
+ADDED_COLUMNS = {
+    "users": {
+        "viscon_user_id": "VARCHAR(255)",
+        "hobbies": "VARCHAR(1000) NOT NULL DEFAULT ''",
+        "discoverable": "BOOLEAN NOT NULL DEFAULT 0",
+    },
+    "quests": {
+        "kind": "VARCHAR(20) NOT NULL DEFAULT 'solo'",
+        "status": "VARCHAR(20) NOT NULL DEFAULT 'published'",
+        "requires_approval": "BOOLEAN NOT NULL DEFAULT 0",
+        "latitude": "FLOAT",
+        "longitude": "FLOAT",
+        "starts_at": "DATETIME",
+        "ends_at": "DATETIME",
+        "cancelled": "BOOLEAN NOT NULL DEFAULT 0",
+        "author_id": "INTEGER REFERENCES users (id)",
+        "review_note": "TEXT",
+    },
+    "pair_sessions": {
+        "invited_player_id": "INTEGER REFERENCES users (id)",
+    },
+    "completions": {
+        "status": "VARCHAR(20) NOT NULL DEFAULT 'approved'",
+        "note": "TEXT",
+        "reviewer_id": "INTEGER REFERENCES users (id)",
+        "review_note": "TEXT",
+        "reviewed_at": "DATETIME",
+    },
+}
 
+
+def upgrade_legacy_schema():
+    """Add missing columns to tables created by older versions of the app.
+
+    Existing rows are kept. Prototype users without a VISCON identity simply
+    never match a login.
+    """
     inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
-        return
-
-    columns = {column["name"] for column in inspector.get_columns("users")}
-    if "username" in columns:
-        return
-
-    with engine.begin() as connection:
-        connection.execute(text("ALTER TABLE users RENAME TO users_legacy"))
-
-    from models import User
-
-    Base.metadata.create_all(bind=engine)
-    with engine.begin() as connection:
-        legacy_users = connection.execute(
-            text("SELECT id, name FROM users_legacy ORDER BY id")
-        ).mappings()
-        connection.execute(
-            User.__table__.insert(),
-            [
-                {"username": f"legacy-{row['id']}", "name": row["name"], "score": 0}
-                for row in legacy_users
-            ],
-        )
-        connection.execute(text("DROP TABLE users_legacy"))
-
-
-def migrate_legacy_quest_ids():
-    """Replace integer quest IDs in existing SQLite databases with UUIDs."""
-    if engine.dialect.name != "sqlite":
-        return
-
-    inspector = inspect(engine)
-    if "quests" not in inspector.get_table_names():
-        return
-
-    quest_id_column = next(
-        column for column in inspector.get_columns("quests") if column["name"] == "id"
-    )
-    if not isinstance(quest_id_column["type"], Integer):
-        return
-
     tables = set(inspector.get_table_names())
-    with engine.connect() as connection:
-        # SQLite enforces foreign keys only when enabled for the connection.
-        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
-        connection.commit()
-        with connection.begin():
-            quests = connection.execute(text("SELECT * FROM quests")).mappings().all()
-            assignments = (
-                connection.execute(text("SELECT * FROM quest_assignments")).mappings().all()
-                if "quest_assignments" in tables
-                else []
-            )
-            solvers = (
-                connection.execute(text("SELECT * FROM quest_solvers")).mappings().all()
-                if "quest_solvers" in tables
-                else []
-            )
-            id_map = {row["id"]: uuid4().hex for row in quests}
-
-            for table in ("quest_assignments", "quest_solvers", "quests"):
-                if table in tables:
-                    connection.execute(text(f"DROP TABLE {table}"))
-
-            from models import Base as ModelBase
-
-            ModelBase.metadata.create_all(bind=connection)
-            for row in quests:
-                connection.execute(
-                    text(
-                        "INSERT INTO quests (id, question, answer, points) "
-                        "VALUES (:id, :question, :answer, :points)"
-                    ),
-                    {
-                        "id": id_map[row["id"]],
-                        "question": row["question"],
-                        "answer": row["answer"],
-                        "points": row["points"],
-                    },
-                )
-
-            for row in assignments:
-                connection.execute(
-                    text(
-                        "INSERT INTO quest_assignments "
-                        "(username, quest_id, seen_at, submitted_answer, is_correct, answered_at) "
-                        "VALUES (:username, :quest_id, :seen_at, :submitted_answer, "
-                        ":is_correct, :answered_at)"
-                    ),
-                    {
-                        "username": row["username"],
-                        "quest_id": id_map[row["quest_id"]],
-                        "seen_at": row["seen_at"],
-                        "submitted_answer": row.get("submitted_answer"),
-                        "is_correct": row.get("is_correct"),
-                        "answered_at": row.get("answered_at"),
-                    },
-                )
-
-            for row in solvers:
-                connection.execute(
-                    text(
-                        "INSERT INTO quest_solvers (quest_id, username, solved_at) "
-                        "VALUES (:quest_id, :username, :solved_at)"
-                    ),
-                    {
-                        "quest_id": id_map[row["quest_id"]],
-                        "username": row["username"],
-                        "solved_at": row["solved_at"],
-                    },
-                )
+    with engine.begin() as connection:
+        for table, added in ADDED_COLUMNS.items():
+            if table not in tables:
+                continue
+            existing = {column["name"] for column in inspector.get_columns(table)}
+            for column, ddl in added.items():
+                if column not in existing:
+                    connection.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+        if "users" in tables:
+            connection.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_viscon_user_id "
+                "ON users (viscon_user_id)"))

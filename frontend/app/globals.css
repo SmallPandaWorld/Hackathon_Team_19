@@ -1,26 +1,122 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens modelled on the VIS website (vis.ethz.ch): signature yellow
+ * for primary actions with near-black text, ETH-blue links, neutral gray
+ * surfaces, thin outlines instead of shadows, small radii. Light and dark
+ * follow the system setting, like VIS.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --surface: #ffffff;
+  --surface-variant: #f3f4f6;
+  --surface-container: #e5e7eb;
+  --on-surface: #181c22;
+  --on-surface-variant: #374151;
+  --on-surface-muted: #59616d;
+  --outline: #777f8c;
+  --outline-variant: #e5e7eb;
+  --primary: #ffe210;
+  --primary-hover: #f1d508;
+  --on-primary: #181c22;
+  --link: #215caf;
+  --success: #15803d;
+  --success-surface: #dcfce7;
+  --warning: #a16207;
+  --warning-surface: #fef9c3;
+  --danger: #b91c1c;
+  --danger-surface: #fee2e2;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface: #0f1318;
+    --surface-variant: #171b20;
+    --surface-container: #262b32;
+    --on-surface: #ececec;
+    --on-surface-variant: #c3c6ca;
+    --on-surface-muted: #a8afb9;
+    --outline: #858d98;
+    --outline-variant: #343b45;
+    --link: #92b9ee;
+    --success: #4ade80;
+    --success-surface: #12261a;
+    --warning: #facc15;
+    --warning-surface: #2a2410;
+    --danger: #f87171;
+    --danger-surface: #2c1414;
   }
 }
 
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-surface-container: var(--surface-container);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-muted: var(--on-surface-muted);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-link: var(--link);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --font-sans: var(--font-inter);
+}
+
+html {
+  color-scheme: light dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family:
+    var(--font-inter),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-optical-sizing: auto;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+/* Leaflet map: VIS-style controls and pins */
+.leaflet-container {
+  font-family: inherit;
+  background: var(--surface-variant);
+}
+.leaflet-bar a {
+  background: var(--surface);
+  color: var(--on-surface);
+  border-color: var(--outline-variant);
+}
+.leaflet-bar a:hover {
+  background: var(--surface-variant);
+}
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+/* Dark mode: turn the light OSM tiles into a dark map, like VIS's dark theme. */
+@media (prefers-color-scheme: dark) {
+  .osm-tiles {
+    /* Higher contrast keeps street and building labels readable. */
+    filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.25)
+      saturate(0.55);
+  }
+}
+.quest-pin {
+  background: none;
+  border: none;
 }
