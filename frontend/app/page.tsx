@@ -204,7 +204,7 @@ export default function Home() {
           title="Campus Voyager"
         />
         <Link
-          className={`${buttonStyles.secondary} flex items-center justify-center gap-2`}
+          className={`${buttonStyles.secondary} flex self-start items-center justify-center gap-2`}
           href="/submit"
         >
           <Lightbulb aria-hidden className="h-4 w-4" /> Suggest a quest
