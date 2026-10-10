@@ -77,6 +77,7 @@ def _quest_photo_out(
     *,
     is_mine: bool = False,
     uploader_username: str | None = None,
+    uploader_display_name: str | None = None,
 ) -> QuestPhotoOut:
     return QuestPhotoOut(
         id=photo.id,
@@ -85,6 +86,7 @@ def _quest_photo_out(
         uploaded_at=photo.uploaded_at,
         is_mine=is_mine,
         uploader_username=uploader_username,
+        uploader_display_name=uploader_display_name,
     )
 
 
@@ -194,8 +196,8 @@ def list_quest_photos(
         or (not can_view(db, player, quest) and not is_maintainer(player))
     ):
         raise not_found("Quest")
-    photos = db.scalars(
-        select(QuestPhoto)
+    photo_rows = db.execute(
+        select(QuestPhoto, User)
         .join(User, QuestPhoto.uploader_id == User.username)
         .where(
             QuestPhoto.quest_id == quest.id,
@@ -212,10 +214,13 @@ def list_quest_photos(
             quest,
             is_mine=photo.uploader_id == player.username,
             uploader_username=(
-                photo.uploader_id if photo.uploader_id != player.username else None
+                uploader.username if photo.uploader_id != player.username else None
+            ),
+            uploader_display_name=(
+                uploader.name if photo.uploader_id != player.username else None
             ),
         )
-        for photo in photos
+        for photo, uploader in photo_rows
     ]
 
 

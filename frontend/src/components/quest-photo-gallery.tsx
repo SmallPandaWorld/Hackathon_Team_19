@@ -13,6 +13,7 @@ type QuestPhoto = {
   uploaded_at: string;
   is_mine: boolean;
   uploader_username?: string | null;
+  uploader_display_name?: string | null;
 };
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -53,7 +54,10 @@ export function QuestPhotoGallery({
     photoResult.url === collectionUrl ? photoResult.photos : [];
   const ownPhotos = photos.filter((photo) => photo.is_mine);
   const otherPhotos = photos.filter(
-    (photo) => !photo.is_mine && photo.uploader_username,
+    (photo) =>
+      !photo.is_mine &&
+      photo.uploader_username &&
+      photo.uploader_display_name,
   );
 
   useEffect(() => {
@@ -286,12 +290,12 @@ export function QuestPhotoGallery({
             <figcaption className="mt-1 truncate text-xs text-muted">
               {photo.is_mine ? (
                 "You"
-              ) : photo.uploader_username ? (
+              ) : photo.uploader_username && photo.uploader_display_name ? (
                 <Link
                   className="font-semibold text-link hover:underline"
                   href={`/profile?player=${encodeURIComponent(photo.uploader_username)}`}
                 >
-                  {photo.uploader_username}
+                  {photo.uploader_display_name}
                 </Link>
               ) : null}
             </figcaption>
