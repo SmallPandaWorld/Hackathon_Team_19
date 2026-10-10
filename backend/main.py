@@ -1,17 +1,17 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from database import Base, engine, migrate_legacy_quest_ids, migrate_legacy_users
-from routers.quests import router as quests_router
-from routers.users import router as users_router
+from database import Base, engine, get_db
+from models import User
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    migrate_legacy_users()
-    migrate_legacy_quest_ids()
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -20,16 +20,33 @@ app = FastAPI(root_path="/api", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allows all origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
-app.include_router(users_router)
-app.include_router(quests_router)
+class UserCreate(BaseModel):
+    name: str
 
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+
+@app.post("/users", status_code=status.HTTP_201_CREATED)
+def add_user(user: UserCreate, db: Session = Depends(get_db)):
+    """Persist a new user name."""
+    db_user = User(name=user.name)
+    db.add(db_user)
+    db.commit()
+    return {"message": f"User '{user.name}' erfolgreich gespeichert."}
+
+
+@app.get("/users")
+def get_users(db: Session = Depends(get_db)):
+    """Return all saved users."""
+    users = db.scalars(select(User).order_by(User.id)).all()
+    names = [user.name for user in users]
+    return {"users": names, "count": len(names)}
