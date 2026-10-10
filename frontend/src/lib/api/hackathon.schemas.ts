@@ -18,6 +18,11 @@ export interface HTTPValidationError {
   detail?: ValidationError[];
 }
 
+export interface LoginInfo {
+  id: string | null;
+  name: string | null;
+}
+
 export interface UserCreate {
   name: string;
 }

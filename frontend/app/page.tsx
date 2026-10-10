@@ -2,9 +2,10 @@
 
 import {
   useAddUserUsersPost,
+  useCurrentUserCurrentUserGet,
   useGetUsersUsersGet,
 } from "@/src/lib/api/default";
-import { useEffect, useState, type FormEvent } from "react";
+import {useState, type FormEvent } from "react";
 
 type UsersResponse = {
   users: string[];
@@ -26,23 +27,15 @@ function isUsersResponse(value: unknown): value is UsersResponse {
 
 export default function Home() {
   const { data, isLoading, isError, refetch } = useGetUsersUsersGet();
-
+  const { data: currentUserData } = useCurrentUserCurrentUserGet();
   const addUser = useAddUserUsersPost();
   const [name, setName] = useState("");
-  const [currUserName, setCurrUserName] = useState("mysterious user");
+  //const [currUserName, setCurrUserName] = useState("mysterious user");
+  const currUserName = (currentUserData?.status === 200 && currentUserData.data?.name ? currentUserData.data.name : "mysterious user");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const users = isUsersResponse(data?.data) ? data.data.users : [];
 
-  useEffect(() => {
-    if (!data) {
-      return;
-    }
-    
-    const headers = (data as { headers?: Headers }).headers;
-    
-    console.log("X-User-Id:", headers?.get("X-User-Id") ?? null);
-    setCurrUserName(headers?.get("X-User-Name") ?? "mysterious user");
-  }, [data]);
+
 
   
   async function handleAddUser(event: FormEvent<HTMLFormElement>) {

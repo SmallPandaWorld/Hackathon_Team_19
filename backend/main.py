@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+from typing import Annotated
+from urllib.parse import unquote
 
-from fastapi import Depends, FastAPI, status
+from fastapi import Depends, FastAPI, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -30,9 +32,21 @@ class UserCreate(BaseModel):
     name: str
 
 
+
+class LoginInfo(BaseModel):
+    id: str | None
+    name: str | None
+
+
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+@app.get("/current_user", response_model=LoginInfo)
+def current_user(x_user_id: Annotated[str | None, Header()] = None, x_user_name: Annotated[str | None, Header()] = None):
+    user_name = unquote(x_user_name) if x_user_name else None
+    user_id = unquote(x_user_id) if x_user_id else None
+    return {"id": user_id, "name": user_name}
 
 
 @app.post("/users", status_code=status.HTTP_201_CREATED)

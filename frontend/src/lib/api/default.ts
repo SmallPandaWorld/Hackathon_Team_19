@@ -20,7 +20,11 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HTTPValidationError, UserCreate } from "./hackathon.schemas";
+import type {
+  HTTPValidationError,
+  LoginInfo,
+  UserCreate,
+} from "./hackathon.schemas";
 
 const withQueryKey = <T extends object, K>(
   query: T,
@@ -190,6 +194,196 @@ export function useRootGet<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export type currentUserCurrentUserGetResponse200 = {
+  data: LoginInfo;
+  status: 200;
+};
+
+export type currentUserCurrentUserGetResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type currentUserCurrentUserGetResponseSuccess =
+  currentUserCurrentUserGetResponse200 & {
+    headers: Headers;
+  };
+export type currentUserCurrentUserGetResponseError =
+  currentUserCurrentUserGetResponse422 & {
+    headers: Headers;
+  };
+
+export type currentUserCurrentUserGetResponse =
+  | currentUserCurrentUserGetResponseSuccess
+  | currentUserCurrentUserGetResponseError;
+
+export const getCurrentUserCurrentUserGetUrl = () => {
+  return `/api/current_user`;
+};
+
+/**
+ * @summary Current User
+ */
+export const currentUserCurrentUserGet = async (
+  options?: RequestInit,
+): Promise<currentUserCurrentUserGetResponse> => {
+  const res = await fetch(getCurrentUserCurrentUserGetUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: currentUserCurrentUserGetResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as currentUserCurrentUserGetResponse;
+};
+
+export const getCurrentUserCurrentUserGetQueryKey = () => {
+  return [`/api/current_user`] as const;
+};
+
+export const getCurrentUserCurrentUserGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+  TError = HTTPValidationError,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+      TError,
+      TData
+    >
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getCurrentUserCurrentUserGetQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof currentUserCurrentUserGet>>
+  > = ({ signal }) => currentUserCurrentUserGet({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type CurrentUserCurrentUserGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof currentUserCurrentUserGet>>
+>;
+export type CurrentUserCurrentUserGetQueryError = HTTPValidationError;
+
+export function useCurrentUserCurrentUserGet<
+  TData = Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+  TError = HTTPValidationError,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+          TError,
+          Awaited<ReturnType<typeof currentUserCurrentUserGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useCurrentUserCurrentUserGet<
+  TData = Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+          TError,
+          Awaited<ReturnType<typeof currentUserCurrentUserGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useCurrentUserCurrentUserGet<
+  TData = Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Current User
+ */
+
+export function useCurrentUserCurrentUserGet<
+  TData = Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+  TError = HTTPValidationError,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof currentUserCurrentUserGet>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getCurrentUserCurrentUserGetQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export type getUsersUsersGetResponse200 = {
   data: unknown;
   status: 200;
@@ -205,7 +399,7 @@ export const getGetUsersUsersGetUrl = () => {
 };
 
 /**
- * Gibt alle gespeicherten Benutzer zurück.
+ * Return all saved users.
  * @summary Get Users
  */
 export const getUsersUsersGet = async (
@@ -386,7 +580,7 @@ export const getAddUserUsersPostUrl = () => {
 };
 
 /**
- * Speichert einen neuen Benutzernamen.
+ * Persist a new user name.
  * @summary Add User
  */
 export const addUserUsersPost = async (
