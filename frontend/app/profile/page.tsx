@@ -16,6 +16,7 @@ import { ShareButton } from "@/src/components/share-button";
 import { ThemeSwitch } from "@/src/components/theme-switch";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
+import { initials } from "@/src/lib/initials";
 import type {
   Badge,
   HobbyOption,
@@ -424,8 +425,8 @@ function SuggestionsList({ player }: { player: Me }) {
       </h2>
       {!result.enabled ? (
         <p className="mt-1 text-sm text-muted">
-          Pick hobbies and opt in through Privacy above to see players who
-          share them.
+          Pick hobbies and opt in through Privacy above to see players who share
+          them.
         </p>
       ) : result.suggestions.length === 0 ? (
         <p className="mt-1 text-sm text-muted">
@@ -451,7 +452,7 @@ function SuggestionsList({ player }: { player: Me }) {
                   href={profileHref(suggestion.username)}
                   tabIndex={-1}
                 >
-                  {suggestion.display_name.charAt(0).toUpperCase()}
+                  {initials(suggestion.display_name)}
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link
