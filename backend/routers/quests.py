@@ -60,9 +60,12 @@ def get_viewable_quest(db: Session, player: User, quest_id: UUID) -> Quest:
 
 @router.get("/quests", response_model=List[QuestOut])
 def list_quests(player: User = Depends(get_current_player), db: Session = Depends(get_db)):
-    """All published quests with the current player's progress."""
+    """All published quests with the current player's progress, newest first."""
     quests = db.scalars(
-        select(Quest).where(Quest.status == PUBLISHED).order_by(QUEST_CREATION_ORDER)).all()
+        select(Quest)
+        .where(Quest.status == PUBLISHED)
+        .order_by(QUEST_CREATION_ORDER.desc())
+    ).all()
     return quest_views(db, player, list(quests))
 
 
