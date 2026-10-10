@@ -338,13 +338,17 @@ function SuggestionsList() {
                 className="flex items-center gap-3 rounded-md bg-surface-variant p-3"
                 key={suggestion.player_id}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
+                <Link
+                  aria-label={suggestion.display_name}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary"
+                  href={`/profile?player_id=${suggestion.player_id}`}
+                >
                   {suggestion.display_name.charAt(0).toUpperCase()}
-                </span>
+                </Link>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">
+                  <Link className="truncate font-semibold" href={`/profile?player_id=${suggestion.player_id}`}>
                     {suggestion.display_name}
-                  </p>
+                  </Link>
                   <p className="text-xs text-muted">
                     You both like {suggestion.shared_hobbies.join(", ")}
                   </p>
