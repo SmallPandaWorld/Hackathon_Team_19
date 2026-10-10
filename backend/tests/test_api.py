@@ -13,7 +13,7 @@ from conftest import act, identity
 from database import SessionLocal
 from main import app
 from models import Completion, Quest
-from quests import QUESTS, seed_quests
+from sample_quests import QUESTS, seed_quests
 
 ALICE = identity("alice-id", "Alice")
 BOB = identity("bob-id", "Bob")
@@ -143,6 +143,26 @@ def test_simultaneous_first_requests_create_one_player(client):
 
 
 # --- Quests and completions -------------------------------------------------------
+
+def test_new_app_has_no_quests(empty_client):
+    assert empty_client.get("/quests", headers=ALICE).json() == []
+    with SessionLocal() as db:
+        assert db.query(Quest).count() == 0
+
+
+def test_new_app_shows_quest_added_by_maintainer(empty_client):
+    maintainer = identity("maintainer-id", "Vis")
+    created = empty_client.post("/admin/quests", headers=maintainer, json={
+        "kind": "solo",
+        "title": "Find the VIS office",
+        "description": "Say hi at the VIS office.",
+        "points": 10,
+        "status": "published",
+    })
+    assert created.status_code == 201, created.text
+    quests = empty_client.get("/quests", headers=ALICE).json()
+    assert [quest["title"] for quest in quests] == ["Find the VIS office"]
+
 
 def test_lists_seeded_quests_in_seed_order(client):
     quests = client.get("/quests", headers=ALICE).json()

@@ -30,10 +30,10 @@ curl -H "X-User-Id: alice" -H "X-User-Name: Alice" localhost:8000/me
 
 The `X-User-Id` value is the player's unique username and primary key; users do
 not have a separate ID. Quest, step, question, completion, session, RSVP,
-report, and suggestion-record IDs are UUIDs. The built-in quests live in
-`backend/quests.py` and keep stable UUIDs so edits and saved progress survive
-restarts. They are only inserted when missing, so edits made in the quest editor
-are never overwritten; change existing quests in the editor. A database from
+report, and suggestion-record IDs are UUIDs. The app starts with no quests:
+maintainers add them in the quest editor (`/admin`), and players can suggest
+some. The tests use sample quests from `backend/tests/sample_quests.py`, which
+keep stable UUIDs (`backend/ids.py`). A database from
 before usernames were the user key is not migrated: its tables are renamed to
 `legacy_<name>` on startup and fresh tables are created.
 

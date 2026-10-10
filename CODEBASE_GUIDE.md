@@ -126,7 +126,6 @@ Hackathon_Team_19/
 │   ├── models.py                   SQLAlchemy database tables
 │   ├── schemas.py                  API request and response models
 │   ├── game.py                     Shared scoring and game rules
-│   ├── quests.py                   Built-in quest seed data
 │   ├── badges.py                   Computed achievements
 │   ├── hobbies.py                  Fixed hobby catalog
 │   ├── friendships.py              Friend request rules and friends view
@@ -175,14 +174,14 @@ This is the backend entry point used by `uvicorn main:app`.
 
 - Importing `models` registers SQLAlchemy's table definitions with `Base.metadata`.
 - The FastAPI lifespan function calls `ensure_schema()` to create missing tables, archive pre-username tables, and backfill stable verification codes on current-schema quests.
-- It opens a database session and calls `seed_quests()`.
-- It includes the six router modules.
+- It does not insert any quests: a fresh database has none until a maintainer creates one.
+- It includes the four router modules (players, quests, pair, admin).
 - `GET /` returns `{"message": "Hello World"}` as a basic health endpoint.
 - CORS is configured broadly with all origins, methods, and headers allowed, plus credentials. The normal frontend path still uses the same-origin Next.js rewrite.
 
 `use_function_name()` gives OpenAPI operations readable names based on their Python function names. Orval can therefore generate `useListQuests` rather than a name containing the route and method.
 
-Startup seeds content but does not reset players or completions.
+Startup creates missing tables but adds no content and does not reset players or completions.
 
 ### 4.2 `backend/database.py`
 
@@ -560,9 +559,11 @@ Most explicit errors return `{"detail": "Readable explanation"}`. Validation err
 
 ## 10. Built-in quests, badges, and hobbies
 
-### 10.1 `backend/quests.py`
+### 10.1 Quests: none built in
 
-`QUESTS` contains seven built-in definitions:
+The app ships without quests. A fresh database has none, and players see an empty "Available now" section with a link to suggest a quest. Quests appear once a maintainer creates and publishes one in the quest editor (`POST /admin/quests` with `status: "published"`, or a later `PATCH /admin/quests/{id}`), or approves a player's suggestion. App-created quests get random UUIDs; older databases may still hold the former built-in quests, which maintainers can retire in the editor.
+
+`backend/tests/sample_quests.py` keeps seven sample definitions, used only by the tests (`conftest.py` seeds them for the `client` fixture; `empty_client` starts with none):
 
 | ID | Title | Type | Points |
 | --- | --- | --- | --- |
@@ -574,11 +575,11 @@ Most explicit errors return `{"detail": "Readable explanation"}`. Validation err
 | 6 | Main building tour | Multi-step | 30 |
 | 7 | VISCON group photo | Meetup | 20 |
 
-Definitions can include map coordinates, quiz questions, ordered steps, and UTC start/end times. The seeded meetup is 10 October 2026, 18:00–18:30 Zurich time.
+Definitions can include map coordinates, quiz questions, ordered steps, and UTC start/end times. The sample meetup is 10 October 2026, 18:00–18:30 Zurich time.
 
-`seed_quests()` inserts only missing IDs. It creates step and question rows for a newly inserted quest, then commits. It does not overwrite maintainer edits or reset progress on startup.
+`seed_quests()` inserts only missing IDs. It creates step and question rows for a newly inserted quest, then commits, and never overwrites a quest that already exists. The app no longer calls it on startup; only the test fixtures do.
 
-Changing a seed definition does not change the same quest already stored in an existing database. Use the editor for existing content. Never reuse an ID for a different activity, because saved history refers to it.
+Never reuse a quest ID for a different activity, because saved history refers to it.
 
 ### 10.2 `backend/badges.py`
 
@@ -1280,7 +1281,7 @@ This workflow does not run pytest, lint, or a separate type-check step before de
 
 The test setup creates a temporary SQLite directory and sets `DATABASE_URL` before importing application modules. It removes the development identity fallback and configures a test maintainer.
 
-The `client` fixture drops test tables and opens FastAPI's `TestClient` for each test, running startup to recreate tables and seed quests. Its destructive reset is scoped to the temporary test engine, not the normal `users.db` configured for development or deployment.
+The `empty_client` fixture drops test tables and opens FastAPI's `TestClient` for each test, running startup to recreate tables, so it starts with no quests like a fresh deployment. The `client` fixture builds on it and seeds the sample quests from `sample_quests.py`. The destructive reset is scoped to the temporary test engine, not the normal `users.db` configured for development or deployment.
 
 `identity()` creates test identity headers. Tests can therefore act as multiple players without depending on the external login proxy.
 
@@ -1290,7 +1291,8 @@ Core coverage includes:
 
 - Missing or blank identity rejection.
 - Player creation/reuse and decoded or updated names.
-- Seeded quests and missing quest errors.
+- A fresh app having no quests, and a maintainer-published quest showing up for a new player.
+- Seeded sample quests and missing quest errors.
 - One-time point awards and separate player progress.
 - The browser being unable to choose its own reward or player.
 - Simultaneous completion requests and simultaneous first-player requests.
@@ -1371,7 +1373,7 @@ API tests do not replace browser checks. Particularly useful browser cases are s
 | Matching rules | `backend/routers/social.py` | Hobby catalog, discoverability, profile UI |
 | Hobby options | `backend/hobbies.py` | Stored key compatibility and suggestion behavior |
 | New badge rule | `backend/badges.py` | Badge icon map and next-badge wording |
-| Built-in content on a fresh DB | `backend/quests.py` | Stable IDs and seed behavior |
+| Sample quests for tests | `backend/tests/sample_quests.py` | Tests that rely on their IDs and points |
 | Existing quest content | Maintainer editor / `backend/routers/admin.py` | Published validity and saved-progress restrictions |
 | Scoring and completion uniqueness | `backend/game.py`, `backend/models.py` | Quest/pair routers and concurrency tests |
 | Check-in timing | `backend/game.py` | Quest router and meetup component |
@@ -1383,7 +1385,7 @@ API tests do not replace browser checks. Particularly useful browser cases are s
 | Identity/permission handling | `backend/auth.py` | Proxy configuration and environment |
 | Database structure | `backend/models.py` | Schema upgrade and API models |
 | API request/response format | `backend/schemas.py`, relevant router | Regenerate clients; update components/tests |
-| Backend startup | `backend/main.py` | DB upgrade and seed functions |
+| Backend startup | `backend/main.py` | DB upgrade function |
 | Backend connection setup | `backend/database.py` | Environment/Compose and migrations |
 | API forwarding | `frontend/next.config.ts` | Backend host, proxy identity, Docker network |
 | Container/deployment behavior | Dockerfiles, Compose, deployment workflow | Persistent volume and external proxy |
@@ -1428,7 +1430,7 @@ These details matter when reading or extending the code:
 | Query | A read operation managed by React Query |
 | Mutation | An operation that asks the server to change state |
 | Query invalidation | Mark cached data stale so it can be fetched again |
-| Seed | Initial content inserted when its stable IDs are missing |
+| Seed | Sample content inserted when its stable IDs are missing (tests only) |
 | OpenAPI | Machine-readable description of routes and request/response models |
 | Orval | Tool converting that contract into frontend types and hooks |
 | Suspense | React boundary allowing a loading fallback while a child suspends |
