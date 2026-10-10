@@ -1,9 +1,15 @@
 import { buttonStyles } from "@/src/components/page";
 import type { CompletionResult } from "@/src/lib/api/hackathon.schemas";
 import Link from "next/link";
-import { Check, Hourglass, PartyPopper } from "lucide-react";
+import { Camera, Check, Hourglass, PartyPopper } from "lucide-react";
 
-export function ResultBanner({ result }: { result: CompletionResult }) {
+export function ResultBanner({
+  result,
+  photoQuestId,
+}: {
+  result: CompletionResult;
+  photoQuestId?: string;
+}) {
   const pending = result.status === "pending";
   return (
     <div
@@ -34,7 +40,18 @@ export function ResultBanner({ result }: { result: CompletionResult }) {
           : `Your total: ${result.total_points} points`}
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Link className={`${buttonStyles.primary} py-2 text-sm`} href="/">
+        {photoQuestId && (
+          <Link
+            className={`${buttonStyles.primary} inline-flex items-center gap-2 py-2 text-sm`}
+            href={`/quests/${photoQuestId}#quest-photos`}
+          >
+            <Camera aria-hidden className="h-4 w-4" /> Add a photo
+          </Link>
+        )}
+        <Link
+          className={`${photoQuestId ? buttonStyles.secondary : buttonStyles.primary} py-2 text-sm`}
+          href="/"
+        >
           Back to quests
         </Link>
         <Link

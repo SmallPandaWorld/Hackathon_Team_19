@@ -346,6 +346,8 @@ class QuestPhotoOut(BaseModel):
     quest_title: str
     uploaded_at: datetime
     is_mine: bool
+    uploader_username: Optional[str] = None
+    uploader_display_name: Optional[str] = None
 
 
 # --- Maintainers --------------------------------------------------------------

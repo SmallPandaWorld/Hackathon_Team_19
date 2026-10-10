@@ -17,7 +17,7 @@ import { KIND_LABELS, STATUS_LABELS } from "@/src/lib/quest-display";
 import { useQuestAction } from "@/src/lib/use-quest-action";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { KindIcon } from "@/src/components/icons";
 import { MapPin } from "lucide-react";
 
@@ -148,6 +148,17 @@ export function QuestDetail() {
   });
 
   const quest = data?.status === 200 ? data.data : undefined;
+  const questId = quest?.id;
+  useEffect(() => {
+    if (!questId || window.location.hash !== "#quest-photos") return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("quest-photos")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [questId]);
   const loadError = !validId
     ? "Quest not found."
     : isError
@@ -238,7 +249,9 @@ export function QuestDetail() {
 
       {quest.kind === "meetup" && <MeetupPhotoGallery questId={quest.id} />}
       {["meetup", "pair", "multi_step"].includes(quest.kind) && (
-        <QuestPhotoGallery completed={quest.completed} questId={quest.id} />
+        <div className="scroll-mt-6" id="quest-photos">
+          <QuestPhotoGallery questId={quest.id} />
+        </div>
       )}
 
       {quest.status === "published" && <ReportQuest quest={quest} />}

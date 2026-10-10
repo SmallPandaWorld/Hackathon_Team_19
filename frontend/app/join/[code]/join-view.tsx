@@ -63,7 +63,10 @@ export function JoinView() {
           You completed “{result.session.quest_title}” with{" "}
           {result.session.host_name}!
         </p>
-        <ResultBanner result={result.completion} />
+        <ResultBanner
+          photoQuestId={result.session.quest_id}
+          result={result.completion}
+        />
       </div>
     );
   }
