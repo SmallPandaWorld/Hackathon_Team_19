@@ -179,6 +179,33 @@ def test_players_only_see_their_own_connections(client):
     assert names(friends(client, BOB)["outgoing"]) == ["carol-id"]
 
 
+def suggested(client, headers):
+    return names(client.get("/me", headers=headers).json()["suggestions"]["suggestions"])
+
+
+def test_friends_and_open_requests_are_not_suggested(client):
+    for headers in (ALICE, BOB, CAROL):
+        assert client.put("/me", headers=headers, json={
+            "hobbies": ["chess"], "discoverable": True}).status_code == 200
+    assert suggested(client, ALICE) == ["bob-id", "carol-id"]
+
+    # An open request hides the player on both sides.
+    client.post("/friends/bob-id", headers=ALICE)
+    assert suggested(client, ALICE) == ["carol-id"]
+    assert suggested(client, BOB) == ["carol-id"]
+
+    client.post("/friends/alice-id/accept", headers=BOB)
+    assert suggested(client, ALICE) == ["carol-id"]
+    assert suggested(client, BOB) == ["carol-id"]
+
+    # Once the friendship is gone, they can be suggested again...
+    client.delete("/friends/bob-id", headers=ALICE)
+    assert suggested(client, ALICE) == ["bob-id", "carol-id"]
+    # ...unless the player hid them.
+    assert client.delete("/me/suggestions/bob-id", headers=ALICE).status_code in (200, 204)
+    assert suggested(client, ALICE) == ["carol-id"]
+
+
 def test_friends_need_identity(client):
     assert client.get("/friends").status_code == 401
     assert client.post("/friends/bob-id").status_code == 401

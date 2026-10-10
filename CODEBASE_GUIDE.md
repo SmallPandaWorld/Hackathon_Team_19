@@ -491,7 +491,7 @@ Every endpoint returns the caller's updated `Friends` view. The rules live in `b
 
 Matching is deterministic, not AI-based. If the current player has not opted in, the response has `enabled=false` and no suggestions.
 
-Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded. A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
+Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded, and so are friends and players with an open friend request in either direction (they show in the friends section instead; they can be suggested again once that relation is removed). A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
 
 Suggestions include the username needed for invite and dismiss actions, plus the display name and shared hobby labels. Other hobbies are not included. Dismissals are one-directional and persist; duplicate dismissals are harmless. There is no restoration endpoint.
 
