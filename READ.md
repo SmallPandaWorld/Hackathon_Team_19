@@ -44,9 +44,15 @@ identity parameters; it reads the two identity headers from the request. When
 both headers are absent and `APP_ENV` is explicitly `development` or `local`,
 the backend uses the local test identity `local-user` / `Local Tester`.
 
+`GET /leaderboard` returns every saved user with their username, name, and score,
+sorted from highest to lowest score. Users with equal scores are ordered by
+username.
+
 ### Quest API
 Create a quest with `POST /quests` and a JSON body containing `question`,
 `answer`, and positive `points`. This endpoint currently has no authorization.
+Delete a quest with `DELETE /quests/{quest_id}`; its UUID can be copied from
+`GET /quests`. This endpoint also has no authorization.
 `GET /quests` lists all quests, including answers, all assigned participant
 usernames, and successful solver usernames, for verification. Quest play
 endpoints use the same identity headers.
