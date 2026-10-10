@@ -5,6 +5,8 @@ import {
   useCurrentUserCurrentUserGet,
   useGetUsersUsersGet,
 } from "@/src/lib/api/default";
+import bjorn from "@/assets/bjorn.png";
+import Image from "next/image";
 import {useState, type FormEvent } from "react";
 
 type UsersResponse = {
@@ -136,6 +138,13 @@ export default function Home() {
           )}
         </section>
       </div>
+
+      <Image
+        alt="Björn"
+        className="pointer-events-none fixed bottom-0 left-0 h-auto w-48"
+        src={bjorn}
+        width={96}
+      />
     </main>
   );
 }
