@@ -277,6 +277,13 @@ class CreatedQuestOut(BaseModel):
     status: QuestStatus
 
 
+class CurrentQuestOut(BaseModel):
+    """A quest a player is on right now (joined, or coming to a meetup)."""
+    id: UUID
+    title: str
+    kind: QuestKind
+
+
 # --- Connections --------------------------------------------------------------
 
 class Suggestion(BaseModel):
@@ -301,6 +308,9 @@ class PublicPlayer(BaseModel):
     total_points: int
     hobbies: List[str] = Field(description="Hobby keys, see Me.hobby_options")
     badges: List[Badge]
+    current_quests: List[CurrentQuestOut] = Field(
+        description="Quests this player is doing right now, most recently joined first; "
+                    "empty unless they opted in to suggestions")
     friend_status: FriendStatus = Field(
         description="My relation to this player: none, outgoing/incoming request, or friends")
 
@@ -347,6 +357,8 @@ class Me(BaseModel):
     suggestions: Suggestions
     invitations: List[PairSessionOut] = Field(description="Open pair invites addressed to me")
     created_quests: List[CreatedQuestOut] = Field(description="Quests I created, newest first")
+    current_quests: List[CurrentQuestOut] = Field(
+        description="Quests I'm doing right now, most recently joined first")
 
 
 # --- Leaderboard --------------------------------------------------------------

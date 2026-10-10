@@ -8,7 +8,7 @@ import {
   Page,
 } from "@/src/components/page";
 import { FriendActions } from "@/src/components/friends";
-import { BadgeIcon } from "@/src/components/icons";
+import { BadgeIcon, KindIcon } from "@/src/components/icons";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { ProfileMeetupGallery } from "@/src/components/meetup-photo-gallery";
 import { ProfileQuestPhotoGallery } from "@/src/components/quest-photo-gallery";
@@ -18,6 +18,7 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type {
   Badge,
+  CurrentQuestOut,
   HobbyOption,
   Me,
   PublicPlayer,
@@ -27,12 +28,13 @@ import {
   useGetPlayer,
   useUpdateMe,
 } from "@/src/lib/api/players";
-import { STATUS_LABELS } from "@/src/lib/quest-display";
+import { KIND_LABELS, STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import {
   ArrowLeft,
   Check,
   ChevronDown,
+  ChevronRight,
   Send,
   ShieldCheck,
 } from "lucide-react";
@@ -375,6 +377,73 @@ function Appearance() {
   );
 }
 
+// Quests a player joined and hasn't finished. Others only get this list for
+// players who opted in, so on someone else's profile an empty one is left out.
+function CurrentQuests({
+  quests,
+  ownDiscoverable,
+}: {
+  quests: CurrentQuestOut[];
+  // Set on your own profile: whether others see this list too.
+  ownDiscoverable?: boolean;
+}) {
+  const own = ownDiscoverable !== undefined;
+  if (!own && quests.length === 0) return null;
+
+  return (
+    <Card>
+      <h2 className="font-semibold">
+        {own ? "Quests you're doing" : "Currently doing"}
+      </h2>
+      {own && (
+        <p className="mt-1 text-sm text-muted">
+          {ownDiscoverable
+            ? "Other players see this list on your profile."
+            : "Only you see this list. Opt in under Privacy to show it on your profile."}
+        </p>
+      )}
+      {quests.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">
+          You haven&apos;t joined any quests yet.{" "}
+          <Link
+            className="font-semibold text-link hover:underline"
+            href="/quests"
+          >
+            Find one
+          </Link>
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-2">
+          {quests.map((quest) => (
+            <li key={quest.id}>
+              <Link
+                className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 transition hover:ring-2 hover:ring-primary dark:bg-surface-container"
+                href={`/quests/${quest.id}`}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary">
+                  <KindIcon kind={quest.kind} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">
+                    {quest.title}
+                  </span>
+                  <span className="block text-xs text-muted">
+                    {KIND_LABELS[quest.kind].label}
+                  </span>
+                </span>
+                <ChevronRight
+                  aria-hidden
+                  className="h-4 w-4 shrink-0 text-muted"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 function MyCreatedQuests({ player }: { player: Me }) {
   const quests = player.created_quests;
 
@@ -433,57 +502,60 @@ function OtherProfile({
   const earned = player.badges.filter((badge) => badge.earned);
 
   return (
-    <Card className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1">
-          <p className="text-3xl font-bold">{player.total_points}</p>
-          <p className="text-sm text-muted">points</p>
+    <>
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1">
+            <p className="text-3xl font-bold">{player.total_points}</p>
+            <p className="text-sm text-muted">points</p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-bold">
+              {earned.length}
+              <span className="text-lg text-muted">/{player.badges.length}</span>
+            </p>
+            <p className="text-sm text-muted">badges</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-3xl font-bold">
-            {earned.length}
-            <span className="text-lg text-muted">/{player.badges.length}</span>
-          </p>
-          <p className="text-sm text-muted">badges</p>
-        </div>
-      </div>
-      <FriendActions player={player} />
-      {earned.length > 0 && (
-        <ul aria-label="Earned badges" className="flex flex-wrap gap-2">
-          {earned.map((badge) => (
-            <li
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent"
-              key={badge.key}
-              title={badge.title}
-            >
-              <BadgeIcon badgeKey={badge.key} />
-              <span className="sr-only">{badge.title}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {labels.length > 0 && (
-        <div>
-          <h2 className="font-semibold">Hobbies</h2>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {labels.map((label) => (
+        <FriendActions player={player} />
+        {earned.length > 0 && (
+          <ul aria-label="Earned badges" className="flex flex-wrap gap-2">
+            {earned.map((badge) => (
               <li
-                className="rounded-full bg-surface-variant px-3 py-1.5 text-sm font-medium text-on-surface-variant dark:bg-surface-container"
-                key={label}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent"
+                key={badge.key}
+                title={badge.title}
               >
-                {label}
+                <BadgeIcon badgeKey={badge.key} />
+                <span className="sr-only">{badge.title}</span>
               </li>
             ))}
           </ul>
-        </div>
-      )}
-      <Link
-        className="text-sm font-semibold text-link hover:underline"
-        href="/profile"
-      >
-        Back to your profile
-      </Link>
-    </Card>
+        )}
+        {labels.length > 0 && (
+          <div>
+            <h2 className="font-semibold">Hobbies</h2>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {labels.map((label) => (
+                <li
+                  className="rounded-full bg-surface-variant px-3 py-1.5 text-sm font-medium text-on-surface-variant dark:bg-surface-container"
+                  key={label}
+                >
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <Link
+          className="text-sm font-semibold text-link hover:underline"
+          href="/profile"
+        >
+          Back to your profile
+        </Link>
+      </Card>
+      <CurrentQuests quests={player.current_quests} />
+    </>
   );
 }
 
@@ -491,6 +563,10 @@ function OwnProfile({ player }: { player: Me }) {
   return (
     <>
       <Achievements player={player} />
+      <CurrentQuests
+        ownDiscoverable={player.discoverable}
+        quests={player.current_quests}
+      />
       <ProfileMeetupGallery
         username={player.username}
         visible={player.discoverable}

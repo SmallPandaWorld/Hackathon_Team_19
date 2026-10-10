@@ -82,7 +82,7 @@ export const getListQuestsUrl = () => {
 };
 
 /**
- * All published quests with the current player's progress.
+ * All published quests with the current player's progress, newest first.
  * @summary List Quests
  */
 export const listQuests = async (

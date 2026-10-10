@@ -988,7 +988,9 @@ export const getGetPlayerUrl = (username: string) => {
  *
  * Only players who opted in to suggestions are visible to others, except
  * that friends and players with an open request between them can always
- * see each other; a player can always view themselves.
+ * see each other; a player can always view themselves. The quests a player
+ * is doing follow the naming rule of quest participants: others only see
+ * them while the player is opted in.
  * @summary Get Player
  */
 export const getPlayer = async (

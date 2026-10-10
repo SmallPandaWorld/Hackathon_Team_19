@@ -41,6 +41,7 @@ from models import (
 from schemas import (
     CompletionResult,
     CreatedQuestOut,
+    CurrentQuestOut,
     ErrorResponse,
     PairSessionOut,
     Participant,
@@ -277,6 +278,35 @@ def others_doing(
         people.sort(key=lambda p: (-len(p.shared_hobbies), p.display_name.lower()))
         del people[MAX_PARTICIPANTS:]
     return counts, names
+
+
+MAX_CURRENT_QUESTS = 20
+
+
+def current_quests(db: Session, player: User) -> List[CurrentQuestOut]:
+    """Published quests a player is on right now, most recently joined first.
+
+    Joined and without an approved or pending completion, or a meetup they
+    said they're coming to that isn't over and that they haven't checked into.
+    """
+    finished = select(Completion.id).where(
+        Completion.player_id == player.username,
+        Completion.quest_id == Quest.id,
+        Completion.status.in_((APPROVED, PENDING)),
+    ).exists()
+    rows = []
+    for model, is_kind in ((QuestJoin, Quest.kind != MEETUP), (MeetupRsvp, Quest.kind == MEETUP)):
+        rows += db.execute(
+            select(Quest, model.created_at)
+            .join(model, model.quest_id == Quest.id)
+            .where(model.player_id == player.username, Quest.status == PUBLISHED,
+                   is_kind, ~finished)).all()
+    now = utcnow()
+    rows = [(quest, since) for quest, since in rows
+            if quest.kind != MEETUP or meetup_state(quest, now) in ("upcoming", "live")]
+    rows.sort(key=lambda row: row[1], reverse=True)
+    return [CurrentQuestOut(id=quest.id, title=quest.title, kind=quest.kind)
+            for quest, _ in rows[:MAX_CURRENT_QUESTS]]
 
 
 def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut]:

@@ -307,6 +307,26 @@ export interface CreatedQuestOut {
   status: CreatedQuestOutStatus;
 }
 
+export type CurrentQuestOutKind =
+  (typeof CurrentQuestOutKind)[keyof typeof CurrentQuestOutKind];
+
+export const CurrentQuestOutKind = {
+  solo: "solo",
+  pair: "pair",
+  quiz: "quiz",
+  multi_step: "multi_step",
+  meetup: "meetup",
+} as const;
+
+/**
+ * A quest a player is on right now (joined, or coming to a meetup).
+ */
+export interface CurrentQuestOut {
+  id: string;
+  title: string;
+  kind: CurrentQuestOutKind;
+}
+
 export interface ErrorResponse {
   detail: string;
 }
@@ -357,14 +377,6 @@ export interface HobbyOption {
   label: string;
 }
 
-export type LeaderboardScope =
-  (typeof LeaderboardScope)[keyof typeof LeaderboardScope];
-
-export const LeaderboardScope = {
-  global: "global",
-  friends: "friends",
-} as const;
-
 /**
  * Join a quest; needed before a first attempt at it (meetups use rsvp).
  */
@@ -372,6 +384,14 @@ export const JoinActionValue = {
   type: "join",
 } as const;
 export type JoinAction = typeof JoinActionValue;
+
+export type LeaderboardScope =
+  (typeof LeaderboardScope)[keyof typeof LeaderboardScope];
+
+export const LeaderboardScope = {
+  global: "global",
+  friends: "friends",
+} as const;
 
 export interface LeaderboardEntry {
   /** Players with equal points share a rank */
@@ -450,6 +470,8 @@ export interface Me {
   invitations: PairSessionOut[];
   /** Quests I created, newest first */
   created_quests: CreatedQuestOut[];
+  /** Quests I'm doing right now, most recently joined first */
+  current_quests: CurrentQuestOut[];
 }
 
 export interface MeetupPhotoOut {
@@ -476,6 +498,16 @@ export interface PairStartAction {
   type: "pair_start";
   /** Invite a suggested username: the code appears on their home screen */
   invite_username?: string | null;
+}
+
+/**
+ * Another player on the same quest who opted in to being seen.
+ */
+export interface Participant {
+  username: string;
+  display_name: string;
+  /** Labels of hobbies you share (may be empty) */
+  shared_hobbies: string[];
 }
 
 export type PlayerQuestInKind =
@@ -505,16 +537,6 @@ export interface PlayerQuestIn {
   steps?: StepIn[];
   /** @maxItems 20 */
   questions?: QuizQuestionIn[];
-}
-
-/**
- * Another player on the same quest who opted in to being seen.
- */
-export interface Participant {
-  username: string;
-  display_name: string;
-  /** Labels of hobbies you share (may be empty) */
-  shared_hobbies: string[];
 }
 
 export interface PlayerSearchResult {
@@ -551,6 +573,8 @@ export interface PublicPlayer {
   /** Hobby keys, see Me.hobby_options */
   hobbies: string[];
   badges: Badge[];
+  /** Quests this player is doing right now, most recently joined first; empty unless they opted in to suggestions */
+  current_quests: CurrentQuestOut[];
   /** My relation to this player: none, outgoing/incoming request, or friends */
   friend_status: PublicPlayerFriendStatus;
 }

@@ -274,3 +274,69 @@ def test_meetup_participants_are_the_players_coming(client):
     now = utcnow()
     set_quest(MEETUP_ID, starts_at=now - timedelta(hours=2), ends_at=now - timedelta(hours=1))
     assert quest(client, ALICE, MEETUP_ID)["participants"] is None
+
+
+# --- Current quests on profiles -----------------------------------------------
+
+def current(client, viewer, username=None):
+    path = "/me" if username is None else f"/players/{username}"
+    response = client.get(path, headers=viewer)
+    assert response.status_code == 200, response.text
+    return [q["title"] for q in response.json()["current_quests"]]
+
+
+def test_profile_lists_the_quests_a_player_is_doing(client):
+    opt_in(client, BOB)
+    assert current(client, ALICE, "bob-id") == []
+    join(client, BOB, SOLO_ID)
+    join(client, BOB, QUIZ_ID)
+    join(client, BOB, STEPS_ID)
+
+    # Most recently joined first, with what's needed to link to the quest.
+    assert current(client, ALICE, "bob-id") == [
+        "Main building tour", "ETH trivia", "View from the Polyterrasse"]
+    assert current(client, BOB) == current(client, ALICE, "bob-id")
+    first = client.get("/players/bob-id", headers=ALICE).json()["current_quests"][0]
+    assert first == {"id": STEPS_ID, "title": "Main building tour", "kind": "multi_step"}
+
+    # Finished, left and retired quests drop off the list.
+    assert post_action(client, BOB, SOLO_ID, "complete").status_code == 200
+    assert post_action(client, BOB, QUIZ_ID, "leave").status_code == 200
+    assert current(client, ALICE, "bob-id") == ["Main building tour"]
+    assert client.patch(f"/admin/quests/{STEPS_ID}", headers=ADMIN,
+                        json={"status": "retired"}).status_code == 200
+    assert current(client, ALICE, "bob-id") == []
+    # Alice's own list is hers alone.
+    assert current(client, ALICE) == []
+
+
+def test_profile_lists_meetups_a_player_is_coming_to(client):
+    opt_in(client, BOB)
+    now = utcnow()
+    set_quest(MEETUP_ID, starts_at=now + timedelta(hours=2), ends_at=now + timedelta(hours=3))
+    assert post_action(client, BOB, MEETUP_ID, "rsvp", attending=True).status_code == 200
+    assert current(client, ALICE, "bob-id") == ["VISCON group photo"]
+
+    # Checked in: done, so no longer current.
+    make_live()
+    assert post_action(client, BOB, MEETUP_ID, "complete").status_code == 200
+    assert current(client, ALICE, "bob-id") == []
+
+    # Coming to a meetup that is already over doesn't count either.
+    assert post_action(client, CAROL, MEETUP_ID, "rsvp", attending=True).status_code == 200
+    opt_in(client, CAROL)
+    assert current(client, ALICE, "carol-id") == ["VISCON group photo"]
+    set_quest(MEETUP_ID, starts_at=now - timedelta(hours=3), ends_at=now - timedelta(hours=2))
+    assert current(client, ALICE, "carol-id") == []
+
+
+def test_current_quests_are_hidden_from_others_after_opting_out(client):
+    opt_in(client, BOB)
+    join(client, BOB, SOLO_ID)
+    assert client.post("/friends/bob-id", headers=ALICE).status_code == 201
+    opt_in(client, BOB, discoverable=False)
+
+    # The open request keeps Bob's profile visible to Alice, but not his quests.
+    assert current(client, ALICE, "bob-id") == []
+    assert current(client, BOB) == ["View from the Polyterrasse"]
+    assert current(client, BOB, "bob-id") == ["View from the Polyterrasse"]
