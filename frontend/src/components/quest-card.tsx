@@ -25,6 +25,9 @@ function ProgressChip({ quest }: { quest: QuestOut }) {
       <Chip className="bg-primary/20 text-on-surface">{`${done}/${steps.length} steps`}</Chip>
     );
   }
+  if (!quest.completed && quest.joined && quest.kind !== "meetup") {
+    return <Chip className="bg-primary/20 text-on-surface">Joined</Chip>;
+  }
   return null;
 }
 

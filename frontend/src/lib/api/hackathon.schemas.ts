@@ -365,6 +365,14 @@ export const LeaderboardScope = {
   friends: "friends",
 } as const;
 
+/**
+ * Join a quest; needed before a first attempt at it (meetups use rsvp).
+ */
+export const JoinActionValue = {
+  type: "join",
+} as const;
+export type JoinAction = typeof JoinActionValue;
+
 export interface LeaderboardEntry {
   /** Players with equal points share a rank */
   rank: number;
@@ -383,6 +391,11 @@ export interface Leaderboard {
   /** Accepted friends of the current player (0 means the Friends view is empty) */
   friend_count: number;
 }
+
+export const LeaveActionValue = {
+  type: "leave",
+} as const;
+export type LeaveAction = typeof LeaveActionValue;
 
 export interface Suggestion {
   username: string;
@@ -492,6 +505,16 @@ export interface PlayerQuestIn {
   steps?: StepIn[];
   /** @maxItems 20 */
   questions?: QuizQuestionIn[];
+}
+
+/**
+ * Another player on the same quest who opted in to being seen.
+ */
+export interface Participant {
+  username: string;
+  display_name: string;
+  /** Labels of hobbies you share (may be empty) */
+  shared_hobbies: string[];
 }
 
 export interface PlayerSearchResult {
@@ -623,6 +646,12 @@ export interface QuestOut {
   questions?: QuizQuestionOut[];
   rsvp?: boolean;
   rsvp_count?: number;
+  /** I joined this quest (meetups: I said I'm coming) */
+  joined?: boolean;
+  /** Other players doing this quest right now, named or not */
+  participant_count?: number;
+  /** Those of them who opted in to suggestions; only set while I'm doing the quest myself */
+  participants?: Participant[] | null;
   reported?: boolean;
   /** My latest pair session for this quest (host or partner) */
   pair_session?: PairSessionOut | null;

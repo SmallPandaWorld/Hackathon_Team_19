@@ -408,12 +408,20 @@ function SuggestionsList({ player }: { player: Me }) {
 
   async function invite(username: string) {
     if (!pairQuest) return;
-    const response = await run(() =>
-      startSession.mutateAsync({
+    const response = await run(async () => {
+      // A first attempt at a quest needs a join.
+      if (!pairQuest.joined && !pairQuest.completion_status) {
+        const joined = await startSession.mutateAsync({
+          questId: pairQuest.id,
+          data: { type: "join" },
+        });
+        if (joined.status !== 200) return joined;
+      }
+      return startSession.mutateAsync({
         questId: pairQuest.id,
         data: { type: "pair_start", invite_username: username },
-      }),
-    );
+      });
+    });
     if (response) router.push(`/quests/${pairQuest.id}`);
   }
 

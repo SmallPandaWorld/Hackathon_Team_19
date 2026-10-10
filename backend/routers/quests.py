@@ -21,6 +21,7 @@ from game import (
     not_found,
     quest_views,
     report_quest,
+    set_joined,
     set_rsvp,
     start_pair,
     submit_quiz,
@@ -30,6 +31,8 @@ from routers.admin import apply_quest_input, ensure_publishable
 from schemas import (
     AdminQuestIn,
     CompleteAction,
+    JoinAction,
+    LeaveAction,
     RedeemAction,
     PairCancelAction,
     PairStartAction,
@@ -130,6 +133,9 @@ def act_on_quest(
 ):
     """Do something with a quest; `type` picks the action:
 
+    - `join`: start working on a quest. A first `complete`, `redeem`,
+      `quiz`, `step` or `pair_start` needs it (meetups use `rsvp`).
+    - `leave`: stop working on it; progress is kept (idempotent).
     - `complete`: complete a solo quest or check in at a live meetup
       (idempotent; approval quests create a pending completion).
     - `redeem`: complete a solo quest with its printed code or password,
@@ -148,6 +154,9 @@ def act_on_quest(
     completion = None
     quiz = None
     match action:
+        case JoinAction() | LeaveAction():
+            quest = get_playable_quest(db, quest_id)
+            set_joined(db, player, quest, isinstance(action, JoinAction))
         case CompleteAction(note=note):
             quest = get_playable_quest(db, quest_id)
             completion = complete_quest(db, player, quest, note)

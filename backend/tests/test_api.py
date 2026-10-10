@@ -228,6 +228,7 @@ def test_complete_awards_points_once(client):
 
 
 def test_client_cannot_choose_points_or_player(client):
+    act(client, ALICE, quest_id(1), "join")
     response = client.post(
         f"/quests/{quest_id(1)}/actions?points=9999&username=bob-id",
         headers=ALICE,

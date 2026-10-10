@@ -24,6 +24,8 @@ import type {
   CompleteAction,
   ErrorResponse,
   HTTPValidationError,
+  JoinAction,
+  LeaveAction,
   PairCancelAction,
   PairStartAction,
   PlayerQuestIn,
@@ -616,6 +618,9 @@ export const getActOnQuestUrl = (questId: string) => {
 /**
  * Do something with a quest; `type` picks the action:
  *
+ * - `join`: start working on a quest. A first `complete`, `redeem`,
+ *   `quiz`, `step` or `pair_start` needs it (meetups use `rsvp`).
+ * - `leave`: stop working on it; progress is kept (idempotent).
  * - `complete`: complete a solo quest or check in at a live meetup
  *   (idempotent; approval quests create a pending completion).
  * - `redeem`: complete a solo quest with its printed code or password,
@@ -634,7 +639,9 @@ export const getActOnQuestUrl = (questId: string) => {
  */
 export const actOnQuest = async (
   questId: string,
-  completeActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction:
+  joinActionLeaveActionCompleteActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction:
+    | JoinAction
+    | LeaveAction
     | CompleteAction
     | RedeemAction
     | QuizAction
@@ -674,7 +681,7 @@ export const actOnQuest = async (
       ...getHeaders(options?.headers),
     },
     body: JSON.stringify(
-      completeActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction,
+      joinActionLeaveActionCompleteActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction,
     ),
   });
 
@@ -732,6 +739,8 @@ export type ActOnQuestMutationResult = NonNullable<
   Awaited<ReturnType<typeof actOnQuest>>
 >;
 export type ActOnQuestMutationBody =
+  | JoinAction
+  | LeaveAction
   | CompleteAction
   | RedeemAction
   | QuizAction
@@ -744,6 +753,8 @@ export type ActOnQuestMutationError = ErrorResponse | HTTPValidationError;
 export type ActOnQuestMutationVariables = {
   questId: string;
   data:
+    | JoinAction
+    | LeaveAction
     | CompleteAction
     | RedeemAction
     | QuizAction

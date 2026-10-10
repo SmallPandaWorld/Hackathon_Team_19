@@ -72,6 +72,13 @@ class QuizQuestionOut(BaseModel):
     choices: List[str]
 
 
+class Participant(BaseModel):
+    """Another player on the same quest who opted in to being seen."""
+    username: str
+    display_name: str
+    shared_hobbies: List[str] = Field(description="Labels of hobbies you share (may be empty)")
+
+
 class QuestOut(BaseModel):
     id: UUID
     title: str
@@ -100,6 +107,14 @@ class QuestOut(BaseModel):
     questions: List[QuizQuestionOut] = []
     rsvp: bool = False
     rsvp_count: int = 0
+    joined: bool = Field(
+        default=False, description="I joined this quest (meetups: I said I'm coming)")
+    participant_count: int = Field(
+        default=0, description="Other players doing this quest right now, named or not")
+    participants: Optional[List[Participant]] = Field(
+        default=None,
+        description="Those of them who opted in to suggestions; only set while I'm doing "
+                    "the quest myself")
     reported: bool = False
     pair_session: Optional[PairSessionOut] = Field(
         default=None, description="My latest pair session for this quest (host or partner)")
@@ -129,6 +144,15 @@ class QuizResult(BaseModel):
 
 
 # --- Quest actions (POST /quests/{quest_id}/actions) ---------------------------
+
+class JoinAction(BaseModel):
+    """Join a quest; needed before a first attempt at it (meetups use rsvp)."""
+    type: Literal["join"]
+
+
+class LeaveAction(BaseModel):
+    type: Literal["leave"]
+
 
 class CompleteAction(BaseModel):
     """Complete a solo quest or check in at a live meetup."""
@@ -179,8 +203,8 @@ class PairCancelAction(BaseModel):
 
 
 QuestAction = Annotated[
-    Union[CompleteAction, RedeemAction, QuizAction, StepAction, RsvpAction, ReportAction,
-          PairStartAction, PairCancelAction],
+    Union[JoinAction, LeaveAction, CompleteAction, RedeemAction, QuizAction, StepAction,
+          RsvpAction, ReportAction, PairStartAction, PairCancelAction],
     Field(discriminator="type"),
 ]
 
