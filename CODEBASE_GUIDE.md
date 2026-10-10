@@ -481,7 +481,7 @@ The join then ensures both host and partner have an approved completion. Each re
 | POST | `/friends/{username}/accept` | `accept_friend_request`: only the addressee of an open request; 404 otherwise |
 | DELETE | `/friends/{username}` | `remove_friend`: declines an incoming request, cancels an outgoing one, or ends a friendship; 404 if nothing exists |
 
-Every endpoint returns the caller's updated `Friends` view. The rules live in `backend/friendships.py`; `GET /players/{username}` adds `friend_status` (`none`, `outgoing`, `incoming`, `friends`) so the profile page can show the right button. The frontend lives in `frontend/src/components/friends.tsx` (`FriendActions` on another player's profile, `FriendsCard` on your own).
+`GET /leaderboard?scope=friends` ranks the caller and their accepted friends with the same scoring as the global board (everyone in the group is listed, points or not; `friend_count` lets the UI show an empty state). Every friends endpoint returns the caller's updated `Friends` view. The rules live in `backend/friendships.py`; `GET /players/{username}` adds `friend_status` (`none`, `outgoing`, `incoming`, `friends`) so the profile page can show the right button. The frontend lives in `frontend/src/components/friends.tsx` (`FriendActions` on another player's profile, `FriendsCard` on your own).
 
 ### 9.4 `backend/routers/social.py`
 

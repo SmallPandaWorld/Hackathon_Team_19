@@ -329,6 +329,14 @@ export interface HobbyOption {
   label: string;
 }
 
+export type LeaderboardScope =
+  (typeof LeaderboardScope)[keyof typeof LeaderboardScope];
+
+export const LeaderboardScope = {
+  global: "global",
+  friends: "friends",
+} as const;
+
 export interface LeaderboardEntry {
   /** Players with equal points share a rank */
   rank: number;
@@ -340,9 +348,12 @@ export interface LeaderboardEntry {
 }
 
 export interface Leaderboard {
-  /** Players with at least one point, best first */
+  scope: LeaderboardScope;
+  /** Ranked best first. Global: everyone with at least one point (top 50). Friends: you and all your accepted friends. */
   entries: LeaderboardEntry[];
   current_player: LeaderboardEntry;
+  /** Accepted friends of the current player (0 means the Friends view is empty) */
+  friend_count: number;
 }
 
 export interface Suggestion {
@@ -656,6 +667,21 @@ export type SearchPlayersParams = {
    */
   q: string;
 };
+
+export type GetLeaderboardParams = {
+  /**
+   * `global`: all players; `friends`: you and your accepted friends
+   */
+  scope?: GetLeaderboardScope;
+};
+
+export type GetLeaderboardScope =
+  (typeof GetLeaderboardScope)[keyof typeof GetLeaderboardScope];
+
+export const GetLeaderboardScope = {
+  global: "global",
+  friends: "friends",
+} as const;
 
 export type AdminListQuestsParams = {
   status?: AdminListQuestsStatus;
