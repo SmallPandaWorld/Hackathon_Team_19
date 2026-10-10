@@ -1215,7 +1215,7 @@ Ordinary `docker compose down` preserves the named database volume. `docker comp
 
 1. Check out the repository on an Ubuntu runner.
 2. Prepare SSH access using configured GitHub secrets.
-3. Copy repository files to the server using `rsync`, excluding `.git`, `.github`, `node_modules`, and `dist`.
+3. Synchronize repository files to the server using `rsync`, removing files deleted from the repository while preserving `.vscode` and deployment environment files.
 4. Connect through SSH, stop Compose services, and rebuild/start them.
 
 The workflow references secret names `SSH_PRIVATE_KEY`, `SSH_HOST`, and `SSH_USER`; no secret values belong in this guide. It preserves the named database volume because its stop command does not include `-v`.
