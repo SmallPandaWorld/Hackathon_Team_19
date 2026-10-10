@@ -19,7 +19,8 @@ jobs:
       - name: Copy to remote server
         run: |
           rsync -avz \
-          --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'dist' \
+          --delete \
+          --exclude '.vscode' --exclude '.env' \
           ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.SSH_USER }}/deploy
       - name: SSH and run commands
         run: |
