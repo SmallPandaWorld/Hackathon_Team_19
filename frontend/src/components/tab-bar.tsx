@@ -2,7 +2,14 @@
 
 import { CampusMotif } from "@/src/components/campus-motif";
 // import { ThemeSwitch } from "@/src/components/theme-switch";
-import { Compass, Map, Trophy, UserRound, type LucideIcon } from "lucide-react";
+import {
+  Compass,
+  Map,
+  Trophy,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,6 +17,7 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Quests", icon: Compass },
   { href: "/map", label: "Map", icon: Map },
   { href: "/leaderboard", label: "Ranking", icon: Trophy },
+  { href: "/friends", label: "Friends", icon: Users },
   { href: "/profile", label: "Profile", icon: UserRound },
 ];
 
@@ -43,7 +51,7 @@ export function TabBar() {
         </span>
         <CampusMotif className="mt-4 h-12 w-full text-outline" />
       </Link>
-      <ul className="mx-auto grid max-w-2xl grid-cols-4 lg:mx-0 lg:flex lg:max-w-none lg:flex-col lg:gap-1 lg:px-3">
+      <ul className="mx-auto grid max-w-2xl grid-cols-5 lg:mx-0 lg:flex lg:max-w-none lg:flex-col lg:gap-1 lg:px-3">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
           const Icon = tab.icon;

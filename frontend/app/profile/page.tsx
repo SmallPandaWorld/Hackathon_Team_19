@@ -7,7 +7,7 @@ import {
   inputStyles,
   Page,
 } from "@/src/components/page";
-import { FriendActions, FriendsCard } from "@/src/components/friends";
+import { FriendActions } from "@/src/components/friends";
 import { BadgeIcon } from "@/src/components/icons";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { ProfileMeetupGallery } from "@/src/components/meetup-photo-gallery";
@@ -16,7 +16,6 @@ import { ShareButton } from "@/src/components/share-button";
 import { ThemeSwitch } from "@/src/components/theme-switch";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
-import { initials } from "@/src/lib/initials";
 import type {
   Badge,
   HobbyOption,
@@ -24,41 +23,22 @@ import type {
   PublicPlayer,
 } from "@/src/lib/api/hackathon.schemas";
 import {
-  useDismissSuggestion,
   useGetMe,
   useGetPlayer,
-  useSearchPlayers,
   useUpdateMe,
 } from "@/src/lib/api/players";
-import { useActOnQuest, useListQuests } from "@/src/lib/api/quests";
 import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
-import { keepPreviousData } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
-  ChevronRight,
-  Search,
   Send,
   ShieldCheck,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-
-function profileHref(username: string): string {
-  return `/profile?player=${encodeURIComponent(username)}`;
-}
-
-function useDebouncedValue(value: string, delayMs: number): string {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 function nextBadge(badges: Badge[]): Badge | undefined {
   // The unearned badge the player is closest to.
@@ -315,7 +295,9 @@ function PrivacySettings({ player }: { player: Me }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-bold">Privacy</h2>
+            <h2 className="text-xl font-bold" id="privacy-settings">
+              Privacy
+            </h2>
             <Chip
               className={
                 discoverable
@@ -730,9 +712,6 @@ function OwnProfile({ player }: { player: Me }) {
         username={player.username}
         visible={player.discoverable}
       />
-      <FriendsCard />
-      <SuggestionsList player={player} />
-      <SearchPlayers />
       {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
       <HobbyEditor player={player} />
       <PrivacySettings player={player} />
@@ -757,6 +736,7 @@ function OwnProfile({ player }: { player: Me }) {
 function ProfileContent() {
   // `?player=<username>` shows another player; without it the page is your own.
   const requested = useSearchParams().get("player")?.trim() || undefined;
+  const router = useRouter();
 
   const me = useGetMe();
   const myself = me.data?.status === 200 ? me.data.data : undefined;
@@ -826,6 +806,18 @@ function ProfileContent() {
 
   return (
     <Page>
+      {!isOwn && (
+        <button
+          className={`${buttonStyles.secondary} inline-flex min-h-11 w-fit items-center gap-2 py-2 text-sm`}
+          onClick={() => {
+            if (window.history.length > 1) router.back();
+            else router.push("/friends");
+          }}
+          type="button"
+        >
+          <ArrowLeft aria-hidden className="h-4 w-4" /> Back
+        </button>
+      )}
       <header>
         <p className="text-sm font-semibold text-link">Profile</p>
         <div className="mt-1 flex items-center justify-between gap-4">

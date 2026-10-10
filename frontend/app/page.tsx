@@ -5,13 +5,13 @@ import { JoinWithCode } from "@/src/components/join-code-form";
 import { buttonStyles, Page } from "@/src/components/page";
 import { PairInvites } from "@/src/components/pair-invites";
 import { PlayerSummary } from "@/src/components/player-summary";
-import { QuestCard } from "@/src/components/quest-card";
+import { QuestList } from "@/src/components/quest-list";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
-import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
 import { useListQuests } from "@/src/lib/api/quests";
-import { ChevronDown, Plus, Send } from "lucide-react";
+import { sortQuests } from "@/src/lib/quest-sections";
+import { ArrowRight, ChevronDown, Plus, Lightbulb, Send } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -20,53 +20,6 @@ const STEPS = [
   "Go out on campus and do the activity, some with a partner or a group.",
   "Confirm it in the app to collect your points and badges.",
 ];
-
-type Sections = {
-  available: QuestOut[];
-  upcoming: QuestOut[];
-  inReview: QuestOut[];
-  completed: QuestOut[];
-};
-
-// Available now first, then scheduled events, then the player's history.
-function sortQuests(quests: QuestOut[]): Sections {
-  const sections: Sections = {
-    available: [],
-    upcoming: [],
-    inReview: [],
-    completed: [],
-  };
-  for (const quest of quests) {
-    if (quest.completed) sections.completed.push(quest);
-    else if (quest.completion_status === "pending")
-      sections.inReview.push(quest);
-    else if (quest.kind === "meetup") {
-      if (quest.meetup_state === "live") sections.available.push(quest);
-      else if (
-        quest.meetup_state === "upcoming" ||
-        quest.meetup_state === "cancelled"
-      )
-        sections.upcoming.push(quest);
-      // Past meetups the player missed are no longer actionable.
-    } else sections.available.push(quest);
-  }
-  sections.upcoming.sort((a, b) =>
-    (a.starts_at ?? "").localeCompare(b.starts_at ?? ""),
-  );
-  return sections;
-}
-
-function QuestList({ quests }: { quests: QuestOut[] }) {
-  return (
-    <ul className="flex flex-col gap-3">
-      {quests.map((quest) => (
-        <li key={quest.id}>
-          <QuestCard quest={quest} />
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 function Section({
   title,
@@ -91,25 +44,39 @@ function Section({
 function Collapsible({
   title,
   defaultOpen = false,
+  compact = false,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
     <details
-      className="group rounded-2xl border border-outline-variant bg-surface shadow-card dark:bg-surface-variant"
+      className={`group border border-outline-variant ${
+        compact
+          ? "rounded-xl bg-transparent"
+          : "rounded-2xl bg-surface shadow-card dark:bg-surface-variant"
+      }`}
       open={defaultOpen}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between rounded-2xl px-5 py-4 font-semibold [&::-webkit-details-marker]:hidden">
+      <summary
+        className={`flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden ${
+          compact
+            ? "rounded-xl px-4 py-3 text-sm font-medium text-muted"
+            : "rounded-2xl px-5 py-4 font-semibold"
+        }`}
+      >
         {title}
         <ChevronDown
           aria-hidden
-          className="h-5 w-5 text-muted transition group-open:rotate-180"
+          className={`${
+            compact ? "h-4 w-4" : "h-5 w-5"
+          } text-muted transition group-open:rotate-180`}
         />
       </summary>
-      <div className="px-5 pb-5">{children}</div>
+      <div className={compact ? "px-4 pb-4" : "px-5 pb-5"}>{children}</div>
     </details>
   );
 }
@@ -131,16 +98,17 @@ export default function Home() {
         <p className="text-sm font-semibold uppercase tracking-wider text-link">
           VISCON 2026
         </p>
-        <h1 className="mt-1 text-4xl font-bold tracking-tight lg:text-6xl">
-          Campus Voyager
-        </h1>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <h1 className="min-w-0 text-3xl font-bold tracking-tight sm:text-4xl lg:text-6xl">
+            Campus Voyager
+          </h1>
+          <div className="shrink-0 -translate-y-1 lg:hidden">
+            <PlayerSummary />
+          </div>
+        </div>
         <CampusMotif className="mt-4 h-28 w-full text-outline sm:h-40 lg:h-52" />
       </header>
 
-      {/* On desktop the user rail shows the player and the code form. */}
-      <div className="lg:hidden">
-        <PlayerSummary />
-      </div>
       <PairInvites />
       <div className="lg:hidden">
         <JoinWithCode />
@@ -156,14 +124,25 @@ export default function Home() {
       ) : (
         <>
           {isNewPlayer && (
-            <Collapsible defaultOpen title="How it works">
+            <Collapsible compact defaultOpen title="How it works">
               <HowItWorks />
             </Collapsible>
           )}
 
           <Section count={sections.available.length} title="Available now">
             {sections.available.length > 0 ? (
-              <QuestList quests={sections.available} />
+              <>
+                <QuestList quests={sections.available.slice(0, 4)} />
+                {sections.available.length > 4 && (
+                  <Link
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition hover:border-primary/50 hover:bg-primary/15"
+                    href="/quests"
+                  >
+                    See all quests to do
+                    <ArrowRight aria-hidden className="h-4 w-4" />
+                  </Link>
+                )}
+              </>
             ) : (
               <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
                 {!quests?.length
@@ -186,13 +165,16 @@ export default function Home() {
           )}
 
           {sections.completed.length > 0 && (
-            <Collapsible title={`Completed (${sections.completed.length})`}>
+            <Collapsible
+              compact
+              title={`Completed (${sections.completed.length})`}
+            >
               <QuestList quests={sections.completed} />
             </Collapsible>
           )}
 
           {!isNewPlayer && (
-            <Collapsible title="How it works">
+            <Collapsible compact title="How it works">
               <HowItWorks />
             </Collapsible>
           )}
@@ -224,10 +206,10 @@ export default function Home() {
 
 function HowItWorks() {
   return (
-    <ol className="space-y-2 text-sm text-on-surface-variant">
+    <ol className="space-y-1.5 text-xs text-on-surface-variant">
       {STEPS.map((step, index) => (
-        <li className="flex gap-3" key={step}>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-on-accent">
+        <li className="flex gap-2" key={step}>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-on-accent">
             {index + 1}
           </span>
           {step}
