@@ -292,17 +292,10 @@ class LeaderboardEntry(BaseModel):
     is_current_player: bool
 
 
-LeaderboardScope = Literal["global", "friends"]
-
-
 class Leaderboard(BaseModel):
-    scope: LeaderboardScope
     entries: List[LeaderboardEntry] = Field(
-        description="Ranked best first. Global: everyone with at least one point "
-                    "(top 50). Friends: you and all your accepted friends.")
+        description="Players with at least one point, best first")
     current_player: LeaderboardEntry
-    friend_count: int = Field(
-        description="Accepted friends of the current player (0 means the Friends view is empty)")
 
 
 # --- Maintainers --------------------------------------------------------------

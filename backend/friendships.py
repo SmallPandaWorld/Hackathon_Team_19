@@ -12,7 +12,6 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from badges import FIRST_FRIEND, award_badge
 from game import as_utc, bad_request, conflict, not_found, total_points, utcnow
 from models import FRIEND_ACCEPTED, FRIEND_PENDING, Friendship, User
 from schemas import FriendOut, FriendRequestOut, Friends, FriendStatus
@@ -26,17 +25,6 @@ def friendship_between(db: Session, a: str, b: str) -> Optional[Friendship]:
             (Friendship.requester_id == b) & (Friendship.addressee_id == a),
         ))
     ).first()
-
-
-def accepted_friend_ids(db: Session, me: str) -> "set[str]":
-    """Usernames of the player's accepted friends (pending requests excluded)."""
-    rows = db.execute(
-        select(Friendship.requester_id, Friendship.addressee_id).where(
-            Friendship.status == FRIEND_ACCEPTED,
-            or_(Friendship.requester_id == me, Friendship.addressee_id == me),
-        )
-    ).all()
-    return {addressee if requester == me else requester for requester, addressee in rows}
 
 
 def friend_status(db: Session, me: str, other: str) -> FriendStatus:
@@ -79,10 +67,6 @@ def accept_request(db: Session, player: User, username: str) -> None:
         raise not_found("Friend request")
     row.status = FRIEND_ACCEPTED
     row.accepted_at = utcnow()
-    # Both players earn the friend badge, in the same transaction; it stays
-    # if the friendship is removed later.
-    for player_id in (row.requester_id, row.addressee_id):
-        award_badge(db, player_id, FIRST_FRIEND, row.accepted_at)
     db.commit()
 
 
