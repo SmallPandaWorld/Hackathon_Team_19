@@ -1,7 +1,7 @@
 "use client";
 
 import { CampusMotif } from "@/src/components/campus-motif";
-import { ThemeSwitch } from "@/src/components/theme-switch";
+// import { ThemeSwitch } from "@/src/components/theme-switch";
 import { Compass, Map, Trophy, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -72,10 +72,12 @@ export function TabBar() {
           );
         })}
       </ul>
+      {/* Sidebar theme bar, disabled for now (the profile page still has the switch).
       <div className="mt-auto hidden flex-col gap-2 border-t border-outline-variant px-6 py-5 lg:flex">
         <span className="text-xs font-semibold text-muted">Theme</span>
         <ThemeSwitch compact />
       </div>
+      */}
     </nav>
   );
 }
