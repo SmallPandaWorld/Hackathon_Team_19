@@ -1,134 +1,230 @@
 "use client";
 
-import {
-  useAddUserUsersPost,
-  useGetUsersUsersGet,
-} from "@/src/lib/api/default";
-import { useState, type FormEvent } from "react";
+import { CampusMotif } from "@/src/components/campus-motif";
+import { JoinWithCode } from "@/src/components/join-code-form";
+import { buttonStyles, Page } from "@/src/components/page";
+import { PairInvites } from "@/src/components/pair-invites";
+import { PlayerSummary } from "@/src/components/player-summary";
+import { QuestCard } from "@/src/components/quest-card";
+import { ShareButton } from "@/src/components/share-button";
+import { ErrorState, LoadingState } from "@/src/components/states";
+import { apiErrorMessage } from "@/src/lib/api-error";
+import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
+import { useListQuests } from "@/src/lib/api/quests";
+import { ChevronDown, Lightbulb, Send } from "lucide-react";
+import Link from "next/link";
+import type { ReactNode } from "react";
 
-type UsersResponse = {
-  users: string[];
-  count: number;
+const STEPS = [
+  "Pick a quest and read the instructions.",
+  "Go out on campus and do the activity, some with a partner or a group.",
+  "Confirm it in the app to collect your points and badges.",
+];
+
+type Sections = {
+  available: QuestOut[];
+  upcoming: QuestOut[];
+  inReview: QuestOut[];
+  completed: QuestOut[];
 };
 
-function isUsersResponse(value: unknown): value is UsersResponse {
-  if (typeof value !== "object" || value === null) {
-    return false;
+// Available now first, then scheduled events, then the player's history.
+function sortQuests(quests: QuestOut[]): Sections {
+  const sections: Sections = {
+    available: [],
+    upcoming: [],
+    inReview: [],
+    completed: [],
+  };
+  for (const quest of quests) {
+    if (quest.completed) sections.completed.push(quest);
+    else if (quest.completion_status === "pending")
+      sections.inReview.push(quest);
+    else if (quest.kind === "meetup") {
+      if (quest.meetup_state === "live") sections.available.push(quest);
+      else if (
+        quest.meetup_state === "upcoming" ||
+        quest.meetup_state === "cancelled"
+      )
+        sections.upcoming.push(quest);
+      // Past meetups the player missed are no longer actionable.
+    } else sections.available.push(quest);
   }
+  sections.upcoming.sort((a, b) =>
+    (a.starts_at ?? "").localeCompare(b.starts_at ?? ""),
+  );
+  return sections;
+}
 
-  const response = value as Record<string, unknown>;
+function QuestList({ quests }: { quests: QuestOut[] }) {
   return (
-    Array.isArray(response.users) &&
-    response.users.every((user) => typeof user === "string") &&
-    typeof response.count === "number"
+    <ul className="flex flex-col gap-3">
+      {quests.map((quest) => (
+        <li key={quest.id}>
+          <QuestCard quest={quest} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="flex items-baseline justify-between text-xl font-bold">
+        {title}
+        <span className="text-sm font-medium text-muted">{count}</span>
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Collapsible({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      className="group rounded-lg border border-outline-variant"
+      open={defaultOpen}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-semibold [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown
+          aria-hidden
+          className="h-5 w-5 text-muted transition group-open:rotate-180"
+        />
+      </summary>
+      <div className="px-4 pb-4">{children}</div>
+    </details>
   );
 }
 
 export default function Home() {
-  const { data, isLoading, isError, refetch } = useGetUsersUsersGet();
-  const addUser = useAddUserUsersPost();
-  const [name, setName] = useState("");
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const users = isUsersResponse(data?.data) ? data.data.users : [];
-
-  async function handleAddUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedName = name.trim();
-
-    if (!trimmedName) {
-      setSubmitError("Please enter a name.");
-      return;
-    }
-
-    setSubmitError(null);
-
-    try {
-      const response = await addUser.mutateAsync({ data: { name: trimmedName } });
-
-      if (response.status !== 201) {
-        setSubmitError("Unable to add this user.");
-        return;
-      }
-
-      setName("");
-      const refreshedUsers = await refetch();
-      if (refreshedUsers.isError) {
-        setSubmitError("User added, but the list could not be refreshed.");
-      }
-    } catch {
-      setSubmitError("Unable to add this user. Please try again.");
-    }
-  }
+  const { data, isLoading, isError, refetch } = useListQuests();
+  const quests = data?.status === 200 ? data.data : undefined;
+  const error = isError
+    ? "Could not load quests. Check your connection."
+    : apiErrorMessage(data);
+  const sections = quests ? sortQuests(quests) : undefined;
+  const isNewPlayer = sections
+    ? sections.completed.length === 0 && sections.inReview.length === 0
+    : false;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-900">
-      <div className="mx-auto max-w-2xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-          Hackathon users
-        </p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight">User list</h1>
-        <p className="mt-3 text-slate-600">
-          Everyone currently registered for the hackathon.
-        </p>
+    <Page>
+      <header className="relative">
+        <p className="text-sm font-medium text-muted">VISCON 2026</p>
+        <h1 className="mt-1 text-4xl font-bold tracking-tight">
+          Campus Voyager
+        </h1>
+        <CampusMotif className="mt-2 h-16 w-full text-outline" />
+      </header>
 
-        <form
-          className="mt-8 flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-end"
-          onSubmit={handleAddUser}
+      <PlayerSummary />
+      <PairInvites />
+      <JoinWithCode />
+
+      {isLoading ? (
+        <LoadingState label="Loading quests..." />
+      ) : error || !sections ? (
+        <ErrorState
+          message={error ?? "Could not load quests."}
+          onRetry={() => refetch()}
+        />
+      ) : (
+        <>
+          {isNewPlayer && (
+            <Collapsible defaultOpen title="How it works">
+              <HowItWorks />
+            </Collapsible>
+          )}
+
+          <Section count={sections.available.length} title="Available now">
+            {sections.available.length > 0 ? (
+              <QuestList quests={sections.available} />
+            ) : (
+              <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
+                You&apos;ve done everything available right now. Check the
+                upcoming events, or suggest a new quest!
+              </p>
+            )}
+          </Section>
+
+          {sections.upcoming.length > 0 && (
+            <Section count={sections.upcoming.length} title="Upcoming">
+              <QuestList quests={sections.upcoming} />
+            </Section>
+          )}
+
+          {sections.inReview.length > 0 && (
+            <Section count={sections.inReview.length} title="In review">
+              <QuestList quests={sections.inReview} />
+            </Section>
+          )}
+
+          {sections.completed.length > 0 && (
+            <Collapsible title={`Completed (${sections.completed.length})`}>
+              <QuestList quests={sections.completed} />
+            </Collapsible>
+          )}
+
+          {!isNewPlayer && (
+            <Collapsible title="How it works">
+              <HowItWorks />
+            </Collapsible>
+          )}
+        </>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ShareButton
+          className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
+          label={
+            <>
+              <Send aria-hidden className="h-4 w-4" /> Invite a friend
+            </>
+          }
+          path="/"
+          text="Join me on Campus Voyager: explore ETH and complete quests together!"
+          title="Campus Voyager"
+        />
+        <Link
+          className={`${buttonStyles.secondary} flex items-center justify-center gap-2`}
+          href="/submit"
         >
-          <label className="flex-1 text-sm font-medium text-slate-700" htmlFor="user-name">
-            Add a user
-            <input
-              className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base font-normal outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              id="user-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Enter a name"
-              value={name}
-            />
-          </label>
-          <button
-            className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={addUser.isPending}
-            type="submit"
-          >
-            {addUser.isPending ? "Adding..." : "Add user"}
-          </button>
-          {submitError && (
-            <p className="basis-full text-sm text-red-600" role="alert">
-              {submitError}
-            </p>
-          )}
-        </form>
-
-        <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          {isLoading ? (
-            <p className="text-slate-500">Loading users...</p>
-          ) : isError || !isUsersResponse(data?.data) ? (
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-red-600">Unable to load users.</p>
-              <button
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-                onClick={() => refetch()}
-                type="button"
-              >
-                Try again
-              </button>
-            </div>
-          ) : users.length === 0 ? (
-            <p className="text-slate-500">No users have registered yet.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {users.map((user, index) => (
-                <li className="flex items-center gap-3 py-4 first:pt-0 last:pb-0" key={`${user}-${index}`}>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
-                    {user.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="font-medium">{user}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          <Lightbulb aria-hidden className="h-4 w-4" /> Suggest a quest
+        </Link>
       </div>
-    </main>
+    </Page>
+  );
+}
+
+function HowItWorks() {
+  return (
+    <ol className="space-y-2 text-sm text-on-surface-variant">
+      {STEPS.map((step, index) => (
+        <li className="flex gap-3" key={step}>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
+            {index + 1}
+          </span>
+          {step}
+        </li>
+      ))}
+    </ol>
   );
 }
