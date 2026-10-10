@@ -12,6 +12,7 @@ type QuestPhoto = {
   quest_title: string;
   uploaded_at: string;
   is_mine: boolean;
+  uploader_username?: string | null;
 };
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -27,10 +28,8 @@ function errorDetail(data: unknown): string | null {
 
 export function QuestPhotoGallery({
   questId,
-  completed,
 }: {
   questId: string;
-  completed: boolean;
 }) {
   const collectionUrl = `/api/quests/${encodeURIComponent(questId)}/player-photos`;
   const [photoResult, setPhotoResult] = useState<{
@@ -52,6 +51,10 @@ export function QuestPhotoGallery({
   const [capturing, setCapturing] = useState(false);
   const photos =
     photoResult.url === collectionUrl ? photoResult.photos : [];
+  const ownPhotos = photos.filter((photo) => photo.is_mine);
+  const otherPhotos = photos.filter(
+    (photo) => !photo.is_mine && photo.uploader_username,
+  );
 
   useEffect(() => {
     if (!cameraOpen || !videoRef.current || !cameraStreamRef.current) return;
@@ -97,10 +100,6 @@ export function QuestPhotoGallery({
   async function upload(file: File) {
     setError(null);
     setMessage(null);
-    if (!completed) {
-      setError("Complete this quest before adding a photo.");
-      return;
-    }
     if (!ALLOWED_TYPES.has(file.type)) {
       setError("Choose a PNG, JPEG, or WebP photo.");
       return;
@@ -255,13 +254,61 @@ export function QuestPhotoGallery({
     }
   }
 
+  function renderPhotos(photoList: QuestPhoto[]) {
+    return (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {photoList.map((photo) => (
+          <figure className="min-w-0" key={photo.id}>
+            <div className="relative">
+              <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
+                <Image
+                  alt={`Photo from ${photo.quest_title}`}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 640px) 45vw, 220px"
+                  src={`/api/quest-photos/${photo.id}`}
+                  unoptimized
+                />
+              </div>
+              {photo.is_mine && (
+                <button
+                  aria-label={`Delete your photo from ${photo.quest_title}`}
+                  className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface text-danger shadow-card transition hover:bg-danger hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
+                  disabled={deletingId !== null || uploading}
+                  onClick={() => void deletePhoto(photo)}
+                  title="Delete photo"
+                  type="button"
+                >
+                  <X aria-hidden className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+            <figcaption className="mt-1 truncate text-xs text-muted">
+              {photo.is_mine ? (
+                "You"
+              ) : photo.uploader_username ? (
+                <Link
+                  className="font-semibold text-link hover:underline"
+                  href={`/profile?player=${encodeURIComponent(photo.uploader_username)}`}
+                >
+                  {photo.uploader_username}
+                </Link>
+              ) : null}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <Card className="flex flex-col gap-4">
       <div>
         <h2 className="font-semibold">Quest photos</h2>
         <p className="mt-1 text-sm text-muted">
-          Share a photo with players viewing this activity. Your photo appears
-          on your profile only while you have opted in under Privacy.
+          Add a photo before or after completing this activity. Other quest
+          viewers see your uploads only if you opt in under Privacy. Photos
+          from other players appear here only when they opt in too.
         </p>
       </div>
 
@@ -269,9 +316,7 @@ export function QuestPhotoGallery({
         <input
           accept="image/png,image/jpeg,image/webp"
           className="hidden"
-          disabled={
-            !completed || uploading || deletingId !== null || cameraOpen
-          }
+          disabled={uploading || deletingId !== null || cameraOpen}
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
@@ -284,7 +329,7 @@ export function QuestPhotoGallery({
           accept="image/png,image/jpeg,image/webp"
           capture="environment"
           className="hidden"
-          disabled={!completed || uploading || deletingId !== null}
+          disabled={uploading || deletingId !== null}
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
@@ -293,17 +338,11 @@ export function QuestPhotoGallery({
           ref={cameraInputRef}
           type="file"
         />
-        {!completed && (
-          <p className="text-sm text-muted">
-            Complete this quest to upload a photo.
-          </p>
-        )}
         {!cameraOpen ? (
           <div className="flex flex-wrap items-center gap-3">
             <button
               className={`${buttonStyles.secondary} inline-flex items-center gap-2 py-2`}
               disabled={
-                !completed ||
                 uploading ||
                 deletingId !== null ||
                 cameraStarting ||
@@ -318,7 +357,6 @@ export function QuestPhotoGallery({
             <button
               className={`${buttonStyles.primary} py-2`}
               disabled={
-                !completed ||
                 uploading ||
                 deletingId !== null ||
                 cameraStarting ||
@@ -368,42 +406,23 @@ export function QuestPhotoGallery({
         {message && <p className="text-sm text-muted">{message}</p>}
       </div>
 
-      {photos.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {photos.map((photo) => (
-            <figure className="min-w-0" key={photo.id}>
-              <div className="relative">
-                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                  <Image
-                    alt={`Photo from ${photo.quest_title}`}
-                    className="object-cover"
-                    fill
-                    sizes="(max-width: 640px) 45vw, 220px"
-                    src={`/api/quest-photos/${photo.id}`}
-                    unoptimized
-                  />
-                </div>
-                {photo.is_mine && (
-                  <button
-                    aria-label={`Delete your photo from ${photo.quest_title}`}
-                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface text-danger shadow-card transition hover:bg-danger hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
-                    disabled={deletingId !== null || uploading}
-                    onClick={() => void deletePhoto(photo)}
-                    title="Delete photo"
-                    type="button"
-                  >
-                    <X aria-hidden className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-              <figcaption className="mt-1 truncate text-xs text-muted">
-                {photo.quest_title}
-              </figcaption>
-            </figure>
-          ))}
+      {ownPhotos.length > 0 || otherPhotos.length > 0 ? (
+        <div className="flex flex-col gap-5">
+          {ownPhotos.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">Your photos</h3>
+              {renderPhotos(ownPhotos)}
+            </section>
+          )}
+          {otherPhotos.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">Photos of others</h3>
+              {renderPhotos(otherPhotos)}
+            </section>
+          )}
         </div>
       ) : (
-        <p className="text-sm text-muted">No photos have been added yet.</p>
+        <p className="text-sm text-muted">No photos are visible here yet.</p>
       )}
     </Card>
   );

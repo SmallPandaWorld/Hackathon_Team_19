@@ -6,7 +6,7 @@ from typing import List
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from auth import get_current_player, is_maintainer, require_maintainer
@@ -72,7 +72,11 @@ def _photo_out(photo: MeetupPhoto, quest: Quest) -> MeetupPhotoOut:
 
 
 def _quest_photo_out(
-    photo: QuestPhoto, quest: Quest, *, is_mine: bool = False
+    photo: QuestPhoto,
+    quest: Quest,
+    *,
+    is_mine: bool = False,
+    uploader_username: str | None = None,
 ) -> QuestPhotoOut:
     return QuestPhotoOut(
         id=photo.id,
@@ -80,6 +84,7 @@ def _quest_photo_out(
         quest_title=quest.title,
         uploaded_at=photo.uploaded_at,
         is_mine=is_mine,
+        uploader_username=uploader_username,
     )
 
 
@@ -191,11 +196,25 @@ def list_quest_photos(
         raise not_found("Quest")
     photos = db.scalars(
         select(QuestPhoto)
-        .where(QuestPhoto.quest_id == quest.id)
+        .join(User, QuestPhoto.uploader_id == User.username)
+        .where(
+            QuestPhoto.quest_id == quest.id,
+            or_(
+                QuestPhoto.uploader_id == player.username,
+                User.discoverable.is_(True),
+            ),
+        )
         .order_by(QuestPhoto.uploaded_at.desc(), QuestPhoto.id)
     ).all()
     return [
-        _quest_photo_out(photo, quest, is_mine=photo.uploader_id == player.username)
+        _quest_photo_out(
+            photo,
+            quest,
+            is_mine=photo.uploader_id == player.username,
+            uploader_username=(
+                photo.uploader_id if photo.uploader_id != player.username else None
+            ),
+        )
         for photo in photos
     ]
 
@@ -205,7 +224,7 @@ def list_quest_photos(
     status_code=status.HTTP_201_CREATED,
     response_model=QuestPhotoOut,
     responses={
-        400: {"description": "Invalid image or quest not completed"},
+        400: {"description": "Invalid image"},
         404: {"description": "Quest not found"},
         413: {"description": "Image too large"},
         415: {"description": "Unsupported image type"},
@@ -217,20 +236,14 @@ async def upload_quest_photo(
     player: User = Depends(get_current_player),
     db: Session = Depends(get_db),
 ):
-    """Let a player add a photo after completing a supported quest."""
+    """Let a player add a photo to a visible meetup, pair, or multi-step quest."""
     quest = db.get(Quest, quest_id)
-    if quest is None or quest.kind not in PHOTO_QUEST_KINDS:
+    if (
+        quest is None
+        or quest.kind not in PHOTO_QUEST_KINDS
+        or (not can_view(db, player, quest) and not is_maintainer(player))
+    ):
         raise not_found("Quest")
-    completion = db.scalar(select(Completion).where(
-        Completion.player_id == player.username,
-        Completion.quest_id == quest.id,
-        Completion.status == APPROVED,
-    ))
-    if completion is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Complete this quest before adding a photo.",
-        )
 
     declared_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
     if declared_type == "image/jpg":
@@ -295,11 +308,16 @@ def get_quest_photo(
 ):
     photo = db.get(QuestPhoto, photo_id)
     quest = db.get(Quest, photo.quest_id) if photo else None
+    uploader = db.get(User, photo.uploader_id) if photo else None
     if (
         photo is None
         or quest is None
         or quest.kind not in PHOTO_QUEST_KINDS
         or (not can_view(db, player, quest) and not is_maintainer(player))
+        or (
+            photo.uploader_id != player.username
+            and (uploader is None or not uploader.discoverable)
+        )
     ):
         raise _missing_photo()
     return _serve_quest_photo(photo)

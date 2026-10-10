@@ -9,7 +9,8 @@ import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { CompletedNote } from "./result-banner";
-import { Send } from "lucide-react";
+import { Camera, Send } from "lucide-react";
+import Link from "next/link";
 
 function useSecondsLeft(expiresAt: string | undefined) {
   const [now, setNow] = useState(() => Date.now());
@@ -121,6 +122,12 @@ export function PairAction({ quest }: { quest: QuestOut }) {
           </p>
         )}
         <CompletedNote completedAt={quest.completed_at} />
+        <Link
+          className={`${buttonStyles.primary} inline-flex items-center justify-center gap-2 py-2`}
+          href={`/quests/${quest.id}#quest-photos`}
+        >
+          <Camera aria-hidden className="h-4 w-4" /> Add a photo
+        </Link>
         {session?.state === "completed" && (
           <p className="text-center text-sm text-muted">
             Completed together with{" "}
