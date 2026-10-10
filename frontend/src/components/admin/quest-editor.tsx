@@ -3,10 +3,7 @@
 import { CampusMap } from "@/src/components/campus-map";
 import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
-import {
-  useAdminCreateQuest,
-  useAdminUpdateQuest,
-} from "@/src/lib/api/admin";
+import { useAdminCreateQuest, useAdminUpdateQuest } from "@/src/lib/api/admin";
 import type {
   AdminQuestIn,
   AdminQuestInKind,
@@ -94,6 +91,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   const [requiresCode, setRequiresCode] = useState(
     quest?.requires_code ?? false,
   );
+  const [requiresPassword, setRequiresPassword] = useState(
+    quest?.requires_password ?? false,
+  );
+  const [password, setPassword] = useState("");
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
     quest?.latitude != null && quest?.longitude != null
       ? { lat: quest.latitude, lng: quest.longitude }
@@ -136,6 +137,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
       kind,
       requires_approval: kind === "solo" && requiresApproval,
       requires_code: kind === "solo" && requiresCode,
+      requires_password: kind === "solo" && requiresPassword,
+      ...(kind === "solo" && requiresPassword && password.trim()
+        ? { password: password.trim() }
+        : {}),
       latitude: pin?.lat ?? null,
       longitude: pin?.lng ?? null,
       starts_at: kind === "meetup" ? fromLocalInput(startsAt) : null,
@@ -155,6 +160,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         )
       ) {
         setSaved(true);
+        setPassword("");
         await refreshAll();
       }
     } else {
@@ -184,11 +190,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     ) {
       return;
     }
-    if (
-      await run(() =>
-        updateQuest.mutateAsync({ questId: quest.id, data }),
-      )
-    ) {
+    if (await run(() => updateQuest.mutateAsync({ questId: quest.id, data }))) {
       await refreshAll();
     }
   }
@@ -336,10 +338,13 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             <legend className="font-semibold">Completion method</legend>
             <label className="flex items-center gap-2">
               <input
-                checked={!requiresApproval && !requiresCode}
+                checked={
+                  !requiresApproval && !requiresCode && !requiresPassword
+                }
                 onChange={() => {
                   edited(setRequiresApproval)(false);
                   edited(setRequiresCode)(false);
+                  edited(setRequiresPassword)(false);
                 }}
                 name="completion-method"
                 type="radio"
@@ -352,6 +357,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 onChange={() => {
                   edited(setRequiresCode)(true);
                   edited(setRequiresApproval)(false);
+                  edited(setRequiresPassword)(false);
                 }}
                 name="completion-method"
                 type="radio"
@@ -360,16 +366,54 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </label>
             <label className="flex items-center gap-2">
               <input
+                checked={requiresPassword}
+                onChange={() => {
+                  edited(setRequiresPassword)(true);
+                  edited(setRequiresCode)(false);
+                  edited(setRequiresApproval)(false);
+                }}
+                name="completion-method"
+                type="radio"
+              />
+              Creator-set password
+            </label>
+            <label className="flex items-center gap-2">
+              <input
                 checked={requiresApproval}
                 onChange={() => {
                   edited(setRequiresApproval)(true);
                   edited(setRequiresCode)(false);
+                  edited(setRequiresPassword)(false);
                 }}
                 name="completion-method"
                 type="radio"
               />
               Maintainer approval
             </label>
+            {requiresPassword && (
+              <label className="font-medium text-on-surface-variant">
+                Quest password
+                <input
+                  autoComplete="new-password"
+                  className={inputStyles}
+                  maxLength={40}
+                  minLength={1}
+                  onChange={(event) => edited(setPassword)(event.target.value)}
+                  placeholder={
+                    quest?.requires_password
+                      ? "Leave blank to keep the current password"
+                      : "Set a password"
+                  }
+                  required={!quest?.requires_password}
+                  type="password"
+                  value={password}
+                />
+                <span className="text-xs font-normal text-muted">
+                  1–40 characters. Capital letters matter; surrounding spaces
+                  are ignored.
+                </span>
+              </label>
+            )}
             <p className="text-xs text-muted">
               For code quests, print the QR sign after saving. Players can scan
               it with a phone camera or type its code.
@@ -431,7 +475,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </p>
           )}
           {steps.map((step, index) => (
-            <div className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container" key={index}>
+            <div
+              className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
+              key={index}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Step {index + 1}</span>
                 <button
@@ -498,7 +545,10 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 ),
               );
             return (
-              <div className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container" key={qIndex}>
+              <div
+                className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
+                key={qIndex}
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold">
                     Question {qIndex + 1}

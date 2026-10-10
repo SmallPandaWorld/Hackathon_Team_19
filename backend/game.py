@@ -1,7 +1,8 @@
 """Game rules shared by the routers: scoring, visibility, meetups, validation."""
 
-import json
+import hashlib
 import hmac
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -275,6 +276,7 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             status=quest.status,
             requires_approval=quest.requires_approval,
             requires_code=quest.requires_code,
+            requires_password=quest.requires_password,
             latitude=quest.latitude,
             longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),
@@ -315,6 +317,8 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
         problems.append("Instructions need at least 10 characters.")
     if quest.points < 1:
         problems.append("Points must be at least 1.")
+    if quest.requires_password and not quest.password_hash:
+        problems.append("Set a password before publishing this quest.")
     if (quest.latitude is None) != (quest.longitude is None):
         problems.append("Map pin needs both coordinates (or neither).")
     if quest.kind == QUIZ:
@@ -387,6 +391,8 @@ def complete_quest(db: Session, player: User, quest: Quest,
         raise bad_request(WRONG_ACTION[quest.kind])
     if quest.requires_code:
         raise bad_request("Enter the printed code to complete this quest.")
+    if quest.requires_password:
+        raise bad_request("Enter the password to complete this quest.")
 
     existing = find_completion(db, player.username, quest.id)
     if quest.kind == MEETUP and existing is None:
@@ -413,16 +419,40 @@ def complete_quest(db: Session, player: User, quest: Quest,
 
 def redeem_quest_code(db: Session, player: User, quest: Quest,
                       code: str) -> CompletionResult:
-    """Check a quest's stable printed code, then award this player once."""
-    if not quest.requires_code:
-        raise bad_request("This quest does not use a printed code.")
-    normalized = code.strip().upper()
-    if not normalized.isascii() or not hmac.compare_digest(
-        normalized, quest.verification_code or ""
-    ):
-        raise bad_request("That code is not valid for this quest.")
+    """Check a solo quest's printed code or password, then award once."""
+    if quest.requires_password:
+        if not verify_quest_password(code.strip(), quest.password_hash):
+            raise bad_request("That password is not valid for this quest.")
+    elif quest.requires_code:
+        normalized = code.strip().upper()
+        if not normalized.isascii() or not hmac.compare_digest(
+            normalized, quest.verification_code or ""
+        ):
+            raise bad_request("That code is not valid for this quest.")
+    else:
+        raise bad_request("This quest does not use a code or password.")
     completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
+
+
+def hash_quest_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return f"sha256$200000${salt.hex()}${digest.hex()}"
+
+
+def verify_quest_password(password: str, saved: Optional[str]) -> bool:
+    if not saved:
+        return False
+    try:
+        algorithm, rounds, salt, expected = saved.split("$")
+        if algorithm != "sha256" or int(rounds) != 200_000:
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(salt), int(rounds))
+        return hmac.compare_digest(digest, bytes.fromhex(expected))
+    except (ValueError, TypeError):
+        return False
 
 
 def submit_quiz(db: Session, player: User, quest: Quest,

@@ -38,13 +38,15 @@ There are five quest types:
 
 | Internal type | Player experience | Completion rule |
 | --- | --- | --- |
-| `solo` | Do an activity independently | Confirm completion, submit a claim for maintainer approval, or enter a printed code / scan its QR, depending on the quest |
+| `solo` | Do an activity independently | Confirm completion, submit a claim for maintainer approval, enter a printed code / scan its QR, or enter a creator-set password, depending on the quest |
 | `pair` | Do an activity with another player | One hosts a code; a different player joins it |
 | `quiz` | Answer multiple-choice questions | Every answer must be correct |
 | `multi_step` | Work through ordered activities | Complete the steps in order; the last step completes the quest |
 | `meetup` | Attend a scheduled campus event | Check in during the allowed time window |
 
 Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. This is separate from the temporary codes used to join pair quests.
+
+Password verification is another solo completion method. A maintainer sets a 4–40 character password in the editor and shares it with players after they finish the activity. The backend stores a salted password hash; admin and player responses never return the password. Maintainers can replace it by entering a new one when editing. Password quests have no QR scanner.
 
 Players can propose new solo quests and report inappropriate quest content. Maintainers can create and edit quests, publish or retire them, review ideas, approve completion claims, and resolve reports.
 
@@ -198,7 +200,7 @@ For SQLite, a connection event enables `PRAGMA foreign_keys=ON`. Foreign-key ref
 
 ### 4.3 Legacy schema upgrades
 
-`create_all()` creates missing tables but does not add columns to existing tables. On startup, `ensure_schema()` archives pre-username tables as `legacy_*` and creates the current UUID and username schema. For an existing current-schema database, it adds `requires_code` and `verification_code` to quests if needed, assigns each row without a code a random permanent code, and creates a unique code index. Later startups preserve the saved codes.
+`create_all()` creates missing tables but does not add columns to existing tables. On startup, `ensure_schema()` archives pre-username tables as `legacy_*` and creates the current UUID and username schema. For an existing current-schema database, it adds code and password verification columns to quests if needed, assigns a random permanent code to code-verified rows missing one, and creates a unique code index. Later startups preserve the saved codes and password hashes.
 
 This is a one-time compatibility step, not a versioned migration framework. Archived tables are retained; their rows are not imported into the new schema.
 
@@ -297,7 +299,7 @@ username; foreign keys to quests and steps store UUIDs.
 
 `PairSession.code` is indexed but not declared unique. Code generation checks for a code already in use within its validity period; lookup chooses the newest matching session.
 
-`Quest.verification_code` is different: each quest gets a random 12-character code when inserted, including quests that do not currently require code verification. The alphabet omits ambiguous characters. The code stays on the quest row through edits, player visits, and restarts. Only `requires_code` decides whether players must redeem it; it does not regenerate the code. Existing rows are backfilled once as described in section 4.3.
+`Quest.verification_code` is different: a quest gets a random 12-character code when printed-code verification is enabled. The alphabet omits ambiguous characters. The code stays on the quest row through edits, player visits, and restarts. Only `requires_code` decides whether players must redeem it; ordinary edits do not regenerate the code. Existing code-verified rows are backfilled once as described in section 4.3. Password-verified quests instead store a salted hash in `password_hash`.
 
 ### 6.3 Points are derived, not stored on the player
 
@@ -332,7 +334,7 @@ Database timestamps are naive UTC: UTC values stored without timezone metadata, 
 | Admin content | `StepIn`, `QuizQuestionIn`, `AdminQuestIn`, `AdminQuizQuestionOut`, `AdminQuestOut`, `StatusChange` | Quest editing and publication |
 | Admin review | `AdminCompletionOut`, `CompletionReview`, `AdminReportOut`, `ReportResolution` | Claim decisions and report handling |
 
-`QuestOut` is personalized. The same quest can have `completed=true` for one player and `completed=false` for another. It includes step flags, approval state, the `requires_code` flag, meetup state, RSVP count, current player's RSVP, and whether that player reported it. It never includes `verification_code`. Maintainer-only `AdminQuestOut` includes both the flag and the code so a sign can be printed.
+`QuestOut` is personalized. The same quest can have `completed=true` for one player and `completed=false` for another. It includes step flags, approval state, the `requires_code` and `requires_password` flags, meetup state, RSVP count, current player's RSVP, and whether that player reported it. It never includes `verification_code` or `password_hash`. Maintainer-only `AdminQuestOut` includes the printed code when there is one, but never includes the password hash.
 
 Player quiz responses contain choices but omit `correct_index`. Admin quiz responses include the answer key. Database records and player-facing API objects are deliberately different.
 
@@ -340,7 +342,7 @@ Some important validation limits:
 
 - Player idea: title 3–120 characters; instructions 10–2000; optional location up to 255.
 - Completion note: up to 500 characters; optional.
-- Code redemption input: 1–40 characters before the router trims and uppercases it. Admin input allows code verification only for solo quests and does not combine it with maintainer approval.
+- Code or password redemption input: 1–40 characters. Printed codes are trimmed and uppercased; passwords are trimmed and case-sensitive. Admin input allows either method only for solo quests, one completion method at a time.
 - Report reason: 5–500 characters before router trimming.
 - Admin reward: 0–1000 points; publication requires at least 1.
 - Coordinates: latitude −90 to 90; longitude −180 to 180.
@@ -435,9 +437,11 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | POST | `/quests/{quest_id}/actions` | `act_on_quest`: `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `pair_start`, or `pair_cancel` |
 | POST | `/quests` | `submit_quest`: create a solo idea awaiting review; returns 201 |
 
-`complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code-verified quests, so the ordinary completion endpoint cannot bypass the code. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
+`complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code- and password-verified quests, so the ordinary completion endpoint cannot bypass verification. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
 
 The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest. `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
+
+The same `redeem` action accepts the password in its `code` field for password-verified solo quests. It compares a case-sensitive, trimmed password with the stored PBKDF2 hash. A mismatch awards no points; a match follows the same one-reward-per-player rule.
 
 Approval-required solo quests create pending records. Resubmitting a rejected claim reuses that row, replaces its note and submission time, clears review details, and sets it back to pending.
 
@@ -524,7 +528,7 @@ The public entries contain up to 50 players with positive points. `current_playe
 
 `admin_quest_out()` includes answer keys, the permanent verification code, approved-completion counts, open-report counts, authorship, and publication problems. These responses are maintainer-only.
 
-`apply_quest_input()` normalizes text, coordinates, type-specific fields, steps, and questions. It disables approval and code verification on non-solo quests and removes meetup schedule/cancellation fields from non-meetups. It does not replace the quest's verification code.
+`apply_quest_input()` normalizes text, coordinates, type-specific fields, steps, and questions. It disables approval, code, and password verification on non-solo quests and removes meetup schedule/cancellation fields from non-meetups. It preserves a printed code once assigned, hashes a new password when supplied, and clears the password hash when password verification is disabled.
 
 Editing protections:
 
@@ -750,7 +754,7 @@ The page renders a campus motif, compact player summary, incoming pair invitatio
 
 The detail article displays quest kind, status if unpublished, title, reward, location, author, and instructions. Coordinates enable a `/map#quest-ID` link and an external Google Maps walking-directions link. That directions URL names the destination; the component does not supply the player's device coordinates.
 
-`QuestAction()` chooses the matching action component. Published solo quests with `requires_code` use `CodeAction`; other solo quests use `SoloAction`. Unpublished/retired quests display availability information instead of playable controls.
+`QuestAction()` chooses the matching action component. Published solo quests with `requires_code` or `requires_password` use `CodeAction`; other solo quests use `SoloAction`. Unpublished/retired quests display availability information instead of playable controls.
 
 `ReportQuest()` is a local form. It opens an inline reason field, validates a trimmed minimum length in the UI, sends the report, refreshes queries, and closes. A previously reported quest shows an acknowledgment rather than another report button.
 
@@ -878,7 +882,7 @@ The component asks players to confirm only after doing the activity. It has no s
 
 ### 14.2 `frontend/src/components/quest-actions/code-action.tsx`
 
-`CodeAction` is rendered only for solo quests with `requires_code`. It shows a manual code field and an in-app camera scanner that uses `zxing-wasm` to read QR frames in the browser. The scanner accepts the printed sign's quest link, checks that the link targets the current quest, extracts its code, and sends a `redeem` action through `useQuestAction()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` also reads that code and an effect submits it automatically when the link opens the quest. A wrong code displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
+`CodeAction` is rendered for solo quests with `requires_code` or `requires_password`. Printed-code quests show a manual code field and an in-app camera scanner that uses `zxing-wasm` to read QR frames in the browser. The scanner accepts the printed sign's quest link, checks that the link targets the current quest, extracts its code, and sends a `redeem` action through `useQuestAction()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` also reads that code and an effect submits it automatically when the link opens the quest. Password quests instead show a masked password field without scanning or URL redemption. Invalid input displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
 
 ### 14.3 `frontend/src/components/quest-actions/quiz-action.tsx`
 
@@ -958,7 +962,7 @@ The editor owns local state for text, reward, kind, completion method, pin, sche
 
 Type-specific editing:
 
-- Solo: choose player confirmation, printed code/QR, or maintainer approval. The latter two methods cannot be combined.
+- Solo: choose player confirmation, printed code/QR, creator-set password, or maintainer approval. Only one method can be selected.
 - Meetup: start/end local datetime inputs, cancellation, and Zurich-time preview.
 - Multi-step: ordered titles/details, add/remove controls, minimum two visible steps, maximum 20.
 - Quiz: questions, choice strings, one correct answer per question, minimum two choices, maximum eight choices and 20 questions. Removing a choice adjusts the correct index.

@@ -23,8 +23,10 @@ from database import get_db
 from game import (
     QUEST_CREATION_ORDER,
     as_utc,
+    bad_request,
     conflict,
     error_responses,
+    hash_quest_password,
     not_found,
     ordered_questions,
     ordered_steps,
@@ -52,6 +54,7 @@ from models import (
     QuizQuestion,
     StepProgress,
     User,
+    new_verification_code,
 )
 from schemas import (
     AdminCompletionOut,
@@ -98,6 +101,7 @@ def admin_quest_out(db: Session, quest: Quest) -> AdminQuestOut:
         status=quest.status,
         requires_approval=quest.requires_approval,
         requires_code=quest.requires_code,
+        requires_password=quest.requires_password,
         verification_code=quest.verification_code,
         latitude=quest.latitude,
         longitude=quest.longitude,
@@ -134,6 +138,19 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     quest.kind = data.kind
     quest.requires_approval = data.requires_approval and data.kind == SOLO
     quest.requires_code = data.requires_code and data.kind == SOLO
+    if quest.requires_code and not quest.verification_code:
+        code = new_verification_code()
+        while db.scalar(select(Quest.id).where(Quest.verification_code == code)):
+            code = new_verification_code()
+        quest.verification_code = code
+    quest.requires_password = data.requires_password and data.kind == SOLO
+    if quest.requires_password:
+        if data.password is not None:
+            quest.password_hash = hash_quest_password(data.password.strip())
+        elif not quest.password_hash:
+            raise bad_request("Set a password for this quest.")
+    else:
+        quest.password_hash = None
     quest.latitude = data.latitude
     quest.longitude = data.longitude
     is_meetup = data.kind == MEETUP
@@ -187,6 +204,7 @@ def quest_input(db: Session, quest: Quest) -> dict:
         "kind": quest.kind,
         "requires_approval": quest.requires_approval,
         "requires_code": quest.requires_code,
+        "requires_password": quest.requires_password,
         "latitude": quest.latitude,
         "longitude": quest.longitude,
         "starts_at": as_utc(quest.starts_at),

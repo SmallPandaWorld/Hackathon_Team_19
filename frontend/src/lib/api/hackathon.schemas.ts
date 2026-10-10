@@ -88,6 +88,9 @@ export interface AdminQuestIn {
   kind?: AdminQuestInKind;
   requires_approval?: boolean;
   requires_code?: boolean;
+  requires_password?: boolean;
+  /** @minLength 4 @maxLength 40 */
+  password?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -148,8 +151,9 @@ export interface AdminQuestOut {
   status: AdminQuestOutStatus;
   requires_approval: boolean;
   requires_code: boolean;
-  /** Stable code for the printable QR; maintainers only */
-  verification_code: string;
+  requires_password: boolean;
+  /** Stable code for the printable QR, when enabled; maintainers only */
+  verification_code: string | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -197,6 +201,9 @@ export interface AdminQuestPatch {
   kind?: AdminQuestPatchKind;
   requires_approval?: boolean | null;
   requires_code?: boolean | null;
+  requires_password?: boolean | null;
+  /** @minLength 4 @maxLength 40 */
+  password?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -544,6 +551,8 @@ export interface QuestOut {
   requires_approval: boolean;
   /** Enter the printed code or scan its QR to complete */
   requires_code: boolean;
+  /** Enter the creator-set password to complete */
+  requires_password: boolean;
   /** Map pin (WGS84) */
   latitude?: number | null;
   /** Map pin (WGS84) */
@@ -607,7 +616,7 @@ export interface QuizAction {
 }
 
 /**
- * Redeem a printed code for a solo quest.
+ * Redeem a printed code or creator-set password for a solo quest.
  */
 export interface RedeemAction {
   type: "redeem";

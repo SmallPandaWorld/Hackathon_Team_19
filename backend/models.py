@@ -82,12 +82,14 @@ class Quest(Base):
         String(20), nullable=False, default=PUBLISHED, server_default=PUBLISHED)
     requires_approval: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0"))
-    # Generated once per quest; only code-verified solo quests use it.
+    # Generated once when printed-code verification is enabled.
     requires_code: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0"))
+    requires_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0"))
+    password_hash: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
     verification_code: Mapped[Optional[str]] = mapped_column(
-        String(12), nullable=True, unique=True, index=True,
-        default=new_verification_code)
+        String(12), nullable=True, unique=True, index=True)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

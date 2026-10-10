@@ -618,7 +618,7 @@ export const getActOnQuestUrl = (questId: string) => {
  *
  * - `complete`: complete a solo quest or check in at a live meetup
  *   (idempotent; approval quests create a pending completion).
- * - `redeem`: complete a code-verified solo quest with its printed code.
+ * - `redeem`: complete a solo quest with its printed code or password.
  * - `quiz`: check answers; all must be right, retries are unlimited.
  * - `step`: mark the next step of a multi-step quest done (in order).
  * - `rsvp`: say you're coming to a meetup (`attending: false` withdraws).

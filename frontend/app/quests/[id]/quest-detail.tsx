@@ -45,7 +45,7 @@ function QuestAction({ quest }: { quest: QuestOut }) {
     case "meetup":
       return <MeetupAction quest={quest} />;
     case "solo":
-      return quest.requires_code ? (
+      return quest.requires_code || quest.requires_password ? (
         <CodeAction quest={quest} />
       ) : (
         <SoloAction quest={quest} />

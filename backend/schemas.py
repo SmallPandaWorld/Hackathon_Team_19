@@ -82,6 +82,7 @@ class QuestOut(BaseModel):
     status: QuestStatus
     requires_approval: bool
     requires_code: bool = Field(description="Enter the printed code or scan its QR to complete")
+    requires_password: bool = Field(description="Enter the creator-set password to complete")
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
@@ -137,7 +138,7 @@ class CompleteAction(BaseModel):
 
 
 class RedeemAction(BaseModel):
-    """Redeem a printed code for a solo quest."""
+    """Redeem a printed code or creator-set password for a solo quest."""
     type: Literal["redeem"]
     code: str = Field(min_length=1, max_length=40)
 
@@ -325,6 +326,8 @@ class AdminQuestIn(BaseModel):
     kind: QuestKind = "solo"
     requires_approval: bool = False
     requires_code: bool = False
+    requires_password: bool = False
+    password: Optional[str] = Field(default=None, min_length=1, max_length=40)
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -336,16 +339,22 @@ class AdminQuestIn(BaseModel):
 
     @model_validator(mode="after")
     def valid_verification(self):
-        if self.requires_code and self.kind != "solo":
-            raise ValueError("Code verification is available for solo quests only")
-        if self.requires_code and self.requires_approval:
-            raise ValueError("Choose code verification or maintainer approval")
+        if (self.requires_code or self.requires_password) and self.kind != "solo":
+            raise ValueError("Code and password verification are available for solo quests only")
+        if sum((self.requires_code, self.requires_password, self.requires_approval)) > 1:
+            raise ValueError("Choose one solo completion method")
+        if self.password is not None:
+            if not self.requires_password:
+                raise ValueError("A password needs password verification")
+            if len(self.password.strip()) < 4:
+                raise ValueError("Password needs at least 4 non-space characters")
         return self
 
 
 # Fields of AdminQuestPatch that may not be sent as null.
 NOT_NULL_PATCH_FIELDS = (
-    "title", "description", "points", "kind", "requires_approval", "requires_code", "cancelled",
+    "title", "description", "points", "kind", "requires_approval", "requires_code",
+    "requires_password", "cancelled",
     "steps", "questions", "status",
 )
 
@@ -359,6 +368,8 @@ class AdminQuestPatch(BaseModel):
     kind: Optional[QuestKind] = None
     requires_approval: Optional[bool] = None
     requires_code: Optional[bool] = None
+    requires_password: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=1, max_length=40)
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -392,7 +403,8 @@ class AdminQuestOut(BaseModel):
     status: QuestStatus
     requires_approval: bool
     requires_code: bool
-    verification_code: str = Field(description="Stable code for the printable QR; maintainers only")
+    requires_password: bool
+    verification_code: Optional[str] = Field(description="Stable code for the printable QR; maintainers only")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     starts_at: Optional[datetime] = None
