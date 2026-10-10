@@ -28,7 +28,8 @@ const TOP_RANKS: Record<number, string> = {
 };
 
 function EntryRow({ entry }: { entry: LeaderboardEntry }) {
-  const top = TOP_RANKS[entry.rank];
+  // No crown or medal colours without points (e.g. friends who all have 0).
+  const top = entry.points > 0 ? TOP_RANKS[entry.rank] : undefined;
   return (
     <li
       aria-current={entry.is_current_player ? "true" : undefined}
@@ -43,7 +44,7 @@ function EntryRow({ entry }: { entry: LeaderboardEntry }) {
           top ?? "text-muted"
         }`}
       >
-        {entry.rank === 1 ? (
+        {entry.rank === 1 && entry.points > 0 ? (
           <Crown aria-label="Rank 1" className="h-4 w-4" strokeWidth={2.5} />
         ) : (
           entry.rank
