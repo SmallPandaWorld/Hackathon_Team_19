@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Camera, ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { initials } from "@/src/lib/initials";
 
 const MAX_PICTURE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -41,15 +42,26 @@ export function ProfilePicture({
   const [cameraError, setCameraError] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const firstLetter = displayName.trim().charAt(0).toLocaleUpperCase() || "?";
+  const letters = initials(displayName);
   const dimensions =
     size === "small"
       ? "h-9 w-9"
       : size === "medium"
         ? "h-10 w-10"
         : "h-20 w-20";
+  // Two letters need a slightly smaller font to fit the circle.
   const letterSize =
-    size === "small" ? "text-base" : size === "medium" ? "text-xl" : "text-3xl";
+    size === "small"
+      ? letters.length > 1
+        ? "text-xs"
+        : "text-base"
+      : size === "medium"
+        ? letters.length > 1
+          ? "text-sm"
+          : "text-xl"
+        : letters.length > 1
+          ? "text-2xl"
+          : "text-3xl";
 
   useEffect(() => {
     setPictureState(username ? "loading" : "missing");
@@ -236,7 +248,7 @@ export function ProfilePicture({
           className={`flex h-full w-full items-center justify-center ${letterSize} font-semibold`}
           role={pictureState === "missing" ? "img" : undefined}
         >
-          {firstLetter}
+          {letters}
         </span>
         {username && pictureState !== "missing" && (
           <Image
