@@ -41,8 +41,8 @@ const tileDay = new Intl.DateTimeFormat("en-GB", {
 function DateTile({ iso }: { iso: string }) {
   const date = new Date(iso);
   return (
-    <span className="flex h-12 w-12 shrink-0 flex-col overflow-hidden rounded-sm border border-on-surface text-center leading-none">
-      <span className="border-b border-on-surface py-0.5 text-[10px] font-semibold uppercase">
+    <span className="flex h-12 w-12 shrink-0 flex-col overflow-hidden rounded-sm border border-primary text-center leading-none text-primary">
+      <span className="border-b border-primary py-0.5 text-[10px] font-semibold uppercase">
         {tileMonth.format(date)}
       </span>
       <span className="flex flex-1 items-center justify-center text-lg font-bold">

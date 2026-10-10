@@ -409,10 +409,27 @@ export interface PairStartAction {
   invite_username?: string | null;
 }
 
+export interface PlayerSearchResult {
+  username: string;
+  display_name: string;
+}
+
 export interface ProfileUpdate {
   /** @maxItems 20 */
   hobbies: string[];
   discoverable: boolean;
+}
+
+/**
+ * What other players may see of a discoverable player.
+ */
+export interface PublicPlayer {
+  username: string;
+  display_name: string;
+  total_points: number;
+  /** Hobby keys, see Me.hobby_options */
+  hobbies: string[];
+  badges: Badge[];
 }
 
 export type QuestOutKind = (typeof QuestOutKind)[keyof typeof QuestOutKind];
@@ -570,6 +587,15 @@ export interface StepAction {
   type: "step";
   step_id: string;
 }
+
+export type SearchPlayersParams = {
+  /**
+   * Part of a display name
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+};
 
 export type AdminListQuestsParams = {
   status?: AdminListQuestsStatus;

@@ -764,3 +764,55 @@ def test_badge_progress(client):
     assert progress["explorer"]["progress"] == 2
     assert progress["century"]["progress"] == 30
     assert progress["first_quest"]["progress"] == progress["first_quest"]["target"] == 1
+
+
+# --- Public profiles and player search ----------------------------------------
+
+def test_player_profile_of_self(client):
+    mine = me(client, ALICE)
+    seen = client.get("/players/alice-id", headers=ALICE).json()
+    assert seen["username"] == "alice-id"
+    assert seen["display_name"] == mine["display_name"]
+    assert seen["total_points"] == mine["total_points"]
+    assert "is_maintainer" not in seen
+
+
+def test_player_profile_requires_opt_in(client):
+    me(client, BOB)
+    # Bob has not opted in, so he is hidden from others.
+    assert client.get("/players/bob-id", headers=ALICE).status_code == 404
+
+    set_profile(client, BOB, ["chess"], discoverable=True)
+    seen = client.get("/players/bob-id", headers=ALICE).json()
+    assert seen["display_name"] == "Bob"
+    assert seen["hobbies"] == ["chess"]
+    assert [b["key"] for b in seen["badges"]]
+
+
+def test_player_profile_unknown_player_and_missing_identity(client):
+    assert client.get("/players/nobody", headers=ALICE).status_code == 404
+    assert client.get("/players/alice-id").status_code == 401
+
+
+def test_player_search_finds_only_opted_in_players(client):
+    me(client, ALICE)
+    set_profile(client, BOB, [], discoverable=True)
+    set_profile(client, CAROL, [], discoverable=False)  # hidden
+
+    found = client.get("/players", params={"q": "bo"}, headers=ALICE).json()
+    assert found == [{"username": "bob-id", "display_name": "Bob"}]
+    assert client.get("/players", params={"q": "car"}, headers=ALICE).json() == []
+    # Case-insensitive, and never returns the searcher.
+    set_profile(client, ALICE, [], discoverable=True)
+    assert client.get("/players", params={"q": "ALI"}, headers=ALICE).json() == []
+    found = client.get("/players", params={"q": "ALI"}, headers=BOB).json()
+    assert [r["username"] for r in found] == ["alice-id"]
+
+
+def test_player_search_validates_query_and_treats_wildcards_literally(client):
+    set_profile(client, BOB, [], discoverable=True)
+    assert client.get("/players", params={"q": "b"}, headers=ALICE).status_code == 422
+    assert client.get("/players", headers=ALICE).status_code == 422
+    assert client.get("/players", params={"q": "bo"}).status_code == 401
+    assert client.get("/players", params={"q": "%%"}, headers=ALICE).json() == []
+    assert client.get("/players", params={"q": "__"}, headers=ALICE).json() == []

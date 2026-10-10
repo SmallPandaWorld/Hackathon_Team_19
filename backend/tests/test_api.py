@@ -43,6 +43,8 @@ EXPECTED_OPERATIONS = {
     ("put", "/me"): "update_me",
     ("delete", "/me/suggestions/{username}"): "dismiss_suggestion",
     ("get", "/leaderboard"): "get_leaderboard",
+    ("get", "/players"): "search_players",
+    ("get", "/players/{username}"): "get_player",
     ("get", "/quests"): "list_quests",
     ("get", "/quests/{quest_id}"): "get_quest",
     ("post", "/quests"): "submit_quest",

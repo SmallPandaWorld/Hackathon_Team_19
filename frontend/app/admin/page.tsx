@@ -254,10 +254,10 @@ function ReportsTab() {
   const { error, run, refreshAll } = useAction();
   const reports = data?.status === 200 ? data.data : [];
 
-  async function decide(reportId: string, retireQuest: boolean) {
+  async function dismiss(reportId: string) {
     if (
       await run(() =>
-        resolve.mutateAsync({ reportId, data: { retire_quest: retireQuest } }),
+        resolve.mutateAsync({ reportId, data: { retire_quest: false } }),
       )
     )
       await refreshAll();
@@ -291,18 +291,16 @@ function ReportsTab() {
             “{report.reason}”
           </p>
           <div className="mt-3 flex gap-2">
+            <Link
+              className={`${buttonStyles.secondary} flex-1 py-2 text-center text-sm`}
+              href={`/admin/quests/${report.quest_id}`}
+            >
+              Edit quest
+            </Link>
             <button
               className={`${buttonStyles.danger} flex-1 py-2 text-sm`}
               disabled={resolve.isPending}
-              onClick={() => decide(report.id, true)}
-              type="button"
-            >
-              Remove quest
-            </button>
-            <button
-              className={`${buttonStyles.secondary} flex-1 py-2 text-sm`}
-              disabled={resolve.isPending}
-              onClick={() => decide(report.id, false)}
+              onClick={() => dismiss(report.id)}
               type="button"
             >
               Dismiss report

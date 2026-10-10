@@ -1,7 +1,9 @@
 """The current player (profile, badges, suggestions, invites, submissions)
 and the leaderboard."""
 
-from fastapi import APIRouter, Depends, Response, status
+from typing import List
+
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -26,12 +28,15 @@ from schemas import (
     Leaderboard,
     LeaderboardEntry,
     Me,
+    PlayerSearchResult,
     ProfileUpdate,
+    PublicPlayer,
 )
 
 router = APIRouter(tags=["players"], responses=error_responses(401))
 
 LEADERBOARD_SIZE = 50
+MAX_SEARCH_RESULTS = 20
 
 
 def me_out(db: Session, player: User) -> Me:
@@ -100,6 +105,56 @@ def dismiss_suggestion(
         db.commit()
     except IntegrityError:
         db.rollback()  # already dismissed
+
+
+@router.get("/players", response_model=List[PlayerSearchResult])
+def search_players(
+    q: str = Query(min_length=2, max_length=100, description="Part of a display name"),
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """Discoverable players whose name contains the query, A to Z.
+
+    Same consent rule as profile pages: players who did not opt in to
+    suggestions cannot be found. Never returns the searcher.
+    """
+    term = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    if len(term) < 2:
+        return []
+    matches = db.scalars(
+        select(User)
+        .where(
+            User.discoverable.is_(True),
+            User.username != player.username,
+            User.name.ilike(f"%{term}%", escape="\\"),
+        )
+        .order_by(User.name, User.username)
+        .limit(MAX_SEARCH_RESULTS)
+    )
+    return [PlayerSearchResult(username=m.username, display_name=m.name) for m in matches]
+
+
+@router.get("/players/{username}", response_model=PublicPlayer, responses=error_responses(404))
+def get_player(
+    username: str,
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """A player's public profile.
+
+    Only players who opted in to suggestions are visible to others; a player
+    can always view themselves.
+    """
+    other = db.get(User, username)
+    if other is None or not (other.discoverable or other.username == player.username):
+        raise not_found("Player")
+    return PublicPlayer(
+        username=other.username,
+        display_name=other.name,
+        total_points=total_points(db, other.username),
+        hobbies=parse_hobbies(other.hobbies),
+        badges=player_badges(db, other.username),
+    )
 
 
 @router.get("/leaderboard", response_model=Leaderboard)

@@ -208,6 +208,21 @@ class Suggestion(BaseModel):
     shared_hobbies: List[str] = Field(description="Labels of hobbies you share")
 
 
+class PlayerSearchResult(BaseModel):
+    username: str
+    display_name: str
+
+
+class PublicPlayer(BaseModel):
+    """What other players may see of a discoverable player."""
+
+    username: str
+    display_name: str
+    total_points: int
+    hobbies: List[str] = Field(description="Hobby keys, see Me.hobby_options")
+    badges: List[Badge]
+
+
 class Suggestions(BaseModel):
     enabled: bool = Field(description="False until the player opts in")
     suggestions: List[Suggestion]
