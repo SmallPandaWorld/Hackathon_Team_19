@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_player, is_maintainer
 from badges import player_badges
 from database import get_db
+from friendships import friend_status, friendship_between
 from game import (
     QUEST_CREATION_ORDER,
     bad_request,
@@ -142,11 +143,16 @@ def get_player(
 ):
     """A player's public profile.
 
-    Only players who opted in to suggestions are visible to others; a player
-    can always view themselves.
+    Only players who opted in to suggestions are visible to others, except
+    that friends and players with an open request between them can always
+    see each other; a player can always view themselves.
     """
     other = db.get(User, username)
-    if other is None or not (other.discoverable or other.username == player.username):
+    if other is None:
+        raise not_found("Player")
+    visible = (other.discoverable or other.username == player.username
+               or friendship_between(db, player.username, other.username) is not None)
+    if not visible:
         raise not_found("Player")
     return PublicPlayer(
         username=other.username,
@@ -154,6 +160,7 @@ def get_player(
         total_points=total_points(db, other.username),
         hobbies=parse_hobbies(other.hobbies),
         badges=player_badges(db, other.username),
+        friend_status=friend_status(db, player.username, other.username),
     )
 
 

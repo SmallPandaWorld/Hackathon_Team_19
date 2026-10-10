@@ -4,7 +4,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-
 from database import ensure_schema
 from routers import admin, pair, players, quests
 
@@ -46,5 +45,5 @@ async def root():
     return Health(message="Hello World")
 
 
-for module in (players, quests, pair, admin):
+for module in (players, quests, pair, friends, admin):
     app.include_router(module.router)
