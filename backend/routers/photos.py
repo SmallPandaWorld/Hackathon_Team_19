@@ -71,12 +71,15 @@ def _photo_out(photo: MeetupPhoto, quest: Quest) -> MeetupPhotoOut:
     )
 
 
-def _quest_photo_out(photo: QuestPhoto, quest: Quest) -> QuestPhotoOut:
+def _quest_photo_out(
+    photo: QuestPhoto, quest: Quest, *, is_mine: bool = False
+) -> QuestPhotoOut:
     return QuestPhotoOut(
         id=photo.id,
         quest_id=quest.id,
         quest_title=quest.title,
         uploaded_at=photo.uploaded_at,
+        is_mine=is_mine,
     )
 
 
@@ -191,7 +194,10 @@ def list_quest_photos(
         .where(QuestPhoto.quest_id == quest.id)
         .order_by(QuestPhoto.uploaded_at.desc(), QuestPhoto.id)
     ).all()
-    return [_quest_photo_out(photo, quest) for photo in photos]
+    return [
+        _quest_photo_out(photo, quest, is_mine=photo.uploader_id == player.username)
+        for photo in photos
+    ]
 
 
 @router.post(
@@ -278,7 +284,7 @@ async def upload_quest_photo(
     finally:
         temporary.unlink(missing_ok=True)
 
-    return _quest_photo_out(photo, quest)
+    return _quest_photo_out(photo, quest, is_mine=True)
 
 
 @router.get("/quest-photos/{photo_id}", response_class=Response)
@@ -297,6 +303,32 @@ def get_quest_photo(
     ):
         raise _missing_photo()
     return _serve_quest_photo(photo)
+
+
+@router.delete(
+    "/quests/{quest_id}/player-photos/{photo_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={404: {"description": "Photo not found"}},
+)
+def delete_quest_photo(
+    quest_id: UUID,
+    photo_id: UUID,
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """Delete a player's own photo from a quest."""
+    photo = db.get(QuestPhoto, photo_id)
+    if (
+        photo is None
+        or photo.quest_id != quest_id
+        or photo.uploader_id != player.username
+    ):
+        raise _missing_photo()
+    db.delete(photo)
+    db.commit()
+    _quest_photo_path(photo_id).unlink(missing_ok=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(
@@ -331,7 +363,12 @@ def list_profile_quest_photos(
         .order_by(QuestPhoto.uploaded_at.desc(), QuestPhoto.id)
         .limit(MAX_PROFILE_QUEST_PHOTOS)
     ).all()
-    return [_quest_photo_out(photo, quest) for photo, quest in rows]
+    return [
+        _quest_photo_out(
+            photo, quest, is_mine=photo.uploader_id == player.username
+        )
+        for photo, quest in rows
+    ]
 
 
 @router.get(

@@ -549,7 +549,7 @@ Only pending completion claims can be reviewed. Approval records the current que
 
 Maintainers upload and delete PNG, JPEG, or WebP photos on meetup quests. Photos are stored under `MEETUP_PHOTO_STORAGE_DIR`; Compose maps that directory into the persistent backend data volume. Published meetup pages show their album. An opted-in player sees photos from meetups they checked into on their profile. Profile-photo metadata and image routes check both discoverability and attendance, so opting out hides the profile gallery.
 
-Players can also add a PNG, JPEG, or WebP photo (up to 8 MiB) after completing a meetup, pair, or multi-step quest. Player photos appear in that quest's gallery and on the uploader's profile only when they opted into connection suggestions. Compose stores them under `QUEST_PHOTO_STORAGE_DIR` in the persistent backend data volume.
+Players can also add a PNG, JPEG, or WebP photo (up to 8 MiB) after completing a meetup, pair, or multi-step quest, and delete their own photos from quest and profile galleries. Player photos appear in that quest's gallery and on the uploader's profile only when they opted into connection suggestions. Compose stores them under `QUEST_PHOTO_STORAGE_DIR` in the persistent backend data volume.
 
 “Remove quest” in report moderation means retire it, not delete database history. Retiring through a report also marks every report for that quest resolved. Dismissing only closes the selected report.
 

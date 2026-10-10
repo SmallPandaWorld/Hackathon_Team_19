@@ -314,6 +314,7 @@ class QuestPhotoOut(BaseModel):
     quest_id: UUID
     quest_title: str
     uploaded_at: datetime
+    is_mine: bool
 
 
 # --- Maintainers --------------------------------------------------------------

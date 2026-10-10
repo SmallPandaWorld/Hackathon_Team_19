@@ -1,14 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { buttonStyles, Card, inputStyles } from "@/src/components/page";
+import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
+import Link from "next/link";
+import { buttonStyles, Card } from "@/src/components/page";
 
 type QuestPhoto = {
   id: string;
   quest_id: string;
   quest_title: string;
   uploaded_at: string;
+  is_mine: boolean;
 };
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -34,9 +37,9 @@ export function QuestPhotoGallery({
     url: string;
     photos: QuestPhoto[];
   }>({ url: collectionUrl, photos: [] });
-  const [file, setFile] = useState<File | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,16 +66,11 @@ export function QuestPhotoGallery({
     };
   }, [collectionUrl, refresh]);
 
-  async function upload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function upload(file: File) {
     setError(null);
     setMessage(null);
     if (!completed) {
       setError("Complete this quest before adding a photo.");
-      return;
-    }
-    if (!file) {
-      setError("Choose a photo to upload.");
       return;
     }
     if (!ALLOWED_TYPES.has(file.type)) {
@@ -100,8 +98,6 @@ export function QuestPhotoGallery({
         }
         throw new Error(errorDetail(data) ?? "Could not upload the photo.");
       }
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = "";
       setMessage("Photo added to this quest.");
       setRefresh((value) => value + 1);
     } catch (reason) {
@@ -115,6 +111,45 @@ export function QuestPhotoGallery({
     }
   }
 
+  async function deletePhoto(photo: QuestPhoto) {
+    if (!photo.is_mine) return;
+    if (
+      !window.confirm(
+        "Delete this photo? It will be removed from the quest gallery and your profile.",
+      )
+    ) {
+      return;
+    }
+
+    setError(null);
+    setMessage(null);
+    setDeletingId(photo.id);
+    try {
+      const response = await fetch(
+        `${collectionUrl}/${encodeURIComponent(photo.id)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        let data: unknown;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        throw new Error(errorDetail(data) ?? "Could not delete the photo.");
+      }
+      setRefresh((value) => value + 1);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not delete the photo. Please try again.",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <Card className="flex flex-col gap-4">
       <div>
@@ -125,22 +160,19 @@ export function QuestPhotoGallery({
         </p>
       </div>
 
-      <form className="flex flex-col gap-3" onSubmit={upload}>
-        <label className="text-sm font-medium text-on-surface-variant">
-          Add a photo
-          <input
-            accept="image/png,image/jpeg,image/webp"
-            className={inputStyles}
-            disabled={!completed || uploading}
-            onChange={(event) => {
-              setError(null);
-              setMessage(null);
-              setFile(event.target.files?.[0] ?? null);
-            }}
-            ref={inputRef}
-            type="file"
-          />
-        </label>
+      <div className="flex flex-col items-start gap-3">
+        <input
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          disabled={!completed || uploading || deletingId !== null}
+          onChange={(event) => {
+            const selected = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (selected) void upload(selected);
+          }}
+          ref={inputRef}
+          type="file"
+        />
         {!completed && (
           <p className="text-sm text-muted">
             Complete this quest to upload a photo.
@@ -148,28 +180,47 @@ export function QuestPhotoGallery({
         )}
         <button
           className={`${buttonStyles.primary} self-start py-2`}
-          disabled={!completed || !file || uploading}
-          type="submit"
+          disabled={!completed || uploading || deletingId !== null}
+          onClick={() => inputRef.current?.click()}
+          type="button"
         >
-          {uploading ? "Uploading…" : "Upload photo"}
+          {uploading
+            ? "Uploading…"
+            : photos.length > 0
+              ? "Upload more photos"
+              : "Upload Photo"}
         </button>
         {error && <p className="text-sm text-danger">{error}</p>}
         {message && <p className="text-sm text-muted">{message}</p>}
-      </form>
+      </div>
 
       {photos.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((photo) => (
             <figure className="min-w-0" key={photo.id}>
-              <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                <Image
-                  alt={`Photo from ${photo.quest_title}`}
-                  className="object-cover"
-                  fill
-                  sizes="(max-width: 640px) 45vw, 220px"
-                  src={`/api/quest-photos/${photo.id}`}
-                  unoptimized
-                />
+              <div className="relative">
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
+                  <Image
+                    alt={`Photo from ${photo.quest_title}`}
+                    className="object-cover"
+                    fill
+                    sizes="(max-width: 640px) 45vw, 220px"
+                    src={`/api/quest-photos/${photo.id}`}
+                    unoptimized
+                  />
+                </div>
+                {photo.is_mine && (
+                  <button
+                    aria-label={`Delete your photo from ${photo.quest_title}`}
+                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface text-danger shadow-card transition hover:bg-danger hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
+                    disabled={deletingId !== null || uploading}
+                    onClick={() => void deletePhoto(photo)}
+                    title="Delete photo"
+                    type="button"
+                  >
+                    <X aria-hidden className="h-5 w-5" />
+                  </button>
+                )}
               </div>
               <figcaption className="mt-1 truncate text-xs text-muted">
                 {photo.quest_title}
@@ -187,15 +238,20 @@ export function QuestPhotoGallery({
 export function ProfileQuestPhotoGallery({
   username,
   visible = true,
+  editable = false,
 }: {
   username: string;
   visible?: boolean;
+  editable?: boolean;
 }) {
   const url = `/api/players/${encodeURIComponent(username)}/quest-photos`;
   const [photoResult, setPhotoResult] = useState<{
     url: string;
     photos: QuestPhoto[];
   }>({ url, photos: [] });
+  const [refresh, setRefresh] = useState(0);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const photos = photoResult.url === url ? photoResult.photos : [];
 
   useEffect(() => {
@@ -219,9 +275,47 @@ export function ProfileQuestPhotoGallery({
     return () => {
       cancelled = true;
     };
-  }, [url, visible]);
+  }, [url, visible, refresh]);
 
-  if (!visible || photos.length === 0) return null;
+  async function deletePhoto(photo: QuestPhoto) {
+    if (!photo.is_mine) return;
+    if (
+      !window.confirm(
+        "Delete this photo? It will be removed from the quest gallery and your profile.",
+      )
+    ) {
+      return;
+    }
+
+    setDeleteError(null);
+    setDeletingId(photo.id);
+    try {
+      const response = await fetch(
+        `/api/quests/${encodeURIComponent(photo.quest_id)}/player-photos/${encodeURIComponent(photo.id)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        let data: unknown;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        throw new Error(errorDetail(data) ?? "Could not delete the photo.");
+      }
+      setRefresh((value) => value + 1);
+    } catch (reason) {
+      setDeleteError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not delete the photo. Please try again.",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (!visible || (photos.length === 0 && !editable)) return null;
   return (
     <Card className="flex flex-col gap-3">
       <div>
@@ -230,25 +324,59 @@ export function ProfileQuestPhotoGallery({
           Photos this player shared from completed activities.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {photos.map((photo) => (
-          <figure className="min-w-0" key={photo.id}>
-            <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-              <Image
-                alt={`Photo from ${photo.quest_title}`}
-                className="object-cover"
-                fill
-                sizes="(max-width: 640px) 45vw, 220px"
-                src={`${url}/${photo.id}/image`}
-                unoptimized
-              />
-            </div>
-            <figcaption className="mt-1 truncate text-xs text-muted">
-              {photo.quest_title}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+      {deleteError && (
+        <p className="text-sm text-danger" role="alert">
+          {deleteError}
+        </p>
+      )}
+      {photos.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {photos.map((photo) => (
+            <figure className="min-w-0" key={photo.id}>
+              <div className="relative">
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
+                  <Image
+                    alt={`Photo from ${photo.quest_title}`}
+                    className="object-cover"
+                    fill
+                    sizes="(max-width: 640px) 45vw, 220px"
+                    src={`${url}/${photo.id}/image`}
+                    unoptimized
+                  />
+                </div>
+                {photo.is_mine && (
+                  <button
+                    aria-label={`Delete your photo from ${photo.quest_title}`}
+                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface text-danger shadow-card transition hover:bg-danger hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
+                    disabled={deletingId !== null}
+                    onClick={() => void deletePhoto(photo)}
+                    title="Delete photo"
+                    type="button"
+                  >
+                    <X aria-hidden className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+              <figcaption className="mt-1 truncate text-xs text-muted">
+                {photo.quest_title}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-sm text-muted">
+            No photos yet. Open a completed meetup, partner, or multi-step quest
+            to upload one.
+          </p>
+          <Link
+            className="text-sm font-semibold text-link hover:underline"
+            href="/"
+          >
+            Browse quests
+          </Link>
+        </div>
+      )}
     </Card>
   );
 }

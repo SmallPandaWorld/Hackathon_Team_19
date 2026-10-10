@@ -732,6 +732,7 @@ function OwnProfile({ player }: { player: Me }) {
         visible={player.discoverable}
       />
       <ProfileQuestPhotoGallery
+        editable
         username={player.username}
         visible={player.discoverable}
       />
