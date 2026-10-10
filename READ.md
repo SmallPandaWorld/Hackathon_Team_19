@@ -50,7 +50,7 @@ meetup not live), `410` expired/cancelled code.
 | Quests | `GET /quests`, `GET /quests/{id}`, `POST /quests/{id}/complete` (solo, meetup check-in) |
 | Quiz / steps | `POST /quests/{id}/quiz`, `POST /quests/{id}/steps/{step_id}/complete` |
 | Meetups | `POST`/`DELETE /quests/{id}/rsvp` |
-| Partner quests | `POST`/`GET`/`DELETE /quests/{id}/pair`, `GET /pair/{code}`, `POST /pair/{code}/join` |
+| Partner quests | `POST`/`GET`/`DELETE /quests/{id}/pair` (optional `invite_player_id`), `GET /pair/invites`, `GET /pair/{code}`, `POST /pair/{code}/join` |
 | Ideas & reports | `POST /submissions`, `GET /submissions/mine`, `POST /quests/{id}/report` |
 | Connections | `GET /suggestions`, `POST /suggestions/{player_id}/dismiss` |
 | Ranking | `GET /leaderboard` |
@@ -71,6 +71,10 @@ meetup not live), `410` expired/cancelled code.
   Reported quests show up under Admin → Reports.
 - **Hobbies** are optional; suggestions only include players who opted in,
   only show the shared hobbies, and dismissed players never come back.
+  "Invite" on a suggestion starts a partner quest whose code appears on the
+  other player's home screen (only between opted-in players). Players who
+  already completed a partner quest can host it again; only the partner
+  earns points then.
 - **Badges** are computed from approved completions (never stored twice).
 - **Leaderboard**: only approved points; equal points share a rank.
 - **Map**: real OpenStreetMap tiles via Leaflet
@@ -86,6 +90,15 @@ outlines, small radii, Inter with optical sizing (≈ Inter Display), and
 automatic light/dark mode. Colors are tokens in `frontend/app/globals.css`
 (use classes like `bg-primary`, `text-on-surface`, `border-outline-variant`);
 shared buttons, cards and chips live in `frontend/src/components/page.tsx`.
+Icons come from one family (`lucide-react`, see
+`frontend/src/components/icons.tsx`); don't mix in emoji. The recurring
+campus element is the line drawing of the main building in
+`frontend/src/components/campus-motif.tsx`.
+
+Note: with `cacheComponents`, Next.js keeps visited pages alive (hidden)
+instead of unmounting them. Effects re-run on return but `useState` values
+survive, so don't treat "effect ran" as "fresh mount" (see the map
+component for an example).
 
 ### Deployment / data
 The deployed SQLite database lives in the Docker volume `backend-data`

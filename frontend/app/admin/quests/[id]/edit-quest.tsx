@@ -8,6 +8,7 @@ import { apiErrorMessage } from "@/src/lib/api-error";
 import { useAdminGetQuest } from "@/src/lib/api/admin";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 function Editor({ questId }: { questId: number }) {
   const { data, isLoading, isError } = useAdminGetQuest(questId);
@@ -32,10 +33,10 @@ export function EditQuest() {
   return (
     <>
       <Link
-        className="text-sm font-semibold text-link hover:underline"
+        className="inline-flex items-center gap-1 text-sm font-semibold text-link hover:underline"
         href="/admin"
       >
-        ← Quest admin
+        <ArrowLeft aria-hidden className="h-4 w-4" /> Quest admin
       </Link>
       <PageTitle eyebrow="Maintainers">Edit quest</PageTitle>
       <MaintainerOnly>

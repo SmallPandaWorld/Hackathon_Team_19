@@ -166,6 +166,10 @@ class PairSession(Base):
         ForeignKey("users.id"), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     cancelled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set when the host invited a suggested player; the code then shows up
+    # on that player's home screen (anyone with the code can still join).
+    invited_player_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True)
 
 
 class MeetupRsvp(Base):

@@ -179,6 +179,10 @@ export interface Badge {
   description: string;
   earned: boolean;
   earned_at?: string | null;
+  /** Progress towards the badge, capped at target */
+  progress: number;
+  /** Progress needed, e.g. 5 quests or 100 points */
+  target: number;
 }
 
 export interface CompleteRequest {
@@ -271,11 +275,18 @@ export interface PairSessionOut {
   is_host: boolean;
   state: PairSessionOutState;
   expires_at: string;
+  /** Player the host invited, if any */
+  invited_name?: string | null;
 }
 
 export interface PairJoinResult {
   session: PairSessionOut;
   completion: CompletionResult;
+}
+
+export interface PairStartRequest {
+  /** Invite a suggested player: the code appears on their home screen */
+  invite_player_id?: number | null;
 }
 
 export interface Player {

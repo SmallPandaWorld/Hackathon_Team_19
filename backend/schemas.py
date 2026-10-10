@@ -37,6 +37,8 @@ class Badge(BaseModel):
     description: str
     earned: bool
     earned_at: Optional[datetime] = None
+    progress: int = Field(description="Progress towards the badge, capped at target")
+    target: int = Field(description="Progress needed, e.g. 5 quests or 100 points")
 
 
 # --- Quests (player view) -----------------------------------------------------
@@ -151,6 +153,14 @@ class PairSessionOut(BaseModel):
     is_host: bool
     state: PairState
     expires_at: datetime
+    invited_name: Optional[str] = Field(
+        default=None, description="Player the host invited, if any")
+
+
+class PairStartRequest(BaseModel):
+    invite_player_id: Optional[int] = Field(
+        default=None,
+        description="Invite a suggested player: the code appears on their home screen")
 
 
 class PairJoinResult(BaseModel):

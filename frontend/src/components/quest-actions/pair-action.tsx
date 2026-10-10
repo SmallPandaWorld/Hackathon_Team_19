@@ -13,6 +13,7 @@ import {
 import { useAction } from "@/src/lib/use-action";
 import { useEffect, useRef, useState } from "react";
 import { CompletedNote } from "./result-banner";
+import { Send } from "lucide-react";
 
 const POLL_MS = 3000;
 
@@ -43,6 +44,13 @@ function WaitingForPartner({
 
   return (
     <div className="flex flex-col gap-3 rounded-lg bg-surface dark:bg-surface-variant p-5 text-center ring-1 ring-outline">
+      {session.invited_name && (
+        <p className="rounded-sm bg-primary/15 px-3 py-2 text-sm">
+          Invitation sent to{" "}
+          <span className="font-semibold">{session.invited_name}</span>. It
+          shows up in their app, or show them this code.
+        </p>
+      )}
       <p className="text-sm text-muted">Show this code to your partner:</p>
       <p
         className="font-mono text-5xl font-bold tracking-[0.2em] text-link"
@@ -58,7 +66,11 @@ function WaitingForPartner({
       </p>
       <ShareButton
         className={`${buttonStyles.secondary} w-full py-2`}
-        label="📨 Send join link instead"
+        label={
+          <span className="flex items-center justify-center gap-2">
+            <Send aria-hidden className="h-4 w-4" /> Send join link instead
+          </span>
+        }
         path={`/join/${session.code}`}
         text={`Join my quest “${session.quest_title}” on Campus Voyager`}
         title="Campus Voyager"
@@ -116,7 +128,9 @@ export function PairAction({ quest }: { quest: QuestOut }) {
     }
   }
 
-  if (quest.completed) {
+  const hosting = state === "waiting" && session?.is_host;
+
+  if (quest.completed && !hosting) {
     return (
       <div className="flex flex-col gap-3">
         {partnerJustJoined && session?.is_host && (
@@ -124,8 +138,7 @@ export function PairAction({ quest }: { quest: QuestOut }) {
             className="rounded-lg bg-success-surface p-4 text-lg font-bold text-success ring-1 ring-success/40"
             role="status"
           >
-            🎉 {session.partner_name} joined! You both got +{quest.points}{" "}
-            points.
+            {session.partner_name} joined! Quest completed together.
           </p>
         )}
         <CompletedNote completedAt={quest.completed_at} />
@@ -135,13 +148,22 @@ export function PairAction({ quest }: { quest: QuestOut }) {
             {session.is_host ? session.partner_name : session.host_name}.
           </p>
         )}
+        <button
+          className={`${buttonStyles.secondary} py-2 text-sm`}
+          disabled={startSession.isPending}
+          onClick={handleStart}
+          type="button"
+        >
+          Play again to help someone else (they earn the points)
+        </button>
+        {error && <ErrorState message={error} />}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {state === "waiting" && session?.is_host ? (
+      {hosting && session ? (
         <WaitingForPartner
           cancelling={cancelSession.isPending}
           onCancel={handleCancel}

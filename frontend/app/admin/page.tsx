@@ -19,14 +19,12 @@ import {
   useAdminSetQuestStatus,
 } from "@/src/lib/api/admin";
 import type { AdminQuestOut } from "@/src/lib/api/hackathon.schemas";
-import {
-  KIND_LABELS,
-  STATUS_LABELS,
-  formatZurich,
-} from "@/src/lib/quest-display";
+import { STATUS_LABELS, formatZurich } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import Link from "next/link";
 import { useState } from "react";
+import { KindIcon } from "@/src/components/icons";
+import { MapPin } from "lucide-react";
 
 type Tab = "quests" | "ideas" | "reviews" | "reports";
 
@@ -49,8 +47,8 @@ function QuestsTab() {
           href={`/admin/quests/${quest.id}`}
           key={quest.id}
         >
-          <span aria-hidden className="text-xl">
-            {KIND_LABELS[quest.kind].icon}
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-surface-variant dark:bg-surface-container">
+            <KindIcon kind={quest.kind} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate font-semibold">{quest.title}</span>
@@ -97,7 +95,10 @@ function IdeaCard({ quest }: { quest: AdminQuestOut }) {
       </p>
       <h3 className="mt-1 font-semibold">{quest.title}</h3>
       {quest.location && (
-        <p className="text-sm text-muted">📍 {quest.location}</p>
+        <p className="flex items-center gap-1 text-sm text-muted">
+          <MapPin aria-hidden className="h-4 w-4 shrink-0" />
+          {quest.location}
+        </p>
       )}
       <p className="mt-2 whitespace-pre-line text-sm text-on-surface-variant">
         {quest.description}

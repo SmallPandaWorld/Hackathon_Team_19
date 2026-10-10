@@ -111,7 +111,9 @@ h3 {
 /* Dark mode: turn the light OSM tiles into a dark map, like VIS's dark theme. */
 @media (prefers-color-scheme: dark) {
   .osm-tiles {
-    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+    /* Higher contrast keeps street and building labels readable. */
+    filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.25)
+      saturate(0.55);
   }
 }
 .quest-pin {

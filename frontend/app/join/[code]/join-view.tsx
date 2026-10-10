@@ -1,5 +1,6 @@
 "use client";
 
+import { JoinCodeForm } from "@/src/components/join-code-form";
 import { buttonStyles, Card } from "@/src/components/page";
 import { ResultBanner } from "@/src/components/quest-actions/result-banner";
 import { BackLink, ErrorState, LoadingState } from "@/src/components/states";
@@ -42,6 +43,15 @@ export function JoinView() {
       <div className="flex flex-col gap-4">
         <BackLink />
         <ErrorState message={loadError ?? "Could not check the code."} />
+        <Card>
+          <h2 className="font-semibold">Try another code</h2>
+          <p className="mb-3 mt-1 text-sm text-muted">
+            Codes are 6 characters, like ABC234. Ask your partner to show it
+            again.
+          </p>
+          {/* Keyed by code so the field clears after each attempt. */}
+          <JoinCodeForm autoFocus id="retry-code" key={code} />
+        </Card>
       </div>
     );
   }
@@ -82,9 +92,17 @@ export function JoinView() {
           {session.code}
         </p>
         {blocked ? (
-          <p className="mt-4 rounded-md bg-warning-surface p-3 text-sm text-warning ring-1 ring-warning/40">
-            {blocked}
-          </p>
+          <>
+            <p className="mt-4 rounded-md bg-warning-surface p-3 text-sm text-warning ring-1 ring-warning/40">
+              {blocked}
+            </p>
+            {!session.is_host && (
+              <div className="mt-4 text-left">
+                <p className="mb-2 text-sm font-semibold">Got a new code?</p>
+                <JoinCodeForm id="retry-code" key={code} />
+              </div>
+            )}
+          </>
         ) : (
           <button
             className={`${buttonStyles.primary} mt-4 w-full py-4 text-lg`}

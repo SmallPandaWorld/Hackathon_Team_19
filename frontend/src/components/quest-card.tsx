@@ -1,3 +1,4 @@
+import { KindIcon } from "@/src/components/icons";
 import { Chip } from "@/src/components/page";
 import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
 import {
@@ -5,14 +6,10 @@ import {
   MEETUP_LABELS,
   formatZurich,
 } from "@/src/lib/quest-display";
+import { Check } from "lucide-react";
 import Link from "next/link";
 
 function ProgressChip({ quest }: { quest: QuestOut }) {
-  if (quest.completed) {
-    return (
-      <Chip className="border border-success text-success">Completed</Chip>
-    );
-  }
   if (quest.completion_status === "pending") {
     return (
       <Chip className="border border-warning text-warning">In review</Chip>
@@ -23,7 +20,7 @@ function ProgressChip({ quest }: { quest: QuestOut }) {
   }
   const steps = quest.steps ?? [];
   const done = steps.filter((step) => step.done).length;
-  if (done > 0) {
+  if (!quest.completed && done > 0) {
     return (
       <Chip className="border border-on-surface text-on-surface">{`${done}/${steps.length} steps`}</Chip>
     );
@@ -55,51 +52,72 @@ function DateTile({ iso }: { iso: string }) {
   );
 }
 
+// Completed quests render quieter, so open activities stand out.
 export function QuestCard({ quest }: { quest: QuestOut }) {
-  const kind = KIND_LABELS[quest.kind];
+  const done = quest.completed;
   const meetup = quest.meetup_state ? MEETUP_LABELS[quest.meetup_state] : null;
 
   return (
     <Link
-      className="flex items-center gap-4 rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant transition hover:ring-outline active:scale-[0.99]"
+      className={`flex items-center gap-4 rounded-lg border p-4 transition active:scale-[0.99] ${
+        done
+          ? "border-outline-variant/70 bg-transparent hover:border-outline-variant"
+          : "border-outline-variant bg-surface hover:border-outline dark:bg-surface-variant"
+      }`}
       href={`/quests/${quest.id}`}
     >
-      {quest.kind === "meetup" && quest.starts_at && !quest.completed ? (
+      {quest.kind === "meetup" && quest.starts_at && !done ? (
         <DateTile iso={quest.starts_at} />
       ) : (
         <span
-          aria-hidden
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm text-xl ${
-            quest.completed
-              ? "bg-on-surface font-bold text-surface"
-              : "bg-surface-variant dark:bg-surface-container"
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm ${
+            done
+              ? "border border-outline-variant text-muted"
+              : "bg-primary text-on-primary"
           }`}
         >
-          {quest.completed ? "✓" : kind.icon}
+          {done ? (
+            <Check
+              aria-label="Completed"
+              className="h-5 w-5"
+              strokeWidth={2.5}
+            />
+          ) : (
+            <KindIcon className="h-6 w-6" kind={quest.kind} />
+          )}
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{quest.title}</span>
+        <span className={`block font-semibold ${done ? "text-muted" : ""}`}>
+          {quest.title}
+        </span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
           <Chip className="border border-outline-variant text-on-surface-variant">
-            {kind.label}
+            {KIND_LABELS[quest.kind].label}
           </Chip>
-          {meetup && <Chip className={meetup.className}>{meetup.label}</Chip>}
+          {meetup && !done && (
+            <Chip className={meetup.className}>{meetup.label}</Chip>
+          )}
           <ProgressChip quest={quest} />
         </span>
-        {quest.kind === "meetup" && quest.starts_at ? (
-          <span className="mt-1 block truncate text-sm text-muted">
-            {formatZurich(quest.starts_at)}
-          </span>
-        ) : (
-          quest.location && (
+        {!done &&
+          (quest.kind === "meetup" && quest.starts_at ? (
             <span className="mt-1 block truncate text-sm text-muted">
-              {quest.location}
+              {formatZurich(quest.starts_at)}
             </span>
-          )
-        )}
+          ) : (
+            quest.location && (
+              <span className="mt-1 block truncate text-sm text-muted">
+                {quest.location}
+              </span>
+            )
+          ))}
       </span>
-      <span className="shrink-0 rounded-sm bg-primary px-2 py-0.5 text-sm font-bold text-on-primary">
+      <span
+        className={`shrink-0 rounded-sm px-2 py-0.5 text-sm font-bold ${
+          done ? "text-muted" : "bg-primary text-on-primary"
+        }`}
+      >
         +{quest.points}
       </span>
     </Link>

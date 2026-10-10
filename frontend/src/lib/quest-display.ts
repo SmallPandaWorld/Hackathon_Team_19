@@ -4,15 +4,13 @@ import type {
   QuestOutStatus,
 } from "@/src/lib/api/hackathon.schemas";
 
-export const KIND_LABELS: Record<
-  QuestOutKind,
-  { label: string; icon: string }
-> = {
-  solo: { label: "Solo", icon: "🧭" },
-  pair: { label: "With a partner", icon: "🤝" },
-  quiz: { label: "Quiz", icon: "❓" },
-  multi_step: { label: "Multi-step", icon: "🪜" },
-  meetup: { label: "Meetup", icon: "📅" },
+// Icons for each kind live in src/components/icons.tsx.
+export const KIND_LABELS: Record<QuestOutKind, { label: string }> = {
+  solo: { label: "Solo" },
+  pair: { label: "With a partner" },
+  quiz: { label: "Quiz" },
+  multi_step: { label: "Multi-step" },
+  meetup: { label: "Meetup" },
 };
 
 export const MEETUP_LABELS: Record<

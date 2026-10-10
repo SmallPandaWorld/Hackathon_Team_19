@@ -1,6 +1,7 @@
 import { buttonStyles } from "@/src/components/page";
 import type { CompletionResult } from "@/src/lib/api/hackathon.schemas";
 import Link from "next/link";
+import { Check, Hourglass, PartyPopper } from "lucide-react";
 
 export function ResultBanner({ result }: { result: CompletionResult }) {
   const pending = result.status === "pending";
@@ -14,14 +15,17 @@ export function ResultBanner({ result }: { result: CompletionResult }) {
       role="status"
     >
       {pending ? (
-        <p className="text-lg font-bold">Sent for review ⏳</p>
+        <p className="flex items-center gap-2 text-lg font-bold">
+          <Hourglass aria-hidden className="h-5 w-5" /> Sent for review
+        </p>
       ) : result.already_completed ? (
         <p className="font-semibold">
           You already completed this quest. No extra points this time.
         </p>
       ) : (
-        <p className="text-lg font-bold">
-          Quest complete! +{result.points_awarded} points 🎉
+        <p className="flex items-center gap-2 text-lg font-bold">
+          <PartyPopper aria-hidden className="h-5 w-5" /> Quest complete! +
+          {result.points_awarded} points
         </p>
       )}
       <p className="mt-1 text-sm">
@@ -51,7 +55,9 @@ export function CompletedNote({
 }) {
   return (
     <div className="rounded-lg bg-success-surface p-5 text-success ring-1 ring-success/40">
-      <p className="font-semibold">✓ You completed this quest.</p>
+      <p className="flex items-center gap-2 font-semibold">
+        <Check aria-hidden className="h-5 w-5" /> You completed this quest.
+      </p>
       {completedAt && (
         <p className="mt-1 text-sm">
           on {new Date(completedAt).toLocaleString()}

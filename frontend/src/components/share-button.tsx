@@ -1,9 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 // Shares a link with the phone's share sheet, or copies it as a fallback.
-// Never sends anything on the player's behalf.
+// Every outcome gets visible feedback. Never sends anything on the player's
+// behalf.
 export function ShareButton({
   path,
   title,
@@ -14,25 +16,39 @@ export function ShareButton({
   path: string;
   title: string;
   text: string;
-  label: string;
+  label: ReactNode;
   className: string;
 }) {
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  function show(message: string, keep = false) {
+    setFeedback(message);
+    if (!keep) setTimeout(() => setFeedback(null), 4000);
+  }
+
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      show("Link copied! Paste it in a chat to invite someone.");
+    } catch {
+      show(`Copy this link: ${url}`, true); // clipboard blocked
+    }
+  }
+
   async function share() {
     const url = new URL(path, window.location.origin).toString();
-    try {
-      if (navigator.share) {
+    if (navigator.share) {
+      try {
         await navigator.share({ title, text, url });
+        show("Thanks for sharing!");
         return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        // Share sheet unavailable here: fall back to copying.
       }
-      await navigator.clipboard.writeText(url);
-      setFeedback("Link copied!");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setFeedback(url); // show the link so it can be copied by hand
     }
-    setTimeout(() => setFeedback(null), 4000);
+    await copy(url);
   }
 
   return (
@@ -41,7 +57,7 @@ export function ShareButton({
         {label}
       </button>
       {feedback && (
-        <p className="break-all text-center text-xs text-muted" role="status">
+        <p className="break-all text-center text-sm text-success" role="status">
           {feedback}
         </p>
       )}

@@ -54,7 +54,7 @@ export default function SubmitPage() {
       {submitted ? (
         <Card className="text-center">
           <p className="text-lg font-bold">
-            Thanks! “{submitted.title}” was sent for review. 💡
+            Thanks! “{submitted.title}” was sent for review.
           </p>
           <p className="mt-1 text-sm text-muted">
             A maintainer checks every idea before it appears in the app. Follow

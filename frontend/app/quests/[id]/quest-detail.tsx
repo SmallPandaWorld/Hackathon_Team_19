@@ -15,6 +15,8 @@ import { useAction } from "@/src/lib/use-action";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { KindIcon } from "@/src/components/icons";
+import { MapPin } from "lucide-react";
 
 function QuestAction({ quest }: { quest: QuestOut }) {
   if (quest.status !== "published") {
@@ -165,7 +167,8 @@ export function QuestDetail() {
       <article className="rounded-lg bg-surface dark:bg-surface-variant p-6 ring-1 ring-outline-variant">
         <div className="flex flex-wrap items-center gap-2">
           <Chip className="border border-outline-variant text-on-surface-variant">
-            {kind.icon} {kind.label}
+            <KindIcon className="mr-1 h-3.5 w-3.5" kind={quest.kind} />
+            {kind.label}
           </Chip>
           {quest.status !== "published" && (
             <Chip className={STATUS_LABELS[quest.status].className}>
@@ -180,7 +183,10 @@ export function QuestDetail() {
           </span>
         </div>
         {quest.location && (
-          <p className="mt-2 text-sm text-muted">📍 {quest.location}</p>
+          <p className="mt-2 flex items-center gap-1 text-sm text-muted">
+            <MapPin aria-hidden className="h-4 w-4 shrink-0" />
+            {quest.location}
+          </p>
         )}
         {hasPin && (
           <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -196,7 +202,7 @@ export function QuestDetail() {
               rel="noreferrer"
               target="_blank"
             >
-              Walking directions ↗
+              Walking directions
             </a>
           </p>
         )}

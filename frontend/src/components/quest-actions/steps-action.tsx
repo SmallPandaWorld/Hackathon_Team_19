@@ -10,6 +10,7 @@ import { useCompleteStep } from "@/src/lib/api/quests";
 import { useAction } from "@/src/lib/use-action";
 import { useState } from "react";
 import { ResultBanner } from "./result-banner";
+import { Check } from "lucide-react";
 
 export function StepsAction({ quest }: { quest: QuestOut }) {
   const steps = quest.steps ?? [];
@@ -68,7 +69,15 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
                         : "bg-surface dark:bg-surface-variant text-muted ring-1 ring-outline"
                     }`}
                   >
-                    {step.done ? "✓" : step.position}
+                    {step.done ? (
+                      <Check
+                        aria-label="Done"
+                        className="h-4 w-4"
+                        strokeWidth={3}
+                      />
+                    ) : (
+                      step.position
+                    )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{step.title}</p>
@@ -102,7 +111,7 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
       {result && <ResultBanner result={result} />}
       {!result && quest.completed && (
         <p className="rounded-lg bg-success-surface p-4 text-center font-semibold text-success ring-1 ring-success/40">
-          ✓ All steps done. Quest completed!
+          All steps done. Quest completed!
         </p>
       )}
       {error && <ErrorState message={error} />}

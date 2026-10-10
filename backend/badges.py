@@ -37,22 +37,27 @@ def player_badges(db: Session, player_id: int) -> List[Badge]:
     badges = []
     for key, title, description, (rule, value) in BADGES:
         earned_at: Optional[datetime] = None
-        if rule == "count" and len(rows) >= value:
-            earned_at = rows[value - 1].completed_at
+        if rule == "count":
+            progress, target = len(rows), value
+            if len(rows) >= value:
+                earned_at = rows[value - 1].completed_at
         elif rule == "kind":
             earned_at = next((r.completed_at for r in rows if r.kind == value), None)
-        elif rule == "points":
+            progress, target = (1 if earned_at else 0), 1
+        else:  # points
             running = 0
             for row in rows:
                 running += row.points_awarded
-                if running >= value:
+                if running >= value and earned_at is None:
                     earned_at = row.completed_at
-                    break
+            progress, target = running, value
         badges.append(Badge(
             key=key,
             title=title,
             description=description,
             earned=earned_at is not None,
             earned_at=as_utc(earned_at),
+            progress=min(progress, target),
+            target=target,
         ))
     return badges

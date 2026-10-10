@@ -7,6 +7,7 @@ import {
   Page,
   PageTitle,
 } from "@/src/components/page";
+import { BadgeIcon } from "@/src/components/icons";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
@@ -14,51 +15,152 @@ import {
   useDismissSuggestion,
   useListSuggestions,
 } from "@/src/lib/api/connections";
-import type { Player } from "@/src/lib/api/hackathon.schemas";
+import type { Badge, Player } from "@/src/lib/api/hackathon.schemas";
+import { useStartPairSession } from "@/src/lib/api/pair";
 import {
   useGetMe,
   useListBadges,
   useListHobbies,
   useUpdateProfile,
 } from "@/src/lib/api/players";
-import { useListMySubmissions } from "@/src/lib/api/quests";
+import { useListMySubmissions, useListQuests } from "@/src/lib/api/quests";
 import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
+import { Check, ChevronDown, Send, Users } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-function Badges() {
+function nextBadge(badges: Badge[]): Badge | undefined {
+  // The unearned badge the player is closest to.
+  return badges
+    .filter((badge) => !badge.earned)
+    .sort((a, b) => b.progress / b.target - a.progress / a.target)[0];
+}
+
+function nextBadgeHint(badge: Badge): string {
+  const left = badge.target - badge.progress;
+  if (badge.key === "century")
+    return `${left} more points to earn “${badge.title}”`;
+  if (badge.target > 1)
+    return `${left} more ${left === 1 ? "quest" : "quests"} to earn “${badge.title}”`;
+  return `${badge.description.replace(/\.$/, "")} to earn “${badge.title}”`;
+}
+
+function Achievements({ player }: { player: Player }) {
   const { data, isLoading } = useListBadges();
   const badges = data?.status === 200 ? data.data : [];
   if (isLoading) return <LoadingState label="Loading badges..." />;
-  const earned = badges.filter((badge) => badge.earned).length;
+  const earned = badges.filter((badge) => badge.earned);
+  const next = nextBadge(badges);
 
   return (
-    <Card>
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-semibold">Badges</h2>
-        <span className="text-sm text-muted">
-          {earned}/{badges.length}
-        </span>
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-3xl font-bold">{player.total_points}</p>
+          <p className="text-sm text-muted">points</p>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-bold">
+            {earned.length}
+            <span className="text-lg text-muted">/{badges.length}</span>
+          </p>
+          <p className="text-sm text-muted">badges</p>
+        </div>
       </div>
-      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {badges.map((badge) => (
-          <li
-            className={`rounded-md p-3 text-center ring-1 ${
-              badge.earned
-                ? "bg-warning-surface ring-warning/40"
-                : "bg-surface-variant opacity-60 ring-outline-variant"
-            }`}
-            key={badge.key}
-          >
-            <p aria-hidden className="text-2xl">
-              {badge.earned ? "🏅" : "🔒"}
-            </p>
-            <p className="mt-1 text-sm font-semibold">{badge.title}</p>
-            <p className="text-xs text-muted">{badge.description}</p>
-          </li>
-        ))}
-      </ul>
+
+      {earned.length > 0 && (
+        <ul aria-label="Earned badges" className="flex flex-wrap gap-2">
+          {earned.map((badge) => (
+            <li
+              className="flex h-10 w-10 items-center justify-center rounded-sm bg-primary text-on-primary"
+              key={badge.key}
+              title={badge.title}
+            >
+              <BadgeIcon badgeKey={badge.key} />
+              <span className="sr-only">{badge.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {next ? (
+        <div className="rounded-md border border-outline-variant p-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border-2 border-dashed border-outline text-muted">
+              <BadgeIcon badgeKey={next.key} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Next badge
+              </p>
+              <p className="font-semibold">{nextBadgeHint(next)}</p>
+            </div>
+          </div>
+          {next.target > 1 && (
+            <div
+              aria-label={`${next.progress} of ${next.target}`}
+              className="mt-3 h-2 overflow-hidden rounded-full bg-surface-container"
+              role="progressbar"
+            >
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${(next.progress / next.target) * 100}%` }}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="font-semibold">You earned every badge. Legendary!</p>
+      )}
+
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-semibold text-link [&::-webkit-details-marker]:hidden">
+          All badges
+          <ChevronDown
+            aria-hidden
+            className="h-4 w-4 transition group-open:rotate-180"
+          />
+        </summary>
+        <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {badges.map((badge) => (
+            <li
+              className={`flex items-center gap-3 rounded-md border p-2 ${
+                badge.earned
+                  ? "border-outline-variant"
+                  : "border-outline-variant opacity-60"
+              }`}
+              key={badge.key}
+            >
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-sm ${
+                  badge.earned
+                    ? "bg-primary text-on-primary"
+                    : "border border-dashed border-outline text-muted"
+                }`}
+              >
+                <BadgeIcon badgeKey={badge.key} className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">
+                  {badge.title}
+                </span>
+                <span className="block text-xs text-muted">
+                  {badge.description}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs font-semibold text-muted">
+                {badge.earned ? (
+                  <Check aria-label="Earned" className="h-4 w-4 text-success" />
+                ) : (
+                  `${badge.progress}/${badge.target}`
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </Card>
   );
 }
@@ -167,7 +269,9 @@ function HobbyEditor({ player }: { player: Player }) {
           </button>
         )}
         {saved && !changed && (
-          <span className="text-sm text-success">Saved ✓</span>
+          <span className="flex items-center gap-1 text-sm text-success">
+            <Check aria-hidden className="h-4 w-4" /> Saved
+          </span>
         )}
       </div>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
@@ -177,18 +281,43 @@ function HobbyEditor({ player }: { player: Player }) {
 
 function SuggestionsList() {
   const { data, isLoading } = useListSuggestions();
+  const quests = useListQuests();
   const dismiss = useDismissSuggestion();
+  const startSession = useStartPairSession();
+  const router = useRouter();
   const { error, run, refreshAll } = useAction();
   const result = data?.status === 200 ? data.data : undefined;
+  // A partner quest to play with a suggestion: one the player hasn't done
+  // yet if possible, otherwise any (then only the invitee earns points).
+  const pairQuests =
+    quests.data?.status === 200
+      ? quests.data.data.filter((q) => q.kind === "pair")
+      : [];
+  const pairQuest = pairQuests.find((q) => !q.completed) ?? pairQuests[0];
+
+  async function invite(playerId: number) {
+    if (!pairQuest) return;
+    const response = await run(() =>
+      startSession.mutateAsync({
+        questId: pairQuest.id,
+        data: { invite_player_id: playerId },
+      }),
+    );
+    if (response) router.push(`/quests/${pairQuest.id}`);
+  }
 
   if (isLoading || !result) return null;
 
   return (
     <Card>
-      <h2 className="font-semibold">People you might get along with</h2>
+      <h2 className="flex items-center gap-2 font-semibold">
+        <Users aria-hidden className="h-5 w-5" /> People you might get along
+        with
+      </h2>
       {!result.enabled ? (
         <p className="mt-1 text-sm text-muted">
-          Turn on suggestions above to see players who share your hobbies.
+          Pick hobbies and turn on suggestions below to see players who share
+          them.
         </p>
       ) : result.suggestions.length === 0 ? (
         <p className="mt-1 text-sm text-muted">
@@ -198,7 +327,9 @@ function SuggestionsList() {
       ) : (
         <>
           <p className="mt-1 text-sm text-muted">
-            Say hi when you see them, or invite them to a partner quest!
+            {pairQuest
+              ? `Invite them to “${pairQuest.title}”: they get the invitation in their app, then you meet up and complete it together.${pairQuest.completed ? " You've done it already, so they earn the points." : ""}`
+              : "Say hi when you see them on campus!"}
           </p>
           <ul className="mt-3 flex flex-col gap-2">
             {result.suggestions.map((suggestion) => (
@@ -217,7 +348,18 @@ function SuggestionsList() {
                     You both like {suggestion.shared_hobbies.join(", ")}
                   </p>
                 </div>
+                {pairQuest && (
+                  <button
+                    className={`${buttonStyles.primary} flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm`}
+                    disabled={startSession.isPending}
+                    onClick={() => invite(suggestion.player_id)}
+                    type="button"
+                  >
+                    <Send aria-hidden className="h-4 w-4" /> Invite
+                  </button>
+                )}
                 <button
+                  aria-label={`Not interested in ${suggestion.display_name}`}
                   className="shrink-0 text-xs font-semibold text-muted hover:text-danger"
                   disabled={dismiss.isPending}
                   onClick={async () => {
@@ -230,7 +372,7 @@ function SuggestionsList() {
                   }}
                   type="button"
                 >
-                  Not interested
+                  Hide
                 </button>
               </li>
             ))}
@@ -284,7 +426,7 @@ function MySubmissions() {
                   className="mt-1 inline-block text-sm font-semibold text-link"
                   href={`/quests/${submission.id}`}
                 >
-                  View quest →
+                  View quest
                 </Link>
               )}
             </li>
@@ -314,28 +456,19 @@ export default function ProfilePage() {
         />
       ) : (
         <>
-          <Card className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted">Total points</p>
-              <p className="text-3xl font-bold text-link">
-                {player.total_points}
-              </p>
-            </div>
-            <Link
-              className={`${buttonStyles.secondary} py-2 text-sm`}
-              href="/leaderboard"
-            >
-              Ranking
-            </Link>
-          </Card>
-          <Badges />
-          {/* Not keyed on the saved values: a remount after saving would hide "Saved ✓". */}
-          <HobbyEditor player={player} />
+          <Achievements player={player} />
           <SuggestionsList />
+          {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
+          <HobbyEditor player={player} />
           <MySubmissions />
           <ShareButton
-            className={`${buttonStyles.secondary} w-full`}
-            label="📨 Invite a friend to Campus Voyager"
+            className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
+            label={
+              <>
+                <Send aria-hidden className="h-4 w-4" /> Invite a friend to
+                Campus Voyager
+              </>
+            }
             path="/"
             text="Join me on Campus Voyager: explore ETH and complete quests together!"
             title="Campus Voyager"

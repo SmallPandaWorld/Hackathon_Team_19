@@ -6,7 +6,7 @@ import { QuestCard } from "@/src/components/quest-card";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useListQuests } from "@/src/lib/api/quests";
-import { KIND_LABELS } from "@/src/lib/quest-display";
+import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 export default function MapPage() {
@@ -38,7 +38,7 @@ export default function MapPage() {
         lat: q.latitude as number,
         lng: q.longitude as number,
         label: q.title,
-        icon: KIND_LABELS[q.kind].icon,
+        kind: q.kind,
         done: q.completed,
       })),
     [pinned],
@@ -64,20 +64,10 @@ export default function MapPage() {
               selectedId={selectedId}
             />
             <p className="mt-2 text-xs text-muted">
-              Tap a pin to see its quest. Yellow pins are open, dark pins with ✓
-              are done.
+              Tap a pin to see its quest. Yellow pins are open, dark pins are
+              done.
             </p>
           </div>
-
-          {selected ? (
-            <QuestCard quest={selected} />
-          ) : (
-            pinned.length > 0 && (
-              <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
-                Tap a pin to see the quest here.
-              </p>
-            )
-          )}
 
           {/* Text alternative to the map */}
           <section>
@@ -105,6 +95,35 @@ export default function MapPage() {
                 ))}
               </ul>
             </section>
+          )}
+
+          {/* Selected pin: compact bottom sheet, kept above the tab bar. */}
+          {selected && (
+            <>
+              <div aria-hidden className="h-32" />
+              <div
+                aria-label="Selected quest"
+                className="fixed inset-x-0 bottom-[calc(57px+env(safe-area-inset-bottom))] z-[1050] px-3 pb-3"
+                role="dialog"
+              >
+                <div className="mx-auto max-w-2xl rounded-lg border border-outline-variant bg-surface p-2 shadow-[0_-4px_24px_rgb(0_0_0/0.18)] dark:bg-surface-variant">
+                  <div className="flex items-center justify-between px-2 pb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      On the map
+                    </span>
+                    <button
+                      aria-label="Close"
+                      className="rounded-sm p-1 text-muted hover:bg-surface-container hover:text-on-surface"
+                      onClick={() => setSelectedId(null)}
+                      type="button"
+                    >
+                      <X aria-hidden className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <QuestCard quest={selected} />
+                </div>
+              </div>
+            </>
           )}
         </>
       )}

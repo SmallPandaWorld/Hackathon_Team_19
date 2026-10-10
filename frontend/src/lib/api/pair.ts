@@ -25,6 +25,7 @@ import type {
   HTTPValidationError,
   PairJoinResult,
   PairSessionOut,
+  PairStartRequest,
 } from "./hackathon.schemas";
 
 const withQueryKey = <T extends object, K>(
@@ -99,16 +100,44 @@ export const getStartPairSessionUrl = (questId: number) => {
  * Start a two-player quest and get a code for your partner.
  *
  * Replaces any code you started earlier for this quest. Codes expire
- * after 10 minutes.
+ * after 10 minutes. With `invite_player_id`, the code also appears on that
+ * player's home screen; both players must have opted in to suggestions.
  * @summary Start Pair Session
  */
 export const startPairSession = async (
   questId: number,
+  pairStartRequestNull?: PairStartRequest | null,
   options?: RequestInit,
 ): Promise<startPairSessionResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   const res = await fetch(getStartPairSessionUrl(questId), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(pairStartRequestNull),
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
@@ -154,9 +183,9 @@ export const getStartPairSessionMutationOptions = <
     Awaited<ReturnType<typeof startPairSession>>,
     StartPairSessionMutationVariables
   > = (props) => {
-    const { questId } = props ?? {};
+    const { questId, data } = props ?? {};
 
-    return startPairSession(questId, fetchOptions);
+    return startPairSession(questId, data, fetchOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -165,9 +194,12 @@ export const getStartPairSessionMutationOptions = <
 export type StartPairSessionMutationResult = NonNullable<
   Awaited<ReturnType<typeof startPairSession>>
 >;
-
+export type StartPairSessionMutationBody = PairStartRequest | null | undefined;
 export type StartPairSessionMutationError = ErrorResponse | HTTPValidationError;
-export type StartPairSessionMutationVariables = { questId: number };
+export type StartPairSessionMutationVariables = {
+  questId: number;
+  data?: PairStartRequest | null;
+};
 
 /**
  * @summary Start Pair Session
@@ -518,6 +550,187 @@ export const useCancelPairSession = <
 > => {
   return useMutation(getCancelPairSessionMutationOptions(options), queryClient);
 };
+export type listPairInvitesResponse200 = {
+  data: PairSessionOut[];
+  status: 200;
+};
+
+export type listPairInvitesResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type listPairInvitesResponseSuccess = listPairInvitesResponse200 & {
+  headers: Headers;
+};
+export type listPairInvitesResponseError = listPairInvitesResponse401 & {
+  headers: Headers;
+};
+
+export type listPairInvitesResponse =
+  listPairInvitesResponseSuccess | listPairInvitesResponseError;
+
+export const getListPairInvitesUrl = () => {
+  return `/api/pair/invites`;
+};
+
+/**
+ * Open partner-quest invitations addressed to the current player.
+ * @summary List Pair Invites
+ */
+export const listPairInvites = async (
+  options?: RequestInit,
+): Promise<listPairInvitesResponse> => {
+  const res = await fetch(getListPairInvitesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPairInvitesResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPairInvitesResponse;
+};
+
+export const getListPairInvitesQueryKey = () => {
+  return [`/api/pair/invites`] as const;
+};
+
+export const getListPairInvitesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPairInvites>>,
+  TError = ErrorResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof listPairInvites>>, TError, TData>
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPairInvitesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPairInvites>>> = ({
+    signal,
+  }) => listPairInvites({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPairInvites>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListPairInvitesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPairInvites>>
+>;
+export type ListPairInvitesQueryError = ErrorResponse;
+
+export function useListPairInvites<
+  TData = Awaited<ReturnType<typeof listPairInvites>>,
+  TError = ErrorResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPairInvites>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPairInvites>>,
+          TError,
+          Awaited<ReturnType<typeof listPairInvites>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListPairInvites<
+  TData = Awaited<ReturnType<typeof listPairInvites>>,
+  TError = ErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPairInvites>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPairInvites>>,
+          TError,
+          Awaited<ReturnType<typeof listPairInvites>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListPairInvites<
+  TData = Awaited<ReturnType<typeof listPairInvites>>,
+  TError = ErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPairInvites>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List Pair Invites
+ */
+
+export function useListPairInvites<
+  TData = Awaited<ReturnType<typeof listPairInvites>>,
+  TError = ErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listPairInvites>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListPairInvitesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export type getPairCodeResponse200 = {
   data: PairSessionOut;
   status: 200;

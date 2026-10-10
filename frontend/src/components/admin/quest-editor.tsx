@@ -22,6 +22,7 @@ import {
   STATUS_LABELS,
 } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
+import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -250,7 +251,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           >
             {(Object.keys(KIND_LABELS) as AdminQuestInKind[]).map((key) => (
               <option key={key} value={key}>
-                {KIND_LABELS[key].icon} {KIND_LABELS[key].label}
+                {KIND_LABELS[key].label}
               </option>
             ))}
           </select>
@@ -517,7 +518,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                       }
                       type="button"
                     >
-                      ✕
+                      <X aria-hidden className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
@@ -591,17 +592,21 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         )}
       </Card>
 
-      <div className="sticky bottom-20 z-10 flex flex-col gap-2">
+      {/* In the flow (not floating), so it never covers form fields. */}
+      <div className="flex flex-col gap-2">
         <button
-          className={`${buttonStyles.primary} py-4 text-lg `}
+          className={`${buttonStyles.primary} py-4 text-lg`}
           disabled={saving}
           type="submit"
         >
           {saving ? "Saving..." : quest ? "Save changes" : "Create draft"}
         </button>
         {saved && (
-          <p className="rounded bg-success-surface p-2 text-center text-sm text-success">
-            Saved ✓
+          <p
+            className="flex items-center justify-center gap-1 rounded bg-success-surface p-2 text-sm text-success"
+            role="status"
+          >
+            <Check aria-hidden className="h-4 w-4" /> Saved
           </p>
         )}
         {error && <ErrorState message={error} />}

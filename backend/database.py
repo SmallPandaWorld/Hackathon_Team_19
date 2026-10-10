@@ -59,6 +59,9 @@ ADDED_COLUMNS = {
         "author_id": "INTEGER REFERENCES users (id)",
         "review_note": "TEXT",
     },
+    "pair_sessions": {
+        "invited_player_id": "INTEGER REFERENCES users (id)",
+    },
     "completions": {
         "status": "VARCHAR(20) NOT NULL DEFAULT 'approved'",
         "note": "TEXT",

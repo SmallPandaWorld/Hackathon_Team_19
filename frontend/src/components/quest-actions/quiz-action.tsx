@@ -7,6 +7,7 @@ import { useSubmitQuiz } from "@/src/lib/api/quests";
 import { useAction } from "@/src/lib/use-action";
 import { useState } from "react";
 import { CompletedNote, ResultBanner } from "./result-banner";
+import { Check, X } from "lucide-react";
 
 export function QuizAction({ quest }: { quest: QuestOut }) {
   const questions = quest.questions ?? [];
@@ -90,7 +91,15 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
               <p
                 className={`mt-2 text-sm font-semibold ${checked ? "text-success" : "text-danger"}`}
               >
-                {checked ? "✓ Correct" : "✗ Not quite"}
+                {checked ? (
+                  <span className="flex items-center gap-1">
+                    <Check aria-hidden className="h-4 w-4" /> Correct
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <X aria-hidden className="h-4 w-4" /> Not quite
+                  </span>
+                )}
               </p>
             )}
           </fieldset>

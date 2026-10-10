@@ -404,10 +404,15 @@ def test_new_code_replaces_old_one(client):
     assert client.post(f"/pair/{old}/join", headers=BOB).status_code == 410
 
 
-def test_completed_host_cannot_start_again_but_can_help_as_partner(client):
+def test_completed_players_can_help_others_without_earning_again(client):
     code = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE).json()["code"]
     client.post(f"/pair/{code}/join", headers=BOB)
-    assert client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE).status_code == 409
+
+    # As host again: the new partner earns, the host doesn't.
+    code = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE).json()["code"]
+    dan = identity("dan-id", "Dan")
+    assert client.post(f"/pair/{code}/join", headers=dan).json()["completion"]["points_awarded"] == 25
+    assert points(client, ALICE) == 25
 
     code = client.post(f"/quests/{PAIR_ID}/pair", headers=CAROL).json()["code"]
     helped = client.post(f"/pair/{code}/join", headers=ALICE).json()
@@ -655,3 +660,69 @@ def test_mvp_database_is_upgraded(tmp_path, monkeypatch):
         assert tuple(completion) == ("approved", 10)
         user = connection.execute(text("SELECT hobbies, discoverable FROM users")).one()
         assert tuple(user) == ("", 0)
+
+
+# --- Review follow-ups: invitations and badge progress -----------------------
+
+def test_invite_suggested_player_to_pair_quest(client):
+    set_profile(client, ALICE, ["chess"])
+    set_profile(client, BOB, ["chess"])
+    bob_id = client.get("/me", headers=BOB).json()["id"]
+
+    session = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE,
+                          json={"invite_player_id": bob_id}).json()
+    assert session["invited_name"] == "Bob"
+
+    invites = client.get("/pair/invites", headers=BOB).json()
+    assert [i["code"] for i in invites] == [session["code"]]
+    assert invites[0]["host_name"] == "Alice"
+    assert client.get("/pair/invites", headers=CAROL).json() == []
+
+    client.post(f"/pair/{session['code']}/join", headers=BOB)
+    assert client.get("/pair/invites", headers=BOB).json() == []
+    assert points(client, ALICE) == points(client, BOB) == 25
+
+
+def test_invites_need_both_players_opted_in(client):
+    set_profile(client, ALICE, ["chess"])
+    set_profile(client, BOB, ["chess"], discoverable=False)
+    bob_id = client.get("/me", headers=BOB).json()["id"]
+    alice_id = client.get("/me", headers=ALICE).json()["id"]
+    hidden = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE, json={"invite_player_id": bob_id})
+    assert hidden.status_code == 400
+    self_invite = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE,
+                              json={"invite_player_id": alice_id})
+    assert self_invite.status_code == 400
+    missing = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE, json={"invite_player_id": 9999})
+    assert missing.status_code == 400
+
+
+def test_expired_or_cancelled_invites_disappear(client):
+    set_profile(client, ALICE, ["chess"])
+    set_profile(client, BOB, ["chess"])
+    bob_id = client.get("/me", headers=BOB).json()["id"]
+    code = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE,
+                       json={"invite_player_id": bob_id}).json()["code"]
+    client.delete(f"/quests/{PAIR_ID}/pair", headers=ALICE)
+    assert client.get("/pair/invites", headers=BOB).json() == []
+
+    code = client.post(f"/quests/{PAIR_ID}/pair", headers=ALICE,
+                       json={"invite_player_id": bob_id}).json()["code"]
+    with SessionLocal() as db:
+        db.query(PairSession).filter_by(code=code).one().expires_at = utcnow() - timedelta(seconds=1)
+        db.commit()
+    assert client.get("/pair/invites", headers=BOB).json() == []
+
+
+def test_badge_progress(client):
+    badges = {b["key"]: b for b in client.get("/me/badges", headers=ALICE).json()}
+    assert (badges["explorer"]["progress"], badges["explorer"]["target"]) == (0, 5)
+    assert (badges["century"]["progress"], badges["century"]["target"]) == (0, 100)
+    assert (badges["meetup"]["progress"], badges["meetup"]["target"]) == (0, 1)
+
+    client.post(f"/quests/{SOLO_ID}/complete", headers=ALICE)        # 10 points
+    client.post(f"/quests/2/complete", headers=ALICE)                # 20 points
+    badges = {b["key"]: b for b in client.get("/me/badges", headers=ALICE).json()}
+    assert badges["explorer"]["progress"] == 2
+    assert badges["century"]["progress"] == 30
+    assert badges["first_quest"]["progress"] == badges["first_quest"]["target"] == 1

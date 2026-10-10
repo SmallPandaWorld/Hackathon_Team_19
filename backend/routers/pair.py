@@ -3,9 +3,9 @@
 
 import secrets
 from datetime import timedelta
-from typing import Optional
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
@@ -17,14 +17,13 @@ from game import (
     completion_result,
     conflict,
     error_responses,
-    find_completion,
     get_playable_quest,
     not_found,
     record_completion,
     utcnow,
 )
 from models import APPROVED, PAIR, PUBLISHED, PairSession, Quest, User
-from schemas import PairJoinResult, PairSessionOut
+from schemas import PairJoinResult, PairSessionOut, PairStartRequest
 
 router = APIRouter(tags=["pair"], responses=error_responses(401))
 
@@ -48,7 +47,9 @@ def session_out(db: Session, session: PairSession, player: User) -> PairSessionO
     quest = db.get(Quest, session.quest_id)
     host = db.get(User, session.host_id)
     partner = db.get(User, session.partner_id) if session.partner_id else None
+    invited = db.get(User, session.invited_player_id) if session.invited_player_id else None
     return PairSessionOut(
+        invited_name=invited.name if invited else None,
         code=session.code,
         quest_id=quest.id,
         quest_title=quest.title,
@@ -89,18 +90,28 @@ def find_by_code(db: Session, code: str) -> PairSession:
 )
 def start_pair_session(
     quest_id: int,
+    request: Optional[PairStartRequest] = Body(default=None),
     player: User = Depends(get_current_player),
     db: Session = Depends(get_db),
 ):
     """Start a two-player quest and get a code for your partner.
 
-    Replaces any code you started earlier for this quest. Codes expire
-    after 10 minutes.
+    Replaces any code you started earlier for this quest. Hosts who already
+    completed it can start again; they earn nothing, the partner does. Codes expire
+    after 10 minutes. With `invite_player_id`, the code also appears on that
+    player's home screen; both players must have opted in to suggestions.
     """
     quest = get_playable_quest(db, quest_id, PAIR)
-    completion = find_completion(db, player.id, quest.id)
-    if completion is not None and completion.status == APPROVED:
-        raise conflict("You already completed this quest.")
+    invitee_id = request.invite_player_id if request else None
+    if invitee_id is not None:
+        invitee = db.get(User, invitee_id)
+        if invitee_id == player.id:
+            raise bad_request("You can't invite yourself.")
+        if invitee is None or not invitee.discoverable or not player.discoverable:
+            # Same rule as suggestions: only between players who opted in.
+            raise bad_request("You can only invite players from your suggestions.")
+    # Players who already completed the quest may host again to help others
+    # (e.g. invite a suggested player); only the partner earns points then.
     db.execute(
         update(PairSession)
         .where(
@@ -116,6 +127,7 @@ def start_pair_session(
         code=new_code(db),
         created_at=now,
         expires_at=now + CODE_LIFETIME,
+        invited_player_id=invitee_id,
     )
     db.add(session)
     db.commit()
@@ -169,6 +181,25 @@ def cancel_pair_session(
         )
         .values(cancelled=True))
     db.commit()
+
+
+@router.get("/pair/invites", response_model=List[PairSessionOut])
+def list_pair_invites(
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """Open partner-quest invitations addressed to the current player."""
+    sessions = db.scalars(
+        select(PairSession)
+        .where(
+            PairSession.invited_player_id == player.id,
+            PairSession.completed_at.is_(None),
+            PairSession.cancelled.is_(False),
+            PairSession.expires_at >= utcnow(),
+        )
+        .order_by(PairSession.created_at.desc())
+    )
+    return [session_out(db, session, player) for session in sessions]
 
 
 @router.get("/pair/{code}", response_model=PairSessionOut, responses=error_responses(404))

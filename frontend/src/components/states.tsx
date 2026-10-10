@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export function LoadingState({ label }: { label: string }) {
   return (
@@ -40,7 +41,7 @@ export function BackLink() {
       className="inline-flex items-center gap-1 text-sm font-semibold text-link hover:underline"
       href="/"
     >
-      ← All quests
+      <ArrowLeft aria-hidden className="h-4 w-4" /> All quests
     </Link>
   );
 }
