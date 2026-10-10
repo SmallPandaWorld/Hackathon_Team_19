@@ -23,10 +23,10 @@ To act as a different player, send the headers yourself:
 curl -H "X-User-Id: alice" -H "X-User-Name: Alice" localhost:8000/me
 ```
 
-The built-in quests live in `backend/quests.py`. They are only inserted when
-missing, so edits made in the quest editor are never overwritten; change
-existing quests in the editor. Never change or reuse a quest `id` (built-in
-quests use IDs below 1000, quests created in the app start at 1000).
+The app starts with no quests: maintainers add them in the quest editor
+(`/admin`), and players can suggest some. Quests created in the app get IDs
+from 1000 upwards; never change or reuse a quest `id`. The tests use sample
+quests from `backend/tests/sample_quests.py`.
 
 ### Backend tests [be in the backend folder]:
 ```

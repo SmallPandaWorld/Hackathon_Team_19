@@ -1,14 +1,9 @@
-"""Built-in quests, created on first start.
+"""Sample quests for the tests (one of each kind).
 
-Seeding only inserts quests whose ID is missing, so edits made by
-maintainers in the app are never overwritten. To change a built-in quest
-on an existing deployment, use the quest editor.
+The app itself starts with no quests: maintainers add them in the quest
+editor. Tests seed these after startup (see conftest.py).
 
-IDs are stable and below 1000 (quests created in the app start at 1000):
-never reuse or renumber an ID, because saved completions point to it.
-
-DRAFT CONTENT: titles, wording, times and points still need team approval.
-Map pins are WGS84 coordinates, looked up on OpenStreetMap.
+IDs are below 1000 so they never clash with quests created in the app.
 """
 
 import json

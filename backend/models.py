@@ -62,8 +62,8 @@ class User(Base):
 class Quest(Base):
     __tablename__ = "quests"
 
-    # Built-in quests use stable IDs below 1000 (see quests.py); quests
-    # created in the app get IDs from 1000 upwards.
+    # Quests created in the app get IDs from 1000 upwards. IDs below 1000
+    # belong to the former built-in quests, which older databases still hold.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)

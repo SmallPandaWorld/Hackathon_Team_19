@@ -5,8 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
 import models  # noqa: F401  (registers all tables)
-from database import Base, SessionLocal, engine, upgrade_legacy_schema
-from quests import seed_quests
+from database import Base, engine, upgrade_legacy_schema
 from routers import admin, leaderboard, pair, players, quests, social
 
 
@@ -14,8 +13,6 @@ from routers import admin, leaderboard, pair, players, quests, social
 async def lifespan(_: FastAPI):
     upgrade_legacy_schema()
     Base.metadata.create_all(bind=engine)
-    with SessionLocal() as db:
-        seed_quests(db)
     yield
 
 
