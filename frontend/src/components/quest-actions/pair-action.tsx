@@ -8,6 +8,7 @@ import type { PairSessionOut, QuestOut } from "@/src/lib/api/hackathon.schemas";
 import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Confetti } from "./celebration";
 import { CompletedNote } from "./result-banner";
 import { Camera, Send } from "lucide-react";
 import Link from "next/link";
@@ -114,12 +115,15 @@ export function PairAction({ quest }: { quest: QuestOut }) {
     return (
       <div className="flex flex-col gap-3">
         {partnerJustJoined && session?.is_host && (
-          <p
-            className="rounded-2xl bg-success-surface p-4 text-lg font-bold text-success border border-success/30"
-            role="status"
-          >
-            {session.partner_name} joined! Quest completed together.
-          </p>
+          <>
+            <Confetti />
+            <p
+              className="quest-pop rounded-2xl bg-success-surface p-4 text-lg font-bold text-success border border-success/30"
+              role="status"
+            >
+              {session.partner_name} joined! Quest completed together.
+            </p>
+          </>
         )}
         <CompletedNote completedAt={quest.completed_at} />
         <Link

@@ -957,6 +957,8 @@ If there is no waiting hosted session, the component offers starting a new one o
 
 It shows the player's total and links to quests/ranking. `CompletedNote` displays an already saved completion and its timestamp using `toLocaleString()`.
 
+A newly approved completion also celebrates: the banner pops in and `Confetti` from `celebration.tsx` plays a one-off burst over the whole screen. Pending claims and repeat completions stay quiet. `PairAction` plays the same burst for the host when their partner joins. The confetti is plain CSS (`confetti-burst` and `quest-pop` keyframes in `globals.css`) with fixed, repeatable piece positions; it ignores taps, removes itself when the last piece lands, and is hidden under `prefers-reduced-motion`.
+
 ### 14.8 `frontend/src/components/quest-actions/join-action.tsx`
 
 `JoinAction` is the “Join this quest” button shown before a first attempt. It sends the `join` action and mentions how many other players are on the quest. After a QR sign's link opens an unjoined quest, joining mounts `CodeAction`, which then submits the scanned code.
