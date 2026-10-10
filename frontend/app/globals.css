@@ -164,6 +164,58 @@ h3 {
   border: none;
 }
 
+/* Quest-complete celebration: confetti bursts from mid-screen, arcs up and
+   falls (each piece sets --dx, --peak, --fall and --spin; see
+   quest-actions/celebration.tsx), while the result banner pops in. */
+@keyframes confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.4);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  10% {
+    opacity: 1;
+  }
+  35% {
+    transform: translate3d(calc(var(--dx) * 0.7), var(--peak), 0)
+      rotate(calc(var(--spin) * 0.4)) scale(1);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx), var(--fall), 0) rotate(var(--spin))
+      scale(1);
+  }
+}
+@keyframes quest-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.confetti-piece {
+  animation: confetti-burst linear both;
+}
+.quest-pop {
+  animation: quest-pop 0.45s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    display: none;
+  }
+  .quest-pop {
+    animation: none;
+  }
+}
+
 @media print {
   body:has(.quest-code-print) {
     background: white;

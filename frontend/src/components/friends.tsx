@@ -20,7 +20,7 @@ import { Check, UserMinus, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-function profileHref(username: string): string {
+export function profileHref(username: string): string {
   return `/profile?player=${encodeURIComponent(username)}`;
 }
 

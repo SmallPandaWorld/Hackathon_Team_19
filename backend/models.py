@@ -217,6 +217,19 @@ class QuestPhoto(Base):
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class QuestJoin(Base):
+    """A player who joined a quest to work on it. Meetups use MeetupRsvp."""
+
+    __tablename__ = "quest_joins"
+    __table_args__ = (UniqueConstraint("player_id", "quest_id"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    player_id: Mapped[str] = mapped_column(ForeignKey("users.username"), nullable=False)
+    quest_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("quests.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class QuestVote(Base):
     """One up (+1) or down (-1) vote per player on a player-created quest."""
 

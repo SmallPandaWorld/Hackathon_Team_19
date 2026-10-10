@@ -16,7 +16,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const STEPS = [
-  "Pick a quest and read the instructions.",
+  "Pick a quest, read the instructions and join it.",
   "Go out on campus and do the activity, some with a partner or a group.",
   "Confirm it in the app to collect your points and badges.",
 ];

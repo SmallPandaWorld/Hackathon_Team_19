@@ -244,7 +244,7 @@ The deployment must ensure public traffic reaches the app through that trusted p
 
 ## 6. Database models and relationships
 
-`backend/models.py` defines twelve tables. It uses SQLAlchemy's typed `Mapped` fields and `mapped_column()`. Relationships are represented by foreign keys; the code generally queries them explicitly rather than defining ORM `relationship()` collections.
+`backend/models.py` defines fifteen tables. It uses SQLAlchemy's typed `Mapped` fields and `mapped_column()`. Relationships are represented by foreign keys; the code generally queries them explicitly rather than defining ORM `relationship()` collections.
 
 | Class / table | Main fields | Why it exists |
 | --- | --- | --- |
@@ -258,7 +258,10 @@ The deployment must ensure public traffic reaches the app through that trusted p
 | `MeetupRsvp` / `meetup_rsvps` | Player, quest, creation time | Intention to attend, separate from check-in |
 | `MeetupPhoto` / `meetup_photos` | Meetup, uploader, media type, upload time | Event album photo; appears on checked-in players' profiles only while opted in |
 | `QuestPhoto` / `quest_photos` | Quest, player uploader, media type, upload time | Player-uploaded photo from a completed meetup, pair, or multi-step quest |
+| `QuestJoin` / `quest_joins` | Player, quest, creation time | A player who joined a non-meetup quest to work on it |
 | `QuestReport` / `quest_reports` | Player, quest, reason, time, resolved flag | Content moderation reports |
+| `Friendship` / `friendships` | Requester, addressee, status, timestamps | A friend request or an accepted friendship |
+| `EarnedBadge` / `earned_badges` | Player, badge key, earned time | A stored badge that outlives what unlocked it |
 | `DismissedSuggestion` / `dismissed_suggestions` | Player and dismissed player | Persistent hiding of a suggestion |
 
 ### 6.1 Relationships
@@ -300,6 +303,7 @@ username; foreign keys to quests and steps store UUIDs.
 | Unique step progress `(player_id, step_id)` | Saving one step twice for a player |
 | Unique step/question `(quest_id, position)` | Duplicate positions inside one quest |
 | Unique RSVP `(player_id, quest_id)` | Duplicate attendance intentions |
+| Unique join `(player_id, quest_id)` | Joining the same quest twice |
 | Unique report `(player_id, quest_id)` | Multiple reports of the same quest by one player |
 | Unique dismissal `(player_id, dismissed_player_id)` | Duplicate hidden-suggestion records |
 
@@ -439,8 +443,14 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | --- | --- | --- |
 | GET | `/quests` | `list_quests`: all published quests, ordered by creation, personalized |
 | GET | `/quests/{quest_id}` | `get_quest`: a quest the player may view |
-| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `vote`, `pair_start`, or `pair_cancel` |
+| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `join`, `leave`, `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `vote`, `pair_start`, or `pair_cancel` |
 | POST | `/quests` | `create_quest`: immediately publish an allowed player quest; returns 201 |
+
+Players join a quest before doing it. `set_joined()` saves or removes a `QuestJoin` row for the `join` and `leave` actions; both are repeat-safe, and leaving keeps step progress. `require_joined()` then guards a player's first attempt: `complete`, `redeem`, `quiz`, `step`, and `pair_start` return 409 “Join this quest first.” without a join. Three cases need none: a player who already has a completion row for the quest (including a rejected claim), a pair partner entering the host's code, and meetups, where “I'm coming” plays that role and walk-in check-ins stay allowed. `join` and `leave` on a meetup return 400.
+
+`QuestOut` reports this as `joined` (for a meetup: the RSVP), `participant_count`, and `participants`. `others_doing()` counts the other players on a quest: joined and without an approved or pending completion, or for a meetup everyone who RSVP'd. The count covers all of them. Names are sent only while the requesting player is on the quest too (joined and unfinished, or coming to a meetup that is not over), and only for players who opted in to suggestions (`discoverable`). The list has at most 20 entries, most shared hobbies first, then by name; otherwise `participants` is null.
+
+Profiles list the same thing per player. `current_quests()` returns the published quests a player is on right now, most recently joined first (at most 20): joined without an approved or pending completion, plus meetups they said they're coming to that aren't over or checked into. `GET /me` always includes it as `current_quests`; `GET /players/{username}` includes it only while that player is opted in to suggestions (or is the viewer), so a profile that stays visible through a friendship after opting out shows an empty list. The profile page renders it with `CurrentQuests`: “Quests you're doing” on your own profile, with a line saying whether others see it, and “Currently doing” on another player's, hidden when empty.
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code- and password-verified quests, so the ordinary completion endpoint cannot bypass verification. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
 
@@ -775,7 +785,7 @@ The page renders a campus motif, compact player summary, incoming pair invitatio
 
 The detail article displays quest kind, status if unpublished, title, reward, location, author, and instructions when provided. Coordinates enable a `/map#quest-ID` link and an external Google Maps walking-directions link. That directions URL names the destination; the component does not supply the player's device coordinates.
 
-`QuestAction()` chooses the matching action component. Published solo quests with `requires_code` or `requires_password` use `CodeAction`; other solo quests use `SoloAction`. Unpublished/retired quests display availability information instead of playable controls.
+`QuestAction()` chooses the matching action component. A published non-meetup quest that the player has neither joined nor attempted shows `JoinAction` instead, so the quest's own controls appear only after joining. Below the action, `QuestParticipants` lists the other players on the quest. Published solo quests with `requires_code` or `requires_password` use `CodeAction`; other solo quests use `SoloAction`. Unpublished/retired quests display availability information instead of playable controls.
 
 `ReportQuest()` is a local form. It opens an inline reason field, validates a trimmed minimum length in the UI, sends the report, refreshes queries, and closes. A previously reported quest shows an acknowledgment rather than another report button.
 
@@ -840,6 +850,7 @@ Admin pages are explained together in section 15 because they share the maintain
 | `frontend/src/components/tab-bar.tsx` | Persistent four-tab navigation |
 | `frontend/src/components/player-summary.tsx` | Player name, initial avatar, points, optional admin link |
 | `frontend/src/components/quest-card.tsx` | Compact quest link with type and progress |
+| `frontend/src/components/quest-participants.tsx` | Other players on the same quest, and leaving it |
 | `frontend/src/components/join-code-form.tsx` | `JoinCodeForm` and compact expandable `JoinWithCode` |
 | `frontend/src/components/pair-invites.tsx` | Incoming addressed partner invitations |
 | `frontend/src/components/share-button.tsx` | Native share, clipboard fallback, and visible feedback |
@@ -868,7 +879,7 @@ Its fixed navigation has a z-index above Leaflet controls and incorporates the b
 
 `QuestCard` links the entire card to its detail page. Active cards use yellow quest-type icon tiles and reward labels. Completed cards use quieter text, outlined checks, and muted reward text.
 
-`ProgressChip` shows pending review, a rejected claim's retry state, or partial step progress. Upcoming meetup cards use a month/day date tile formatted in Zurich time, along with meetup status and schedule. Completed cards omit location/schedule detail to reduce visual weight.
+`ProgressChip` shows pending review, a rejected claim's retry state, partial step progress, or “Joined” for a joined, unfinished non-meetup quest. Upcoming meetup cards use a month/day date tile formatted in Zurich time, along with meetup status and schedule. Completed cards omit location/schedule detail to reduce visual weight.
 
 The displayed reward is the quest's current reward, not necessarily the historical amount that a player earned before a reward edit. Historical awarded points live in completion records.
 
@@ -947,6 +958,16 @@ If there is no waiting hosted session, the component offers starting a new one o
 - A newly approved completion: show the granted points.
 
 It shows the player's total and links to quests/ranking. `CompletedNote` displays an already saved completion and its timestamp using `toLocaleString()`.
+
+A newly approved completion also celebrates: the banner pops in and `Confetti` from `celebration.tsx` plays a one-off burst over the whole screen. Pending claims and repeat completions stay quiet. `PairAction` plays the same burst for the host when their partner joins. The confetti is plain CSS (`confetti-burst` and `quest-pop` keyframes in `globals.css`) with fixed, repeatable piece positions; it ignores taps, removes itself when the last piece lands, and is hidden under `prefers-reduced-motion`.
+
+### 14.8 `frontend/src/components/quest-actions/join-action.tsx`
+
+`JoinAction` is the “Join this quest” button shown before a first attempt. It sends the `join` action and mentions how many other players are on the quest. After a QR sign's link opens an unjoined quest, joining mounts `CodeAction`, which then submits the scanned code.
+
+### 14.9 `frontend/src/components/quest-participants.tsx`
+
+`QuestParticipants` renders nothing unless the backend sent a `participants` list. It shows each named player with their picture, a profile link, and shared hobbies, in the style of profile suggestions, followed by how many more players are not shown by name. Players who have not opted in to suggestions are told that others do not see their name. Non-meetup quests also get a “Leave this quest” button; meetups keep their RSVP toggle.
 
 ## 15. Maintainer interface and quest editor
 
@@ -1090,6 +1111,8 @@ These are implementation features, not proof of a complete accessibility audit. 
 ### 18.1 A solo quest awards points
 
 ```text
+Quest detail → JoinAction sends {"type": "join"}
+    → set_joined() saves the QuestJoin row; SoloAction replaces the button
 Quest detail → SoloAction.handleComplete()
     → useCompleteQuest().mutateAsync({ questId, data })
     → POST /api/quests/{id}/actions with {"type": "complete"}
@@ -1149,7 +1172,7 @@ Session claiming and each completion save use separate commits. The operation is
 1. Both players save hobbies with discoverability enabled.
 2. `/players/suggestions` finds shared interests and returns names/shared labels.
 3. Profile selects an available pair quest, preferring one the host has not completed.
-4. Clicking Invite sends `invite_username` when creating a session.
+4. Clicking Invite joins the quest if needed, then sends `invite_username` when creating a session.
 5. The host is routed to the quest's waiting screen.
 6. The invited player's home polling sees the addressed session within its next query refresh.
 7. Joining uses the same code-preview and completion flow as an ordinary pair session.

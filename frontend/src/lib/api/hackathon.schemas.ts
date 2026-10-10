@@ -307,6 +307,26 @@ export interface CreatedQuestOut {
   status: CreatedQuestOutStatus;
 }
 
+export type CurrentQuestOutKind =
+  (typeof CurrentQuestOutKind)[keyof typeof CurrentQuestOutKind];
+
+export const CurrentQuestOutKind = {
+  solo: "solo",
+  pair: "pair",
+  quiz: "quiz",
+  multi_step: "multi_step",
+  meetup: "meetup",
+} as const;
+
+/**
+ * A quest a player is on right now (joined, or coming to a meetup).
+ */
+export interface CurrentQuestOut {
+  id: string;
+  title: string;
+  kind: CurrentQuestOutKind;
+}
+
 export interface ErrorResponse {
   detail: string;
 }
@@ -357,6 +377,14 @@ export interface HobbyOption {
   label: string;
 }
 
+/**
+ * Join a quest; needed before a first attempt at it (meetups use rsvp).
+ */
+export const JoinActionValue = {
+  type: "join",
+} as const;
+export type JoinAction = typeof JoinActionValue;
+
 export type LeaderboardScope =
   (typeof LeaderboardScope)[keyof typeof LeaderboardScope];
 
@@ -383,6 +411,11 @@ export interface Leaderboard {
   /** Accepted friends of the current player (0 means the Friends view is empty) */
   friend_count: number;
 }
+
+export const LeaveActionValue = {
+  type: "leave",
+} as const;
+export type LeaveAction = typeof LeaveActionValue;
 
 export interface Suggestion {
   username: string;
@@ -437,6 +470,8 @@ export interface Me {
   invitations: PairSessionOut[];
   /** Quests I created, newest first */
   created_quests: CreatedQuestOut[];
+  /** Quests I'm doing right now, most recently joined first */
+  current_quests: CurrentQuestOut[];
 }
 
 export interface MeetupPhotoOut {
@@ -463,6 +498,16 @@ export interface PairStartAction {
   type: "pair_start";
   /** Invite a suggested username: the code appears on their home screen */
   invite_username?: string | null;
+}
+
+/**
+ * Another player on the same quest who opted in to being seen.
+ */
+export interface Participant {
+  username: string;
+  display_name: string;
+  /** Labels of hobbies you share (may be empty) */
+  shared_hobbies: string[];
 }
 
 export type PlayerQuestInKind =
@@ -528,6 +573,8 @@ export interface PublicPlayer {
   /** Hobby keys, see Me.hobby_options */
   hobbies: string[];
   badges: Badge[];
+  /** Quests this player is doing right now, most recently joined first; empty unless they opted in to suggestions */
+  current_quests: CurrentQuestOut[];
   /** My relation to this player: none, outgoing/incoming request, or friends */
   friend_status: PublicPlayerFriendStatus;
 }
@@ -646,6 +693,12 @@ export interface QuestOut {
   questions?: QuizQuestionOut[];
   rsvp?: boolean;
   rsvp_count?: number;
+  /** I joined this quest (meetups: I said I'm coming) */
+  joined?: boolean;
+  /** Other players doing this quest right now, named or not */
+  participant_count?: number;
+  /** Those of them who opted in to suggestions; only set while I'm doing the quest myself */
+  participants?: Participant[] | null;
   reported?: boolean;
   /** Up/down votes; only player-created quests can be voted on */
   votes?: QuestVotes | null;

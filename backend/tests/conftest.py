@@ -39,7 +39,19 @@ def identity(user_id: str, name: str = "Test Player") -> dict:
     return {"X-User-Id": user_id, "X-User-Name": name}
 
 
-def act(client, headers, quest_id, action_type, **fields):
-    """POST a quest action; returns the response."""
+def post_action(client, headers, quest_id, action_type, **fields):
+    """POST exactly one quest action; returns the response."""
     return client.post(f"/quests/{quest_id}/actions", headers=headers,
                        json={"type": action_type, **fields})
+
+
+# A first attempt at a quest is only allowed after joining it.
+NEEDS_JOIN = {"complete", "redeem", "quiz", "step", "pair_start"}
+
+
+def act(client, headers, quest_id, action_type, **fields):
+    """POST a quest action as a player who joined the quest; returns the
+    action's response. Use `post_action` to act without joining."""
+    if action_type in NEEDS_JOIN:
+        post_action(client, headers, quest_id, "join")
+    return post_action(client, headers, quest_id, action_type, **fields)

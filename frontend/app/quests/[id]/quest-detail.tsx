@@ -5,11 +5,13 @@ import { MeetupAction } from "@/src/components/quest-actions/meetup-action";
 import { MeetupPhotoGallery } from "@/src/components/meetup-photo-gallery";
 import { QuestPhotoGallery } from "@/src/components/quest-photo-gallery";
 import { CodeAction } from "@/src/components/quest-actions/code-action";
+import { JoinAction } from "@/src/components/quest-actions/join-action";
 import { PairAction } from "@/src/components/quest-actions/pair-action";
 import { QuizAction } from "@/src/components/quest-actions/quiz-action";
 import { QuestVotes } from "@/src/components/quest-votes";
 import { SoloAction } from "@/src/components/quest-actions/solo-action";
 import { StepsAction } from "@/src/components/quest-actions/steps-action";
+import { QuestParticipants } from "@/src/components/quest-participants";
 import { BackLink, ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
@@ -37,6 +39,10 @@ function QuestAction({ quest }: { quest: QuestOut }) {
           : "This quest isn't published, so it can't be played yet."}
       </p>
     );
+  }
+  // A first attempt needs a join; meetups have "I'm coming" instead.
+  if (quest.kind !== "meetup" && !quest.joined && !quest.completion_status) {
+    return <JoinAction quest={quest} />;
   }
   switch (quest.kind) {
     case "pair":
@@ -252,6 +258,8 @@ export function QuestDetail() {
       </article>
 
       <QuestAction quest={quest} />
+
+      {quest.status === "published" && <QuestParticipants quest={quest} />}
 
       {quest.kind === "meetup" && <MeetupPhotoGallery questId={quest.id} />}
       {["meetup", "pair", "multi_step"].includes(quest.kind) && (
