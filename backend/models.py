@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+import secrets
 from typing import Optional
 
 from sqlalchemy import (
@@ -35,6 +36,13 @@ PUBLISHED = "published"
 REJECTED = "rejected"
 RETIRED = "retired"
 QUEST_STATUSES = (DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED, RETIRED)
+
+VERIFICATION_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_verification_code() -> str:
+    """A printable, hard-to-guess code; never derived from quest data."""
+    return "".join(secrets.choice(VERIFICATION_ALPHABET) for _ in range(12))
 
 # Completion statuses. Only approved completions count for points.
 APPROVED = "approved"
@@ -74,6 +82,12 @@ class Quest(Base):
         String(20), nullable=False, default=PUBLISHED, server_default=PUBLISHED)
     requires_approval: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0"))
+    # Generated once per quest; only code-verified solo quests use it.
+    requires_code: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0"))
+    verification_code: Mapped[Optional[str]] = mapped_column(
+        String(12), nullable=True, unique=True, index=True,
+        default=new_verification_code)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -184,6 +198,32 @@ class QuestReport(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+# Friendship statuses. A row is a request until the addressee accepts it.
+FRIEND_PENDING = "pending"
+FRIEND_ACCEPTED = "accepted"
+
+
+class Friendship(Base):
+    """A friend request (`pending`) or an accepted friendship.
+
+    One row per pair of players; the reverse direction is checked in code
+    (see friendships.py), so two players never hold two rows.
+    """
+
+    __tablename__ = "friendships"
+    __table_args__ = (UniqueConstraint("requester_id", "addressee_id"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    requester_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    addressee_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=FRIEND_PENDING, server_default=FRIEND_PENDING)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class DismissedSuggestion(Base):

@@ -87,6 +87,7 @@ export interface AdminQuestIn {
   points: number;
   kind?: AdminQuestInKind;
   requires_approval?: boolean;
+  requires_code?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -146,6 +147,9 @@ export interface AdminQuestOut {
   kind: AdminQuestOutKind;
   status: AdminQuestOutStatus;
   requires_approval: boolean;
+  requires_code: boolean;
+  /** Stable code for the printable QR; maintainers only */
+  verification_code: string;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -192,6 +196,7 @@ export interface AdminQuestPatch {
   points?: number | null;
   kind?: AdminQuestPatchKind;
   requires_approval?: boolean | null;
+  requires_code?: boolean | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -276,6 +281,29 @@ export interface CompletionReview {
 
 export interface ErrorResponse {
   detail: string;
+}
+
+export interface FriendOut {
+  username: string;
+  display_name: string;
+  total_points: number;
+  /** When the request was accepted */
+  since: string;
+}
+
+export interface FriendRequestOut {
+  username: string;
+  display_name: string;
+  created_at: string;
+}
+
+export interface Friends {
+  /** Accepted friends, most points first */
+  friends: FriendOut[];
+  /** Requests waiting for my answer, newest first */
+  incoming: FriendRequestOut[];
+  /** Requests I sent that are still open, newest first */
+  outgoing: FriendRequestOut[];
 }
 
 export type ValidationErrorCtx = { [key: string]: unknown };
@@ -421,6 +449,19 @@ export interface ProfileUpdate {
 }
 
 /**
+ * My relation to this player: none, outgoing/incoming request, or friends
+ */
+export type PublicPlayerFriendStatus =
+  (typeof PublicPlayerFriendStatus)[keyof typeof PublicPlayerFriendStatus];
+
+export const PublicPlayerFriendStatus = {
+  none: "none",
+  outgoing: "outgoing",
+  incoming: "incoming",
+  friends: "friends",
+} as const;
+
+/**
  * What other players may see of a discoverable player.
  */
 export interface PublicPlayer {
@@ -430,6 +471,8 @@ export interface PublicPlayer {
   /** Hobby keys, see Me.hobby_options */
   hobbies: string[];
   badges: Badge[];
+  /** My relation to this player: none, outgoing/incoming request, or friends */
+  friend_status: PublicPlayerFriendStatus;
 }
 
 export type QuestOutKind = (typeof QuestOutKind)[keyof typeof QuestOutKind];
@@ -499,6 +542,8 @@ export interface QuestOut {
   kind: QuestOutKind;
   status: QuestOutStatus;
   requires_approval: boolean;
+  /** Enter the printed code or scan its QR to complete */
+  requires_code: boolean;
   /** Map pin (WGS84) */
   latitude?: number | null;
   /** Map pin (WGS84) */
@@ -559,6 +604,18 @@ export interface QuizAction {
   type: "quiz";
   /** Chosen choice index per question, in order */
   answers: number[];
+}
+
+/**
+ * Redeem a printed code for a solo quest.
+ */
+export interface RedeemAction {
+  type: "redeem";
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  code: string;
 }
 
 export interface ReportAction {

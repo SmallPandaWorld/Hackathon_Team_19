@@ -23,6 +23,7 @@ import {
 import { useAction } from "@/src/lib/use-action";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 type StatusChange = NonNullable<AdminQuestPatch["status"]>;
@@ -90,6 +91,9 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   const [requiresApproval, setRequiresApproval] = useState(
     quest?.requires_approval ?? false,
   );
+  const [requiresCode, setRequiresCode] = useState(
+    quest?.requires_code ?? false,
+  );
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
     quest?.latitude != null && quest?.longitude != null
       ? { lat: quest.latitude, lng: quest.longitude }
@@ -131,6 +135,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
       points: Number(points) || 0,
       kind,
       requires_approval: kind === "solo" && requiresApproval,
+      requires_code: kind === "solo" && requiresCode,
       latitude: pin?.lat ?? null,
       longitude: pin?.lng ?? null,
       starts_at: kind === "meetup" ? fromLocalInput(startsAt) : null,
@@ -238,6 +243,24 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         </Card>
       )}
 
+      {quest?.requires_code && (
+        <Card className="flex flex-col gap-2">
+          <h2 className="font-semibold">Printed verification</h2>
+          <p className="text-sm text-muted">
+            This code stays the same when you edit or restart the quest.
+          </p>
+          <code className="text-xl font-bold tracking-widest">
+            {quest.verification_code}
+          </code>
+          <Link
+            className="font-semibold text-link hover:underline"
+            href={`/admin/quests/${quest.id}/print`}
+          >
+            Open printable QR sign
+          </Link>
+        </Card>
+      )}
+
       <Card className="flex flex-col gap-4">
         <label className="text-sm font-medium text-on-surface-variant">
           Type
@@ -309,21 +332,49 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           </p>
         )}
         {kind === "solo" && (
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              checked={requiresApproval}
-              className="mt-0.5 h-4 w-4 accent-on-surface"
-              onChange={(e) => edited(setRequiresApproval)(e.target.checked)}
-              type="checkbox"
-            />
-            <span>
-              <span className="font-semibold">Maintainer approval</span>
-              <span className="block text-muted">
-                Players describe what they did; points only after a maintainer
-                approves.
-              </span>
-            </span>
-          </label>
+          <fieldset className="flex flex-col gap-2 text-sm">
+            <legend className="font-semibold">Completion method</legend>
+            <label className="flex items-center gap-2">
+              <input
+                checked={!requiresApproval && !requiresCode}
+                onChange={() => {
+                  edited(setRequiresApproval)(false);
+                  edited(setRequiresCode)(false);
+                }}
+                name="completion-method"
+                type="radio"
+              />
+              Player confirms completion
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                checked={requiresCode}
+                onChange={() => {
+                  edited(setRequiresCode)(true);
+                  edited(setRequiresApproval)(false);
+                }}
+                name="completion-method"
+                type="radio"
+              />
+              Printed code or QR
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                checked={requiresApproval}
+                onChange={() => {
+                  edited(setRequiresApproval)(true);
+                  edited(setRequiresCode)(false);
+                }}
+                name="completion-method"
+                type="radio"
+              />
+              Maintainer approval
+            </label>
+            <p className="text-xs text-muted">
+              For code quests, print the QR sign after saving. Players can scan
+              it with a phone camera or type its code.
+            </p>
+          </fieldset>
         )}
       </Card>
 

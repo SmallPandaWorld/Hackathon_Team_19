@@ -165,9 +165,10 @@ export default function Home() {
             {sections.available.length > 0 ? (
               <QuestList quests={sections.available} />
             ) : (
-              <p className="rounded-2xl border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
-                You&apos;ve done everything available right now. Check the
-                upcoming events, or suggest a new quest!
+              <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
+                {!quests?.length
+                  ? "No quests yet. Check back soon, or suggest one!"
+                  : "You've done everything available right now. Check the upcoming events, or suggest a new quest!"}
               </p>
             )}
           </Section>

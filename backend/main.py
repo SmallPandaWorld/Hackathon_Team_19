@@ -4,17 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-
-from database import SessionLocal, ensure_schema
-from quests import seed_quests
-from routers import admin, pair, players, quests
+from database import ensure_schema
+from routers import admin, friends, pair, players, quests
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_schema()
-    with SessionLocal() as db:
-        seed_quests(db)
     yield
 
 
@@ -49,5 +45,5 @@ async def root():
     return Health(message="Hello World")
 
 
-for module in (players, quests, pair, admin):
+for module in (players, quests, pair, friends, admin):
     app.include_router(module.router)

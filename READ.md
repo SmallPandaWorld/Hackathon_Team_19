@@ -30,10 +30,10 @@ curl -H "X-User-Id: alice" -H "X-User-Name: Alice" localhost:8000/me
 
 The `X-User-Id` value is the player's unique username and primary key; users do
 not have a separate ID. Quest, step, question, completion, session, RSVP,
-report, and suggestion-record IDs are UUIDs. The built-in quests live in
-`backend/quests.py` and keep stable UUIDs so edits and saved progress survive
-restarts. They are only inserted when missing, so edits made in the quest editor
-are never overwritten; change existing quests in the editor. A database from
+report, and suggestion-record IDs are UUIDs. The app starts with no quests:
+maintainers add them in the quest editor (`/admin`), and players can suggest
+some. The tests use sample quests from `backend/tests/sample_quests.py`, which
+keep stable UUIDs (`backend/ids.py`). A database from
 before usernames were the user key is not migrated: its tables are renamed to
 `legacy_<name>` on startup and fresh tables are created.
 
@@ -59,6 +59,7 @@ meetup not live), `410` expired/cancelled code.
 | Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (propose an idea) |
 | Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `pair_start` (optional `invite_username`), `pair_cancel` |
 | Partner quests | `GET`/`POST /pair/{code}` (look up / join a code) |
+| Friends | `GET /friends` (friends + incoming/outgoing requests), `POST /friends/{username}` (send request), `POST /friends/{username}/accept`, `DELETE /friends/{username}` (decline / cancel / remove); `GET /players/{username}` includes `friend_status` |
 | Maintainers | `GET`/`POST /admin/quests`, `GET`/`PATCH /admin/quests/{id}` (`status` publishes/retires/rejects), `GET /admin/completions` (+ `POST …/review`), `GET /admin/reports` (+ `POST …/resolve`) |
 
 ### Game rules (defaults, change them in code)
