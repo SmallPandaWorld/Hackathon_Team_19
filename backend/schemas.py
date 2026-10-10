@@ -287,6 +287,8 @@ class Me(BaseModel):
 
 class LeaderboardEntry(BaseModel):
     rank: int = Field(description="Players with equal points share a rank")
+    username: Optional[str] = Field(
+        default=None, description="Username when the viewer may view this profile")
     display_name: str
     points: int
     is_current_player: bool

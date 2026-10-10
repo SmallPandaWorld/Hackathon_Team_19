@@ -1,6 +1,7 @@
 "use client";
 
 import { buttonStyles, Card } from "@/src/components/page";
+import { ProfilePicture } from "@/src/components/profile-picture";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type {
@@ -141,12 +142,8 @@ export function FriendActions({ player }: { player: PublicPlayer }) {
   );
 }
 
-function Avatar({ name }: { name: string }) {
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
+function Avatar({ username, name }: { username: string; name: string }) {
+  return <ProfilePicture displayName={name} size="small" username={username} />;
 }
 
 function RequestRow({
@@ -158,7 +155,7 @@ function RequestRow({
 }) {
   return (
     <li className="flex items-center gap-3 rounded-md bg-surface-variant p-3">
-      <Avatar name={request.display_name} />
+      <Avatar name={request.display_name} username={request.username} />
       <Link
         className="min-w-0 flex-1 truncate font-semibold hover:underline"
         href={profileHref(request.username)}
@@ -181,7 +178,7 @@ function FriendRow({
 }) {
   return (
     <li className="flex items-center gap-3 rounded-md bg-surface-variant p-3">
-      <Avatar name={friend.display_name} />
+      <Avatar name={friend.display_name} username={friend.username} />
       <Link
         className="min-w-0 flex-1 truncate font-semibold hover:underline"
         href={profileHref(friend.username)}

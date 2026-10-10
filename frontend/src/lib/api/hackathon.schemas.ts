@@ -332,6 +332,8 @@ export interface HobbyOption {
 export interface LeaderboardEntry {
   /** Players with equal points share a rank */
   rank: number;
+  /** Username when the viewer may view this profile */
+  username?: string | null;
   display_name: string;
   points: number;
   is_current_player: boolean;

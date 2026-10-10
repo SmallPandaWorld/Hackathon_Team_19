@@ -78,6 +78,8 @@ ERROR_DESCRIPTIONS = {
     404: "Not found",
     409: "Conflicts with the current state",
     410: "Code expired or cancelled",
+    413: "Payload too large",
+    415: "Unsupported media type",
 }
 
 

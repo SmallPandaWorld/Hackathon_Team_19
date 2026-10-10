@@ -18,6 +18,7 @@ venv/
 .ruff_cache/
 *.db
 *.sqlite*
+/backend/avatars/
 
 # Node / Next.js
 node_modules/

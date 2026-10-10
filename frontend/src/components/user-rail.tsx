@@ -1,6 +1,7 @@
 "use client";
 
 import { JoinCodeForm } from "@/src/components/join-code-form";
+import { ProfilePicture } from "@/src/components/profile-picture";
 import { useGetMe } from "@/src/lib/api/players";
 import { Wrench } from "lucide-react";
 import Link from "next/link";
@@ -32,9 +33,11 @@ export function UserRail() {
         className="-m-2 flex items-center gap-3 rounded-xl p-2 transition hover:bg-surface-variant dark:hover:bg-surface-container"
         href="/profile"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
-          {player.display_name.charAt(0).toUpperCase()}
-        </span>
+        <ProfilePicture
+          displayName={player.display_name}
+          size="medium"
+          username={player.username}
+        />
         <span className="min-w-0 flex-1 truncate font-semibold">
           {player.display_name}
         </span>

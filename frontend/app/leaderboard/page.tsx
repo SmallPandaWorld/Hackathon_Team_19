@@ -3,6 +3,7 @@
 import { CampusMotif } from "@/src/components/campus-motif";
 import { Page, PageTitle } from "@/src/components/page";
 import { ErrorState, LoadingState } from "@/src/components/states";
+import { ProfilePicture } from "@/src/components/profile-picture";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type { LeaderboardEntry } from "@/src/lib/api/hackathon.schemas";
 import { useGetLeaderboard } from "@/src/lib/api/players";
@@ -37,14 +38,22 @@ function EntryRow({ entry }: { entry: LeaderboardEntry }) {
           entry.rank
         )}
       </span>
-      <span className="min-w-0 flex-1 truncate">
-        {entry.display_name}
-        {entry.is_current_player && (
-          <span className="ml-2 rounded-md bg-accent px-1.5 py-0.5 text-xs font-semibold text-on-accent">
-            you
-          </span>
-        )}
-      </span>
+      <div className="flex min-w-0 shrink items-center gap-2">
+        <span className="min-w-0 truncate">
+          {entry.display_name}
+          {entry.is_current_player && (
+            <span className="ml-2 rounded-md bg-accent px-1.5 py-0.5 text-xs font-semibold text-on-accent">
+              you
+            </span>
+          )}
+        </span>
+        <ProfilePicture
+          displayName={entry.display_name}
+          size="small"
+          username={entry.username ?? undefined}
+        />
+      </div>
+      <span aria-hidden className="min-w-0 flex-1" />
       <span className="shrink-0 text-right">
         <span className="font-bold">{entry.points}</span>{" "}
         <span className="text-xs text-muted">points</span>
