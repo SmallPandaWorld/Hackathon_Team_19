@@ -269,7 +269,8 @@ function HobbyEditor({ player }: { player: Me }) {
           </span>
           <span className="block text-muted">
             Other players who also turned this on see your name and the hobbies
-            you share, and you see theirs.
+            you share, and you see theirs. Your profile picture is visible to
+            other players only while this is on.
           </span>
         </span>
       </label>

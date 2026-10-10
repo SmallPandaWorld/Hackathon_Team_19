@@ -271,9 +271,11 @@ def get_player_avatar(
     player: User = Depends(get_current_player),
     db: Session = Depends(get_db),
 ):
-    """Return a player's picture only when their profile is visible."""
+    """Return a picture only for discoverable players or the current player."""
     profile = db.get(User, username)
-    if profile is None or not _can_view_profile(db, player, profile):
+    if profile is None or (
+        profile.username != player.username and not profile.discoverable
+    ):
         raise _avatar_not_found("Player")
 
     path = _avatar_path(profile.username)

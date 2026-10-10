@@ -1177,7 +1177,7 @@ export const getGetPlayerAvatarUrl = (username: string) => {
 };
 
 /**
- * Return a player's picture only when their profile is visible.
+ * Return a picture only for discoverable players or the current player.
  * @summary Get Player Avatar
  */
 export const getPlayerAvatar = async (

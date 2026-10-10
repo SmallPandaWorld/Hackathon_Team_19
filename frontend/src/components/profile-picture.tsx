@@ -51,6 +51,10 @@ export function ProfilePicture({
   const letterSize =
     size === "small" ? "text-base" : size === "medium" ? "text-xl" : "text-3xl";
 
+  useEffect(() => {
+    setPictureState(username ? "loading" : "missing");
+  }, [username]);
+
   async function uploadPicture(file: File | undefined) {
     if (!file) return;
 
@@ -239,6 +243,7 @@ export function ProfilePicture({
             alt={`${displayName}'s profile picture`}
             className="object-cover"
             fill
+            key={username}
             onError={() => setPictureState("missing")}
             onLoad={() => setPictureState("loaded")}
             sizes={
