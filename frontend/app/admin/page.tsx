@@ -43,11 +43,11 @@ function QuestsTab() {
       </Link>
       {quests.map((quest) => (
         <Link
-          className="flex items-center gap-3 rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant hover:ring-outline"
+          className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-surface p-4 shadow-card transition hover:border-outline dark:bg-surface-variant"
           href={`/admin/quests/${quest.id}`}
           key={quest.id}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-surface-variant dark:bg-surface-container">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-variant dark:bg-surface-container">
             <KindIcon kind={quest.kind} />
           </span>
           <span className="min-w-0 flex-1">
@@ -64,7 +64,7 @@ function QuestsTab() {
               )}
             </span>
           </span>
-          <span className="shrink-0 rounded-sm bg-primary px-2 py-0.5 text-sm font-bold text-on-primary">
+          <span className="shrink-0 rounded-md bg-accent px-2 py-0.5 text-sm font-bold text-on-accent">
             +{quest.points}
           </span>
         </Link>
@@ -205,7 +205,7 @@ function ReviewsTab() {
           <h3 className="mt-1 font-semibold">
             {completion.player_name} · {completion.quest_title}
           </h3>
-          <p className="mt-2 rounded bg-surface-variant p-3 text-sm text-on-surface-variant">
+          <p className="mt-2 rounded-xl bg-surface-variant p-3 dark:bg-surface-container text-sm text-on-surface-variant">
             {completion.note ? `“${completion.note}”` : "No description given."}
           </p>
           <label className="mt-3 block text-sm font-medium text-on-surface-variant">
@@ -287,7 +287,7 @@ function ReportsTab() {
             Reported by {report.reporter_name} ·{" "}
             {formatZurich(report.created_at)}
           </p>
-          <p className="mt-2 rounded bg-surface-variant p-3 text-sm text-on-surface-variant">
+          <p className="mt-2 rounded-xl bg-surface-variant p-3 dark:bg-surface-container text-sm text-on-surface-variant">
             “{report.reason}”
           </p>
           <div className="mt-3 flex gap-2">
@@ -334,13 +334,13 @@ function Dashboard() {
   return (
     <>
       <div
-        className="grid grid-cols-4 gap-1 rounded-md bg-surface-container p-1"
+        className="grid grid-cols-4 gap-1 rounded-full bg-surface-container p-1"
         role="tablist"
       >
         {tabs.map(({ key, label }) => (
           <button
             aria-selected={tab === key}
-            className={`rounded px-2 py-2 text-sm font-semibold ${tab === key ? "bg-surface dark:bg-surface-variant text-link " : "text-muted"}`}
+            className={`rounded-full px-2 py-2 text-sm font-semibold ${tab === key ? "bg-surface dark:bg-surface-variant text-link " : "text-muted"}`}
             key={key}
             onClick={() => setTab(key)}
             role="tab"

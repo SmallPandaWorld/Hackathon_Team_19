@@ -56,7 +56,7 @@ export function JoinWithCode() {
   const [open, setOpen] = useState(false);
   if (open) {
     return (
-      <div className="flex flex-col gap-2 rounded-lg border border-outline-variant p-3">
+      <div className="flex flex-col gap-2 rounded-2xl border border-outline-variant p-3">
         <p className="text-sm text-muted">
           Enter the code your partner shows you:
         </p>

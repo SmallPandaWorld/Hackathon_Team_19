@@ -209,7 +209,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </p>
           )}
           {quest.publish_problems.length > 0 && (
-            <ul className="mt-3 list-disc rounded bg-warning-surface py-2 pl-8 pr-3 text-sm text-warning">
+            <ul className="mt-3 list-disc rounded-xl bg-warning-surface py-2 pl-8 pr-3 text-sm text-warning">
               {quest.publish_problems.map((problem) => (
                 <li key={problem}>{problem}</li>
               ))}
@@ -380,7 +380,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </p>
           )}
           {steps.map((step, index) => (
-            <div className="rounded-md bg-surface-variant p-3" key={index}>
+            <div className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container" key={index}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Step {index + 1}</span>
                 <button
@@ -447,7 +447,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 ),
               );
             return (
-              <div className="rounded-md bg-surface-variant p-3" key={qIndex}>
+              <div className="rounded-xl bg-surface-variant p-3 dark:bg-surface-container" key={qIndex}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold">
                     Question {qIndex + 1}
@@ -603,7 +603,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         </button>
         {saved && (
           <p
-            className="flex items-center justify-center gap-1 rounded bg-success-surface p-2 text-sm text-success"
+            className="flex items-center justify-center gap-1 rounded-xl bg-success-surface p-2 text-sm text-success"
             role="status"
           >
             <Check aria-hidden className="h-4 w-4" /> Saved

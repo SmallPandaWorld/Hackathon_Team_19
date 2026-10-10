@@ -1,50 +1,82 @@
 @import "tailwindcss";
 
+/* `dark:` follows the explicit theme on <html data-theme>, not the OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /*
- * Design tokens modelled on the VIS website (vis.ethz.ch): signature yellow
- * for primary actions with near-black text, ETH-blue links, neutral gray
- * surfaces, thin outlines instead of shadows, small radii. Light and dark
- * follow the system setting, like VIS.
+ * Design tokens. Main colour teal #57CDB9 (primary: buttons, quest tiles,
+ * active nav, progress, focus); highlight light gold #FFE5AC (accent: points,
+ * earned badges, the current player, live/highlighted states; never used as
+ * text on white). Plain white surfaces in light mode, neutral near-black in
+ * dark mode. Text on teal/gold is dark ink: white on #57CDB9 fails contrast.
+ * Links and success in light mode use a darkened teal (#167366, 5.7:1 on
+ * white). Every text/background pair here was checked for WCAG AA.
+ * The theme is chosen in the app (light / dark / system); an inline script
+ * in app/layout.tsx sets data-theme on <html> before the first paint.
  */
 :root {
   --surface: #ffffff;
-  --surface-variant: #f3f4f6;
-  --surface-container: #e5e7eb;
-  --on-surface: #181c22;
-  --on-surface-variant: #374151;
-  --on-surface-muted: #59616d;
-  --outline: #777f8c;
-  --outline-variant: #e5e7eb;
-  --primary: #ffe210;
-  --primary-hover: #f1d508;
-  --on-primary: #181c22;
-  --link: #215caf;
-  --success: #15803d;
-  --success-surface: #dcfce7;
-  --warning: #a16207;
-  --warning-surface: #fef9c3;
-  --danger: #b91c1c;
-  --danger-surface: #fee2e2;
+  --surface-variant: #f4f6f7;
+  --surface-container: #e9edef;
+  --on-surface: #2b3136;
+  --on-surface-variant: #474f55;
+  --on-surface-muted: #5f6a6e;
+  /* Logo: on white the gold is faint, so the trail is teal and the pin gold. */
+  --motif-trail: #57cdb9;
+  --motif-pin: #f2c75a;
+  --outline: #8a9397;
+  --outline-variant: #e4e8ea;
+  --primary: #57cdb9;
+  --primary-hover: #45bfaa;
+  --on-primary: #0f1f1b;
+  --accent: #ffe5ac;
+  --accent-hover: #ffdc8f;
+  --on-accent: #2a1f08;
+  --link: #167366;
+  --success: #167366;
+  --success-surface: #ddf5f0;
+  --warning: #8a5a12;
+  --warning-surface: #fff1d6;
+  --danger: #b3344a;
+  --danger-surface: #fbe3e7;
+  /* Rank markers on the leaderboard (silver, bronze); text is on-accent. */
+  --rank-2: #dde2e5;
+  --rank-3: #f2c9a0;
+  /* Soft card shadow; none in dark mode. */
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  --overlay-shadow: 0 -4px 24px rgb(0 0 0 / 0.12);
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #0f1318;
-    --surface-variant: #171b20;
-    --surface-container: #262b32;
-    --on-surface: #ececec;
-    --on-surface-variant: #c3c6ca;
-    --on-surface-muted: #a8afb9;
-    --outline: #858d98;
-    --outline-variant: #343b45;
-    --link: #92b9ee;
-    --success: #4ade80;
-    --success-surface: #12261a;
-    --warning: #facc15;
-    --warning-surface: #2a2410;
-    --danger: #f87171;
-    --danger-surface: #2c1414;
-  }
+:root[data-theme="dark"] {
+  --surface: #0e1113;
+  --surface-variant: #16191c;
+  --surface-container: #1f2327;
+  --on-surface: #f2f4f5;
+  --on-surface-variant: #cfd5d8;
+  --on-surface-muted: #a1abb0;
+  --motif-trail: #ffe5ac;
+  --motif-pin: #57cdb9;
+  --outline: #6f7a80;
+  --outline-variant: #2c3136;
+  --primary: #57cdb9;
+  --primary-hover: #74d9c8;
+  --on-primary: #0f1f1b;
+  --accent: #ffe5ac;
+  --accent-hover: #ffebbf;
+  --on-accent: #2a1f08;
+  --link: #57cdb9;
+  --success: #57cdb9;
+  --success-surface: #12332d;
+  --warning: #ffe5ac;
+  --warning-surface: #3a2f18;
+  --danger: #f08a96;
+  --danger-surface: #3d1d23;
+  --rank-2: #c9d0d4;
+  --rank-3: #e0b088;
+  --card-shadow: none;
+  --overlay-shadow: 0 -4px 24px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -59,6 +91,9 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
   --color-link: var(--link);
   --color-success: var(--success);
   --color-success-surface: var(--success-surface);
@@ -66,11 +101,11 @@
   --color-warning-surface: var(--warning-surface);
   --color-danger: var(--danger);
   --color-danger-surface: var(--danger-surface);
+  --color-rank-2: var(--rank-2);
+  --color-rank-3: var(--rank-3);
+  --shadow-card: var(--card-shadow);
+  --shadow-overlay: var(--overlay-shadow);
   --font-sans: var(--font-inter);
-}
-
-html {
-  color-scheme: light dark;
 }
 
 body {
@@ -92,10 +127,20 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-/* Leaflet map: VIS-style controls and pins */
+/* Keyboard focus in teal everywhere (inputs add their own ring). */
+:where(a, button, summary, [role="button"]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Leaflet map controls and pins */
 .leaflet-container {
   font-family: inherit;
   background: var(--surface-variant);
+}
+.leaflet-bar {
+  border-radius: 0.75rem !important;
+  overflow: hidden;
 }
 .leaflet-bar a {
   background: var(--surface);
@@ -108,13 +153,11 @@ h3 {
 .leaflet-control-attribution {
   font-size: 10px;
 }
-/* Dark mode: turn the light OSM tiles into a dark map, like VIS's dark theme. */
-@media (prefers-color-scheme: dark) {
-  .osm-tiles {
-    /* Higher contrast keeps street and building labels readable. */
-    filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.25)
-      saturate(0.55);
-  }
+/* Dark mode: turn the light OSM tiles into a dark map. */
+[data-theme="dark"] .osm-tiles {
+  /* Higher contrast keeps street and building labels readable. */
+  filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.25)
+    saturate(0.55);
 }
 .quest-pin {
   background: none;

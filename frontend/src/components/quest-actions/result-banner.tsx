@@ -7,10 +7,10 @@ export function ResultBanner({ result }: { result: CompletionResult }) {
   const pending = result.status === "pending";
   return (
     <div
-      className={`rounded-lg p-5 ring-1 ${
+      className={`rounded-2xl border p-5 ${
         pending
-          ? "bg-warning-surface text-warning ring-warning/40"
-          : "bg-success-surface text-success ring-success/40"
+          ? "border-warning/30 bg-warning-surface text-warning"
+          : "border-success/30 bg-success-surface text-success"
       }`}
       role="status"
     >
@@ -54,7 +54,7 @@ export function CompletedNote({
   completedAt?: string | null;
 }) {
   return (
-    <div className="rounded-lg bg-success-surface p-5 text-success ring-1 ring-success/40">
+    <div className="rounded-2xl bg-success-surface p-5 text-success border border-success/30">
       <p className="flex items-center gap-2 font-semibold">
         <Check aria-hidden className="h-5 w-5" /> You completed this quest.
       </p>

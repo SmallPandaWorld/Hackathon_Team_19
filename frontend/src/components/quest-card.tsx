@@ -22,7 +22,7 @@ function ProgressChip({ quest }: { quest: QuestOut }) {
   const done = steps.filter((step) => step.done).length;
   if (!quest.completed && done > 0) {
     return (
-      <Chip className="border border-on-surface text-on-surface">{`${done}/${steps.length} steps`}</Chip>
+      <Chip className="bg-primary/20 text-on-surface">{`${done}/${steps.length} steps`}</Chip>
     );
   }
   return null;
@@ -37,12 +37,12 @@ const tileDay = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
 });
 
-// Calendar tile like the event dates on vis.ethz.ch.
+// Small calendar tile for meetup dates.
 function DateTile({ iso }: { iso: string }) {
   const date = new Date(iso);
   return (
-    <span className="flex h-12 w-12 shrink-0 flex-col overflow-hidden rounded-sm border border-primary text-center leading-none text-primary">
-      <span className="border-b border-primary py-0.5 text-[10px] font-semibold uppercase">
+    <span className="flex h-12 w-12 shrink-0 flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface text-center leading-none text-on-surface dark:bg-surface-container">
+      <span className="bg-primary py-0.5 text-[10px] font-bold uppercase text-on-primary">
         {tileMonth.format(date)}
       </span>
       <span className="flex flex-1 items-center justify-center text-lg font-bold">
@@ -59,10 +59,10 @@ export function QuestCard({ quest }: { quest: QuestOut }) {
 
   return (
     <Link
-      className={`flex items-center gap-4 rounded-lg border p-4 transition active:scale-[0.99] ${
+      className={`flex items-center gap-4 rounded-2xl border p-4 transition active:scale-[0.99] ${
         done
           ? "border-outline-variant/70 bg-transparent hover:border-outline-variant"
-          : "border-outline-variant bg-surface hover:border-outline dark:bg-surface-variant"
+          : "border-outline-variant bg-surface shadow-card hover:border-outline dark:bg-surface-variant"
       }`}
       href={`/quests/${quest.id}`}
     >
@@ -70,9 +70,9 @@ export function QuestCard({ quest }: { quest: QuestOut }) {
         <DateTile iso={quest.starts_at} />
       ) : (
         <span
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm ${
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
             done
-              ? "border border-outline-variant text-muted"
+              ? "bg-success-surface text-success"
               : "bg-primary text-on-primary"
           }`}
         >
@@ -114,8 +114,8 @@ export function QuestCard({ quest }: { quest: QuestOut }) {
           ))}
       </span>
       <span
-        className={`shrink-0 rounded-sm px-2 py-0.5 text-sm font-bold ${
-          done ? "text-muted" : "bg-primary text-on-primary"
+        className={`shrink-0 rounded-md px-2 py-0.5 text-sm font-bold ${
+          done ? "text-muted" : "bg-accent text-on-accent"
         }`}
       >
         +{quest.points}

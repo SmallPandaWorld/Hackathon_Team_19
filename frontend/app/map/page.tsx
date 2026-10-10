@@ -70,7 +70,7 @@ export default function MapPage() {
               selectedId={selectedId}
             />
             <p className="mt-2 text-xs text-muted">
-              Tap a pin to see its quest. Yellow pins are open, dark pins are
+              Tap a pin to see its quest. Teal pins are open, gold pins are
               done.
             </p>
           </div>
@@ -103,23 +103,24 @@ export default function MapPage() {
             </section>
           )}
 
-          {/* Selected pin: compact bottom sheet, kept above the tab bar. */}
+          {/* Selected pin: compact bottom sheet, kept above the tab bar (mobile)
+              or between the sidebar and the user rail (desktop). */}
           {selected && (
             <>
               <div aria-hidden className="h-32" />
               <div
                 aria-label="Selected quest"
-                className="fixed inset-x-0 bottom-[calc(57px+env(safe-area-inset-bottom))] z-[1050] px-3 pb-3"
+                className="fixed inset-x-0 bottom-[calc(57px+env(safe-area-inset-bottom))] z-[1050] px-3 pb-3 lg:bottom-0 lg:left-56 lg:right-[calc(18rem+1.5rem)] lg:px-10 lg:pb-6"
                 role="dialog"
               >
-                <div className="mx-auto max-w-2xl rounded-lg border border-outline-variant bg-surface p-2 shadow-[0_-4px_24px_rgb(0_0_0/0.18)] dark:bg-surface-variant">
+                <div className="mx-auto max-w-2xl rounded-2xl border border-outline-variant bg-surface p-2 shadow-overlay dark:bg-surface-variant">
                   <div className="flex items-center justify-between px-2 pb-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                       On the map
                     </span>
                     <button
                       aria-label="Close"
-                      className="rounded-sm p-1 text-muted hover:bg-surface-container hover:text-on-surface"
+                      className="rounded-full p-1 text-muted hover:bg-surface-container hover:text-on-surface"
                       onClick={() => setSelectedId(null)}
                       type="button"
                     >

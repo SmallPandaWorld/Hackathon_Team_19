@@ -53,7 +53,8 @@ function pinSymbol(pin: MapPin) {
       createElement(icon, {
         size: 16,
         strokeWidth: pin.done ? 3 : 2.25,
-        color: pin.done ? "#ffe210" : "#181c22",
+        // Coloured by the wrapper (see pinHtml), so pins follow the theme.
+        color: "currentColor",
         "aria-hidden": true,
       }),
     );
@@ -62,18 +63,20 @@ function pinSymbol(pin: MapPin) {
   return markup;
 }
 
-// VIS-style pin: yellow with a dark outline; completed quests turn dark with
-// a yellow check.
+// Teal pin with a dark outline; completed quests turn light gold with a
+// check. Colours are theme tokens, set via style (SVG presentation
+// attributes don't resolve var()).
 function pinHtml(pin: MapPin, selected: boolean) {
-  const fill = pin.done ? "#181c22" : "#ffe210";
+  const fill = pin.done ? "var(--accent)" : "var(--primary)";
+  const ink = pin.done ? "var(--on-accent)" : "var(--on-primary)";
   const symbol = pinSymbol(pin);
   return `
-    <div style="position:relative;width:34px;height:44px;transform-origin:50% 100%;transform:scale(${selected ? 1.25 : 1});transition:transform .15s;filter:drop-shadow(0 2px 2px rgb(0 0 0 / .35))">
+    <div style="position:relative;width:34px;height:44px;transform-origin:50% 100%;transform:scale(${selected ? 1.25 : 1});transition:transform .15s;filter:drop-shadow(0 2px 2px rgb(58 35 48 / .35))">
       <svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true">
         <path d="M17 42.5S31.5 27.8 31.5 17A14.5 14.5 0 0 0 2.5 17C2.5 27.8 17 42.5 17 42.5z"
-          fill="${fill}" stroke="${pin.done ? "#ffe210" : "#181c22"}" stroke-width="2.5"/>
+          style="fill:${fill};stroke:${ink}" stroke-width="2"/>
       </svg>
-      <span style="position:absolute;top:9px;left:0;width:34px;display:flex;justify-content:center">${symbol}</span>
+      <span style="position:absolute;top:9px;left:0;width:34px;display:flex;justify-content:center;color:${ink}">${symbol}</span>
     </div>`;
 }
 
@@ -212,9 +215,10 @@ export function CampusMap({
         meRef.current?.remove();
         meRef.current = L.circleMarker(here, {
           radius: 8,
+          // Leaflet sets these as SVG attributes, so palette values, not var().
           color: "#ffffff",
           weight: 3,
-          fillColor: "#215caf",
+          fillColor: "#167366", // dark teal (--link)
           fillOpacity: 1,
         })
           .bindTooltip("You are here")
@@ -235,7 +239,7 @@ export function CampusMap({
     <div className="relative isolate">
       <div
         aria-label="Map of ETH Zentrum with quest locations"
-        className={`isolate w-full overflow-hidden rounded-lg border border-outline-variant ${
+        className={`isolate w-full overflow-hidden rounded-2xl border border-outline-variant ${
           onPick ? "cursor-crosshair" : ""
         } ${className}`}
         ref={containerRef}
@@ -243,7 +247,7 @@ export function CampusMap({
       />
       <button
         aria-label="Show my location"
-        className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-sm border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-variant disabled:opacity-60"
+        className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface shadow-card transition hover:bg-surface-variant disabled:opacity-60"
         disabled={!map || locating}
         onClick={locateMe}
         type="button"

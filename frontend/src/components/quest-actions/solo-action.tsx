@@ -29,7 +29,7 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
     return <CompletedNote completedAt={quest.completed_at} />;
   if (quest.completion_status === "pending") {
     return (
-      <div className="rounded-lg bg-warning-surface p-5 text-warning ring-1 ring-warning/40">
+      <div className="rounded-2xl bg-warning-surface p-5 text-warning border border-warning/30">
         <p className="font-semibold">
           ⏳ Waiting for a maintainer to review your completion.
         </p>
@@ -43,7 +43,7 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
   return (
     <div className="flex flex-col gap-3">
       {quest.completion_status === "rejected" && (
-        <div className="rounded-lg bg-danger-surface p-4 text-sm text-danger ring-1 ring-danger/40">
+        <div className="rounded-2xl bg-danger-surface p-4 text-sm text-danger border border-danger/30">
           <p className="font-semibold">
             Your last submission was not accepted.
           </p>

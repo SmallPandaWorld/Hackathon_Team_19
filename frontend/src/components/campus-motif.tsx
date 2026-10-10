@@ -1,8 +1,14 @@
 // The app's recurring campus element: a line drawing of the ETH main
-// building (dome, columned centre, two wings) with a dotted exploration
-// trail leading to a yellow pin. Lines use currentColor; the trail and pin
-// use the VIS yellow. Use it sparingly (home header, empty states).
+// building seen from the Polyterrasse side: a rotunda with a tall arched
+// drum, a flat copper dome with a lantern, a two-storey colonnade on a
+// rounded base with arched doors, and two wings with hipped roofs. A dotted
+// exploration trail leads to a pin; trail and pin swap teal/gold per theme
+// (--motif-trail / --motif-pin) so both stay visible. Lines use currentColor.
+// Use it sparingly (home header, sidebar, empty states).
 export function CampusMotif({ className = "" }: { className?: string }) {
+  const leftWindows = [0, 1, 2, 3, 4].map((i) => 36 + i * 15);
+  const rightWindows = [0, 1, 2, 3, 4].map((i) => 216 + i * 15);
+  const windows = [...leftWindows, ...rightWindows];
   return (
     <svg
       aria-hidden
@@ -18,48 +24,56 @@ export function CampusMotif({ className = "" }: { className?: string }) {
         strokeWidth="1.5"
       >
         {/* Ground */}
-        <path d="M8 108h304" />
-        {/* Wings */}
-        <path d="M34 108V66h88M198 66h88v42" />
-        <path d="M30 66h96M194 66h96" />
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <g key={i}>
-            <rect height="9" rx="1" width="7" x={43 + i * 12} y="74" />
-            <rect height="9" rx="1" width="7" x={43 + i * 12} y="90" />
-            <rect height="9" rx="1" width="7" x={207 + i * 12} y="74" />
-            <rect height="9" rx="1" width="7" x={207 + i * 12} y="90" />
+        <path d="M8 112h304" />
+
+        {/* Wings: hipped roofs, three rows of windows (arched on top) */}
+        <path d="M28 112V50l8-8h76l8 8v8M208 58v-8l8-8h76l8 8v62" />
+        <path d="M28 50h84M208 50h84" />
+        {windows.map((x) => (
+          <g key={x}>
+            <path d={`M${x} 66v-7a3.5 3.5 0 0 1 7 0v7z`} />
+            <rect height="10" rx="1" width="7" x={x} y="76" />
+            <rect height="10" rx="1" width="7" x={x} y="94" />
           </g>
         ))}
-        {/* Columned centre with pediment */}
-        <path d="M122 108V58h76v50" />
-        <path d="M118 58h84M126 58l34-8 34 8" />
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <path d={`M${131 + i * 11.6} 64v40`} key={i} />
+        {/* String course under the top-floor windows */}
+        <path d="M28 70h84M208 70h84" />
+
+        {/* Rotunda: rounded base with arched doors, balustrade, colonnade */}
+        <path d="M112 112V58h96v54" />
+        <path d="M112 90q48 7 96 0" />
+        {[140, 160, 180].map((x) => (
+          <path d={`M${x - 6} 112v-10a6 6 0 0 1 12 0v10`} key={x} />
         ))}
-        {/* Drum, dome and lantern */}
-        <path d="M138 50V40h44v10" />
-        {[0, 1, 2, 3].map((i) => (
-          <path d={`M${146 + i * 9.3} 42v6`} key={i} />
+        <path d="M112 58h96M112 62h96" />
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <path d={`M${120 + i * 11.4} 62v26`} key={i} />
         ))}
-        <path d="M136 40a24 24 0 0 1 48 0" />
-        <path d="M148 22.5c4 6 6 11 6 17.5M172 22.5c-4 6-6 11-6 17.5" />
-        <path d="M156 16.8V10h8v6.8M160 10V5" />
+
+        {/* Drum with a ring of arched windows */}
+        <path d="M126 58V38h68v20" />
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <path d={`M${131 + i * 9.2} 55v-9a3 3 0 0 1 6 0v9`} key={i} />
+        ))}
+        {/* Flat copper dome, lantern and spire */}
+        <path d="M124 38a36 26 0 0 1 72 0" />
+        <path d="M144 16c6 5 9 11 10 22M176 16c-6 5-9 11-10 22" />
+        <path d="M155 12V5h10v7M155 5a5 4 0 0 1 10 0M160 1v4" />
       </g>
+
       {/* Exploration trail to a pin */}
       <path
-        d="M14 117c40 0 70-4 104-6 46-3 88-2 128-12 20-5 34-14 46-26"
-        stroke="var(--primary)"
+        d="M14 118c40 0 70-4 104-6 46-3 88-2 128-12 22-5 38-14 54-28"
         strokeDasharray="1 7"
         strokeLinecap="round"
         strokeWidth="3"
+        style={{ stroke: "var(--motif-trail)" }}
       />
       <path
-        d="M300 66s9-9.3 9-16a9 9 0 0 0-18 0c0 6.7 9 16 9 16z"
-        fill="var(--primary)"
-        stroke="#181c22"
-        strokeWidth="1.5"
+        d="M304 68s9-9.3 9-16a9 9 0 0 0-18 0c0 6.7 9 16 9 16z"
+        style={{ fill: "var(--motif-pin)" }}
       />
-      <circle cx="300" cy="50" fill="#181c22" r="3" />
+      <circle cx="304" cy="52" r="3" style={{ fill: "var(--surface)" }} />
     </svg>
   );
 }

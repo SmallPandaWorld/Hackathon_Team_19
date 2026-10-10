@@ -50,7 +50,7 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
         const checked = result?.correct[index];
         return (
           <fieldset
-            className={`rounded-lg bg-surface dark:bg-surface-variant p-5  ring-1 ${
+            className={`rounded-2xl bg-surface p-5 shadow-card ring-1 dark:bg-surface-variant ${
               checked === undefined
                 ? "ring-outline-variant"
                 : checked
@@ -67,9 +67,9 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
             <div className="mt-3 flex flex-col gap-2">
               {question.choices.map((choice, choiceIndex) => (
                 <label
-                  className={`flex cursor-pointer items-center gap-3 rounded px-3 py-2 ring-1 ${
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 ring-1 ${
                     answers[index] === choiceIndex
-                      ? "bg-surface-variant ring-outline"
+                      ? "bg-primary/10 ring-primary"
                       : "ring-outline-variant"
                   }`}
                   key={choiceIndex}
@@ -110,7 +110,7 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
 
       {result && !result.passed ? (
         <div
-          className="rounded-lg bg-warning-surface p-5 text-warning ring-1 ring-warning/40"
+          className="rounded-2xl bg-warning-surface p-5 text-warning border border-warning/30"
           role="status"
         >
           <p className="font-semibold">

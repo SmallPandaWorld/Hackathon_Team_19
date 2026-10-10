@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { buttonStyles } from "@/src/components/page";
 
 export function LoadingState({ label }: { label: string }) {
   return (
@@ -18,13 +19,13 @@ export function ErrorState({
 }) {
   return (
     <div
-      className="rounded-lg bg-danger-surface p-5 text-danger ring-1 ring-danger/40"
+      className="rounded-2xl bg-danger-surface p-5 text-danger border border-danger/30"
       role="alert"
     >
       <p>{message}</p>
       {onRetry && (
         <button
-          className="mt-3 rounded-sm border-2 border-danger px-4 py-2 text-sm font-semibold text-danger hover:bg-danger/10"
+          className={`${buttonStyles.danger} mt-3 py-2 text-sm`}
           onClick={onRetry}
           type="button"
         >

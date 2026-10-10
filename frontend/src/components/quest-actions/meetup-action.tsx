@@ -34,7 +34,7 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg bg-surface dark:bg-surface-variant p-5 ring-1 ring-outline-variant">
+      <div className="rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">When</h2>
           <Chip className={MEETUP_LABELS[state].className}>
@@ -79,7 +79,7 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
           {pending === "complete" ? "Checking in..." : "I'm here: check in"}
         </button>
       ) : (
-        <p className="rounded-lg bg-surface-variant p-4 text-center text-sm text-muted">
+        <p className="rounded-2xl bg-surface-variant p-4 text-center text-sm text-muted">
           {CLOSED_MESSAGES[state]}
         </p>
       )}

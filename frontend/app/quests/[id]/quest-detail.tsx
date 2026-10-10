@@ -27,7 +27,7 @@ const UUID_PATTERN =
 function QuestAction({ quest }: { quest: QuestOut }) {
   if (quest.status !== "published") {
     return (
-      <p className="rounded-lg bg-surface-variant p-4 text-center text-sm text-muted">
+      <p className="rounded-2xl bg-surface-variant p-4 text-center text-sm text-muted">
         {quest.status === "retired"
           ? "This quest is no longer available. Your progress and points are kept."
           : "This quest isn't published, so it can't be played yet."}
@@ -80,7 +80,7 @@ function ReportQuest({ quest }: { quest: QuestOut }) {
   }
   return (
     <form
-      className="rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant"
+      className="rounded-2xl border border-outline-variant bg-surface p-4 shadow-card dark:bg-surface-variant"
       onSubmit={handleSubmit}
     >
       <label
@@ -170,7 +170,7 @@ export function QuestDetail() {
     <div className="flex flex-col gap-6">
       <BackLink />
 
-      <article className="rounded-lg bg-surface dark:bg-surface-variant p-6 ring-1 ring-outline-variant">
+      <article className="rounded-2xl border border-outline-variant bg-surface p-6 shadow-card dark:bg-surface-variant">
         <div className="flex flex-wrap items-center gap-2">
           <Chip className="border border-outline-variant text-on-surface-variant">
             <KindIcon className="mr-1 h-3.5 w-3.5" kind={quest.kind} />
@@ -184,7 +184,7 @@ export function QuestDetail() {
         </div>
         <div className="mt-3 flex items-start justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight">{quest.title}</h1>
-          <span className="shrink-0 rounded-sm bg-primary px-3 py-1 text-sm font-bold text-on-primary">
+          <span className="shrink-0 rounded-lg bg-accent px-3 py-1 text-sm font-bold text-on-accent">
             +{quest.points}
           </span>
         </div>

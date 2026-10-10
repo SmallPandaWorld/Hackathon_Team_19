@@ -93,7 +93,7 @@ export function JoinView() {
         </p>
         {blocked ? (
           <>
-            <p className="mt-4 rounded-md bg-warning-surface p-3 text-sm text-warning ring-1 ring-warning/40">
+            <p className="mt-4 rounded-xl bg-warning-surface p-3 text-sm text-warning border border-warning/30">
               {blocked}
             </p>
             {!session.is_host && (

@@ -25,14 +25,14 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg bg-surface dark:bg-surface-variant p-5 ring-1 ring-outline-variant">
+      <div className="rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Steps</h2>
           <span className="text-sm text-muted">
             {doneCount}/{steps.length} done
           </span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-variant">
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-container">
           <div
             className="h-full rounded-full bg-primary transition-all"
             style={{
@@ -45,11 +45,11 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
             const isNext = step.id === nextStep?.id;
             return (
               <li
-                className={`rounded-md p-3 ring-1 ${
+                className={`rounded-xl p-3 ring-1 ${
                   step.done
-                    ? "bg-success-surface ring-success/40"
+                    ? "bg-success-surface ring-success/30"
                     : isNext
-                      ? "bg-surface-variant ring-outline"
+                      ? "bg-surface-variant ring-outline dark:bg-surface-container"
                       : "ring-outline-variant opacity-60"
                 }`}
                 key={step.id}
@@ -58,7 +58,7 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                       step.done
-                        ? "bg-success text-surface"
+                        ? "bg-primary text-on-primary"
                         : "bg-surface dark:bg-surface-variant text-muted ring-1 ring-outline"
                     }`}
                   >
@@ -103,7 +103,7 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
       </div>
       {result && <ResultBanner result={result} />}
       {!result && quest.completed && (
-        <p className="rounded-lg bg-success-surface p-4 text-center font-semibold text-success ring-1 ring-success/40">
+        <p className="rounded-2xl bg-success-surface p-4 text-center font-semibold text-success border border-success/30">
           All steps done. Quest completed!
         </p>
       )}
