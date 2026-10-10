@@ -2,6 +2,8 @@
 
 import { buttonStyles, Chip, inputStyles } from "@/src/components/page";
 import { MeetupAction } from "@/src/components/quest-actions/meetup-action";
+import { MeetupPhotoGallery } from "@/src/components/meetup-photo-gallery";
+import { QuestPhotoGallery } from "@/src/components/quest-photo-gallery";
 import { CodeAction } from "@/src/components/quest-actions/code-action";
 import { PairAction } from "@/src/components/quest-actions/pair-action";
 import { QuizAction } from "@/src/components/quest-actions/quiz-action";
@@ -233,6 +235,11 @@ export function QuestDetail() {
       </article>
 
       <QuestAction quest={quest} />
+
+      {quest.kind === "meetup" && <MeetupPhotoGallery questId={quest.id} />}
+      {["meetup", "pair", "multi_step"].includes(quest.kind) && (
+        <QuestPhotoGallery completed={quest.completed} questId={quest.id} />
+      )}
 
       {quest.status === "published" && <ReportQuest quest={quest} />}
     </div>

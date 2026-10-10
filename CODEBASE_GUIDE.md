@@ -242,7 +242,7 @@ The deployment must ensure public traffic reaches the app through that trusted p
 
 ## 6. Database models and relationships
 
-`backend/models.py` defines ten tables. It uses SQLAlchemy's typed `Mapped` fields and `mapped_column()`. Relationships are represented by foreign keys; the code generally queries them explicitly rather than defining ORM `relationship()` collections.
+`backend/models.py` defines twelve tables. It uses SQLAlchemy's typed `Mapped` fields and `mapped_column()`. Relationships are represented by foreign keys; the code generally queries them explicitly rather than defining ORM `relationship()` collections.
 
 | Class / table | Main fields | Why it exists |
 | --- | --- | --- |
@@ -254,6 +254,8 @@ The deployment must ensure public traffic reaches the app through that trusted p
 | `Completion` / `completions` | Player ID, quest ID, status, awarded points, time, player note, review details | The authoritative completion and reward record |
 | `PairSession` / `pair_sessions` | Quest, host, code, expiry, partner, completion time, cancellation, invitee | A two-player quest attempt |
 | `MeetupRsvp` / `meetup_rsvps` | Player, quest, creation time | Intention to attend, separate from check-in |
+| `MeetupPhoto` / `meetup_photos` | Meetup, uploader, media type, upload time | Event album photo; appears on checked-in players' profiles only while opted in |
+| `QuestPhoto` / `quest_photos` | Quest, player uploader, media type, upload time | Player-uploaded photo from a completed meetup, pair, or multi-step quest |
 | `QuestReport` / `quest_reports` | Player, quest, reason, time, resolved flag | Content moderation reports |
 | `DismissedSuggestion` / `dismissed_suggestions` | Player and dismissed player | Persistent hiding of a suggestion |
 
@@ -271,6 +273,10 @@ erDiagram
     USERS ||--o{ PAIR_SESSIONS : hosts_or_joins
     USERS ||--o{ MEETUP_RSVPS : attends
     QUESTS ||--o{ MEETUP_RSVPS : receives
+    USERS ||--o{ MEETUP_PHOTOS : uploads
+    QUESTS ||--o{ MEETUP_PHOTOS : contains
+    USERS ||--o{ QUEST_PHOTOS : uploads
+    QUESTS ||--o{ QUEST_PHOTOS : contains
     USERS ||--o{ QUEST_REPORTS : submits
     QUESTS ||--o{ QUEST_REPORTS : receives
     USERS ||--o{ DISMISSED_SUGGESTIONS : hides
@@ -539,9 +545,15 @@ Status changes accept `draft`, `published`, `rejected`, or `retired`. Publishing
 
 Only pending completion claims can be reviewed. Approval records the current quest reward; rejection records zero. Both decisions save reviewer, note, and review time.
 
+### 9.7 `backend/routers/photos.py`
+
+Maintainers upload and delete PNG, JPEG, or WebP photos on meetup quests. Photos are stored under `MEETUP_PHOTO_STORAGE_DIR`; Compose maps that directory into the persistent backend data volume. Published meetup pages show their album. An opted-in player sees photos from meetups they checked into on their profile. Profile-photo metadata and image routes check both discoverability and attendance, so opting out hides the profile gallery.
+
+Players can also add a PNG, JPEG, or WebP photo (up to 8 MiB) after completing a meetup, pair, or multi-step quest. Player photos appear in that quest's gallery and on the uploader's profile only when they opted into connection suggestions. Compose stores them under `QUEST_PHOTO_STORAGE_DIR` in the persistent backend data volume.
+
 “Remove quest” in report moderation means retire it, not delete database history. Retiring through a report also marks every report for that quest resolved. Dismissing only closes the selected report.
 
-### 9.7 Error semantics
+### 9.8 Error semantics
 
 | HTTP status | Meaning here |
 | --- | --- |
@@ -821,6 +833,9 @@ Admin pages are explained together in section 15 because they share the maintain
 | `frontend/src/components/icons.tsx` | Central quest and badge icon maps |
 | `frontend/src/components/campus-motif.tsx` | Reusable campus illustration |
 | `frontend/src/components/campus-map.tsx` | Browser-side Leaflet map; detailed in section 16 |
+| `frontend/src/components/meetup-photo-gallery.tsx` | Meetup album and opted-in attendee profile gallery |
+| `frontend/src/components/quest-photo-gallery.tsx` | Player quest-photo upload, quest album, and opted-in profile gallery |
+| `frontend/src/components/admin/meetup-photo-manager.tsx` | Maintainer upload and deletion controls for meetup albums |
 
 ### 13.1 Layout and feedback
 

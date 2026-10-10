@@ -302,6 +302,20 @@ class Leaderboard(BaseModel):
     current_player: LeaderboardEntry
 
 
+class MeetupPhotoOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str
+    uploaded_at: datetime
+
+
+class QuestPhotoOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str
+    uploaded_at: datetime
+
+
 # --- Maintainers --------------------------------------------------------------
 
 class StepIn(BaseModel):

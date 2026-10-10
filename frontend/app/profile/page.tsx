@@ -10,6 +10,8 @@ import {
 import { FriendActions, FriendsCard } from "@/src/components/friends";
 import { BadgeIcon } from "@/src/components/icons";
 import { ProfilePicture } from "@/src/components/profile-picture";
+import { ProfileMeetupGallery } from "@/src/components/meetup-photo-gallery";
+import { ProfileQuestPhotoGallery } from "@/src/components/quest-photo-gallery";
 import { ShareButton } from "@/src/components/share-button";
 import { ThemeSwitch } from "@/src/components/theme-switch";
 import { ErrorState, LoadingState } from "@/src/components/states";
@@ -37,6 +39,7 @@ import {
   ChevronRight,
   Search,
   Send,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -196,11 +199,9 @@ function HobbyEditor({ player }: { player: Me }) {
   const updateMe = useUpdateMe();
   const { error, run, refreshAll } = useAction();
   const [selected, setSelected] = useState<string[]>(player.hobbies);
-  const [discoverable, setDiscoverable] = useState(player.discoverable);
   const [saved, setSaved] = useState(false);
   const options = player.hobby_options;
   const changed =
-    discoverable !== player.discoverable ||
     selected.length !== player.hobbies.length ||
     selected.some((key) => !player.hobbies.includes(key));
 
@@ -217,7 +218,7 @@ function HobbyEditor({ player }: { player: Me }) {
     if (
       await run(() =>
         updateMe.mutateAsync({
-          data: { hobbies: selected, discoverable },
+          data: { hobbies: selected, discoverable: player.discoverable },
         }),
       )
     ) {
@@ -230,8 +231,8 @@ function HobbyEditor({ player }: { player: Me }) {
     <Card>
       <h2 className="font-semibold">Hobbies (optional)</h2>
       <p className="mt-1 text-sm text-muted">
-        Pick what you like to find people with shared interests. Only you see
-        this unless you turn on suggestions below.
+        Pick what you like to find people with shared interests. Your hobbies
+        stay private until you opt into suggestions in the Privacy card.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {options.map((option) => {
@@ -253,27 +254,6 @@ function HobbyEditor({ player }: { player: Me }) {
           );
         })}
       </div>
-      <label className="mt-4 flex items-start gap-3 rounded-xl bg-surface-variant p-3 dark:bg-surface-container text-sm">
-        <input
-          checked={discoverable}
-          className="mt-0.5 h-4 w-4 accent-on-surface"
-          onChange={(event) => {
-            setSaved(false);
-            setDiscoverable(event.target.checked);
-          }}
-          type="checkbox"
-        />
-        <span>
-          <span className="font-semibold">
-            Show me in connection suggestions
-          </span>
-          <span className="block text-muted">
-            Other players who also turned this on see your name and the hobbies
-            you share, and you see theirs. Your profile picture is visible to
-            other players only while this is on.
-          </span>
-        </span>
-      </label>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           className={`${buttonStyles.primary} py-2`}
@@ -295,6 +275,96 @@ function HobbyEditor({ player }: { player: Me }) {
             Remove all hobbies
           </button>
         )}
+        {saved && !changed && (
+          <span className="flex items-center gap-1 text-sm text-success">
+            <Check aria-hidden className="h-4 w-4" /> Saved
+          </span>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </Card>
+  );
+}
+
+function PrivacySettings({ player }: { player: Me }) {
+  const updateMe = useUpdateMe();
+  const { error, run, refreshAll } = useAction();
+  const [discoverable, setDiscoverable] = useState(player.discoverable);
+  const [saved, setSaved] = useState(false);
+  const changed = discoverable !== player.discoverable;
+
+  async function save() {
+    if (
+      await run(() =>
+        updateMe.mutateAsync({
+          data: { hobbies: player.hobbies, discoverable },
+        }),
+      )
+    ) {
+      setSaved(true);
+      await refreshAll();
+    }
+  }
+
+  return (
+    <Card className="border-2 border-primary/30 bg-surface-variant p-6 lg:p-8 dark:bg-surface-container">
+      <div className="flex items-start gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <ShieldCheck aria-hidden className="h-6 w-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-bold">Privacy</h2>
+            <Chip
+              className={
+                discoverable
+                  ? "bg-primary/10 text-primary"
+                  : "bg-surface text-muted dark:bg-surface-variant"
+              }
+            >
+              {discoverable ? "Opted in" : "Opted out"}
+            </Chip>
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            Choose whether other players can find you and see your pictures.
+          </p>
+        </div>
+      </div>
+
+      <label className="mt-6 flex cursor-pointer items-start gap-4 rounded-2xl border border-outline-variant bg-surface p-4 text-sm transition hover:border-primary/50 sm:p-5 dark:bg-surface-variant">
+        <input
+          checked={discoverable}
+          className="mt-1 h-5 w-5 shrink-0 accent-primary"
+          onChange={(event) => {
+            setSaved(false);
+            setDiscoverable(event.target.checked);
+          }}
+          type="checkbox"
+        />
+        <span>
+          <span className="block text-base font-semibold">
+            I consent to appearing in connection suggestions and showing my
+            profile picture and photos
+          </span>
+          <span className="mt-1 block leading-relaxed text-muted">
+            When checked, you can appear in connection suggestions. Your profile
+            picture, photos you upload to completed activities, and meetup
+            photos from events you checked into appear on your profile. Players
+            only see each other in suggestions when both have opted in. You can
+            change this setting any time.
+          </span>
+        </span>
+      </label>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          className={`${buttonStyles.primary} py-2`}
+          disabled={!changed || updateMe.isPending}
+          onClick={save}
+          type="button"
+        >
+          {updateMe.isPending ? "Saving..." : "Save privacy settings"}
+        </button>
         {saved && !changed && (
           <span className="flex items-center gap-1 text-sm text-success">
             <Check aria-hidden className="h-4 w-4" /> Saved
@@ -354,8 +424,8 @@ function SuggestionsList({ player }: { player: Me }) {
       </h2>
       {!result.enabled ? (
         <p className="mt-1 text-sm text-muted">
-          Pick hobbies and turn on suggestions below to see players who share
-          them.
+          Pick hobbies and opt in through Privacy above to see players who
+          share them.
         </p>
       ) : result.suggestions.length === 0 ? (
         <p className="mt-1 text-sm text-muted">
@@ -657,11 +727,20 @@ function OwnProfile({ player }: { player: Me }) {
   return (
     <>
       <Achievements player={player} />
+      <ProfileMeetupGallery
+        username={player.username}
+        visible={player.discoverable}
+      />
+      <ProfileQuestPhotoGallery
+        username={player.username}
+        visible={player.discoverable}
+      />
       <FriendsCard />
       <SuggestionsList player={player} />
       <SearchPlayers />
       {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
       <HobbyEditor player={player} />
+      <PrivacySettings player={player} />
       <Appearance />
       <MySubmissions player={player} />
       <ShareButton
@@ -762,6 +841,12 @@ function ProfileContent() {
         </div>
       </header>
       {body}
+      {!isOwn && otherPlayer && (
+        <>
+          <ProfileMeetupGallery username={otherPlayer.username} />
+          <ProfileQuestPhotoGallery username={otherPlayer.username} />
+        </>
+      )}
     </Page>
   );
 }

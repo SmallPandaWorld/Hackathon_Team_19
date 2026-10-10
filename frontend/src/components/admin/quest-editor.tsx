@@ -1,6 +1,7 @@
 "use client";
 
 import { CampusMap } from "@/src/components/campus-map";
+import { MeetupPhotoManager } from "@/src/components/admin/meetup-photo-manager";
 import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
 import { useAdminCreateQuest, useAdminUpdateQuest } from "@/src/lib/api/admin";
@@ -439,6 +440,9 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </span>
           </label>
         </Card>
+      )}
+      {kind === "meetup" && quest?.kind === "meetup" && (
+        <MeetupPhotoManager questId={quest.id} />
       )}
 
       {kind === "multi_step" && (
