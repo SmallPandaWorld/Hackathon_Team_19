@@ -172,8 +172,8 @@ This is the backend entry point used by `uvicorn main:app`.
 
 - Importing `models` registers SQLAlchemy's table definitions with `Base.metadata`.
 - The FastAPI lifespan function calls `ensure_schema()` to create missing tables, archive pre-username tables, and backfill stable verification codes on current-schema quests.
-- It opens a database session and calls `seed_quests()`.
-- It includes the six router modules.
+- It does not insert any quests: a fresh database has none until a maintainer creates one.
+- It includes the four router modules (players, quests, pair, admin).
 - `GET /` returns `{"message": "Hello World"}` as a basic health endpoint.
 - CORS is configured broadly with all origins, methods, and headers allowed, plus credentials. The normal frontend path still uses the same-origin Next.js rewrite.
 
