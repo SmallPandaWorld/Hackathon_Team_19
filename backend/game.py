@@ -32,6 +32,7 @@ from models import (
     Quest,
     QuestReport,
     QuestStep,
+    QuestVote,
     QuizQuestion,
     StepProgress,
     User,
@@ -43,6 +44,7 @@ from schemas import (
     PairSessionOut,
     QuestOut,
     QuizQuestionOut,
+    QuestVotes,
     QuizResult,
     StepOut,
     Suggestion,
@@ -263,6 +265,21 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
     author_ids = {quest.author_id for quest in quests if quest.author_id}
     authors = dict(db.execute(
         select(User.username, User.name).where(User.username.in_(author_ids))).all()) if author_ids else {}
+    # Votes exist only for player-created quests.
+    votable_ids = [quest.id for quest in quests if quest.author_id]
+    vote_counts: Dict[UUID, Dict[int, int]] = {}
+    my_votes: Dict[UUID, int] = {}
+    if votable_ids:
+        for quest_id, value, count in db.execute(
+            select(QuestVote.quest_id, QuestVote.value, func.count())
+            .where(QuestVote.quest_id.in_(votable_ids))
+            .group_by(QuestVote.quest_id, QuestVote.value)
+        ).all():
+            vote_counts.setdefault(quest_id, {})[value] = count
+        my_votes = dict(db.execute(
+            select(QuestVote.quest_id, QuestVote.value).where(
+                QuestVote.player_id == player.username, QuestVote.quest_id.in_(votable_ids))
+        ).all())
 
     now = utcnow()
     views = []
@@ -303,6 +320,8 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             rsvp=quest.id in my_rsvps,
             rsvp_count=rsvp_counts.get(quest.id, 0),
             reported=quest.id in my_reports,
+            votes=quest_votes(quest, player, vote_counts.get(quest.id, {}),
+                              my_votes.get(quest.id, 0)) if quest.author_id else None,
             pair_session=(session_out(db, pair_sessions[quest.id], player)
                           if quest.id in pair_sessions else None),
         ))
@@ -524,6 +543,35 @@ def set_rsvp(db: Session, player: User, quest: Quest, attending: bool) -> None:
     if rsvp is not None:
         db.delete(rsvp)
         db.commit()
+
+
+def quest_votes(quest: Quest, player: User, counts: Dict[int, int], mine: int) -> QuestVotes:
+    up, down = counts.get(1, 0), counts.get(-1, 0)
+    return QuestVotes(up=up, down=down, score=up - down, mine=mine,
+                      can_vote=quest.author_id != player.username)
+
+
+def vote_quest(db: Session, player: User, quest: Quest, value: int) -> None:
+    """Set, change or remove (value 0) this player's vote on a player-created quest."""
+    if not quest.author_id:
+        raise bad_request("Only player-created quests can be voted on.")
+    if quest.author_id == player.username:
+        raise bad_request("You can't vote on your own quest.")
+    existing = db.scalars(select(QuestVote).where(
+        QuestVote.player_id == player.username, QuestVote.quest_id == quest.id)).first()
+    if value == 0:
+        if existing is not None:
+            db.delete(existing)
+    elif existing is None:
+        db.add(QuestVote(player_id=player.username, quest_id=quest.id,
+                         value=value, created_at=utcnow()))
+    else:
+        existing.value = value
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two votes at once from the same player: keep the one that won.
+        db.rollback()
 
 
 def report_quest(db: Session, player: User, quest: Quest, reason: str) -> None:

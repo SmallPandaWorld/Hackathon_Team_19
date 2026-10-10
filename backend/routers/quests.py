@@ -21,6 +21,7 @@ from game import (
     not_found,
     quest_views,
     report_quest,
+    vote_quest,
     set_rsvp,
     start_pair,
     submit_quiz,
@@ -39,6 +40,7 @@ from schemas import (
     PlayerQuestIn,
     QuizAction,
     ReportAction,
+    VoteAction,
     RsvpAction,
     StepAction,
 )
@@ -166,6 +168,9 @@ def act_on_quest(
         case ReportAction(reason=reason):
             quest = get_playable_quest(db, quest_id)
             report_quest(db, player, quest, reason)
+        case VoteAction(value=value):
+            quest = get_playable_quest(db, quest_id)
+            vote_quest(db, player, quest, value)
         case PairStartAction(invite_username=invite_username):
             quest = get_playable_quest(db, quest_id, PAIR)
             start_pair(db, player, quest, invite_username)

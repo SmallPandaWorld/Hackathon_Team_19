@@ -588,6 +588,29 @@ export interface QuizQuestionOut {
   choices: string[];
 }
 
+/**
+ * The current player's vote (0 = none)
+ */
+export type QuestVotesMine =
+  (typeof QuestVotesMine)[keyof typeof QuestVotesMine];
+
+export const QuestVotesMine = {
+  NUMBER_1: 1,
+  NUMBER_MINUS_1: -1,
+  NUMBER_0: 0,
+} as const;
+
+export interface QuestVotes {
+  up: number;
+  down: number;
+  /** up minus down */
+  score: number;
+  /** The current player's vote (0 = none) */
+  mine: QuestVotesMine;
+  /** False for the quest's author */
+  can_vote: boolean;
+}
+
 export interface QuestOut {
   id: string;
   title: string;
@@ -624,6 +647,8 @@ export interface QuestOut {
   rsvp?: boolean;
   rsvp_count?: number;
   reported?: boolean;
+  /** Up/down votes; only player-created quests can be voted on */
+  votes?: QuestVotes | null;
   /** My latest pair session for this quest (host or partner) */
   pair_session?: PairSessionOut | null;
 }
@@ -699,6 +724,23 @@ export interface RsvpAction {
 export interface StepAction {
   type: "step";
   step_id: string;
+}
+
+export type VoteActionValue =
+  (typeof VoteActionValue)[keyof typeof VoteActionValue];
+
+export const VoteActionValue = {
+  NUMBER_1: 1,
+  NUMBER_MINUS_1: -1,
+  NUMBER_0: 0,
+} as const;
+
+/**
+ * Up- or downvote a player-created quest; 0 removes your vote.
+ */
+export interface VoteAction {
+  type: "vote";
+  value: VoteActionValue;
 }
 
 export type SearchPlayersParams = {

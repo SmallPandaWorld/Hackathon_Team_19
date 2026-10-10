@@ -439,10 +439,12 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | --- | --- | --- |
 | GET | `/quests` | `list_quests`: all published quests, ordered by creation, personalized |
 | GET | `/quests/{quest_id}` | `get_quest`: a quest the player may view |
-| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `pair_start`, or `pair_cancel` |
+| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `vote`, `pair_start`, or `pair_cancel` |
 | POST | `/quests` | `create_quest`: immediately publish an allowed player quest; returns 201 |
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code- and password-verified quests, so the ordinary completion endpoint cannot bypass verification. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
+
+The `vote` action (`{"type": "vote", "value": 1 | -1 | 0}`) stores one up/down vote per player on a player-created quest (`author_id` set); `0` removes it, the author cannot vote on their own quest, and maintainer-created quests reject votes. `QuestOut.votes` carries `up`, `down`, `score`, `mine` and `can_vote` for player-created quests and is `null` otherwise.
 
 The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest or meetup (for a meetup the live check-in window still applies, except for players who already checked in). `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
 
