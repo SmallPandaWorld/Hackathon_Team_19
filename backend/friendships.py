@@ -28,6 +28,17 @@ def friendship_between(db: Session, a: str, b: str) -> Optional[Friendship]:
     ).first()
 
 
+def accepted_friend_ids(db: Session, me: str) -> "set[str]":
+    """Usernames of the player's accepted friends (pending requests excluded)."""
+    rows = db.execute(
+        select(Friendship.requester_id, Friendship.addressee_id).where(
+            Friendship.status == FRIEND_ACCEPTED,
+            or_(Friendship.requester_id == me, Friendship.addressee_id == me),
+        )
+    ).all()
+    return {addressee if requester == me else requester for requester, addressee in rows}
+
+
 def friend_status(db: Session, me: str, other: str) -> FriendStatus:
     row = friendship_between(db, me, other)
     if row is None:

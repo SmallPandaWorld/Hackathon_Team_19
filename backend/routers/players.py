@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_player, is_maintainer
 from badges import player_badges
 from database import get_db
-from friendships import friend_status, friendship_between
+from friendships import accepted_friend_ids, friend_status, friendship_between
 from game import (
     QUEST_CREATION_ORDER,
     bad_request,
@@ -28,6 +28,7 @@ from schemas import (
     HobbyOption,
     Leaderboard,
     LeaderboardEntry,
+    LeaderboardScope,
     Me,
     PlayerSearchResult,
     ProfileUpdate,
@@ -165,16 +166,30 @@ def get_player(
 
 
 @router.get("/leaderboard", response_model=Leaderboard)
-def get_leaderboard(player: User = Depends(get_current_player), db: Session = Depends(get_db)):
-    """Players ranked by approved points. Equal points share a rank (1, 1, 3, ...)."""
+def get_leaderboard(
+    scope: LeaderboardScope = Query(
+        "global", description="`global`: all players; `friends`: you and your accepted friends"),
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """Players ranked by approved points. Equal points share a rank (1, 1, 3, ...).
+
+    The same scoring applies to both scopes. The global view lists players
+    with at least one point; the friends view lists you and every accepted
+    friend, points or not, so the group is always complete.
+    """
+    friend_ids = accepted_friend_ids(db, player.username)
     points = func.coalesce(func.sum(Completion.points_awarded), 0)
-    rows = db.execute(
+    query = (
         select(User.username, User.name, points)
         .outerjoin(Completion, and_(
             Completion.player_id == User.username, Completion.status == APPROVED))
         .group_by(User.username)
         .order_by(points.desc(), User.name, User.username)
-    ).all()
+    )
+    if scope == "friends":
+        query = query.where(User.username.in_(friend_ids | {player.username}))
+    rows = db.execute(query).all()
 
     entries = []
     for index, (username, name, player_points) in enumerate(rows):
@@ -189,5 +204,9 @@ def get_leaderboard(player: User = Depends(get_current_player), db: Session = De
         ))
 
     current = next(entry for entry in entries if entry.is_current_player)
-    top = [entry for entry in entries if entry.points > 0][:LEADERBOARD_SIZE]
-    return Leaderboard(entries=top, current_player=current)
+    if scope == "friends":
+        listed = entries
+    else:
+        listed = [entry for entry in entries if entry.points > 0][:LEADERBOARD_SIZE]
+    return Leaderboard(
+        scope=scope, entries=listed, current_player=current, friend_count=len(friend_ids))
