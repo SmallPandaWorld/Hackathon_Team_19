@@ -26,8 +26,10 @@ function isUsersResponse(value: unknown): value is UsersResponse {
 
 export default function Home() {
   const { data, isLoading, isError, refetch } = useGetUsersUsersGet();
+
   const addUser = useAddUserUsersPost();
   const [name, setName] = useState("");
+  const [currUserName, setCurrUserName] = useState("mysterious user");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const users = isUsersResponse(data?.data) ? data.data.users : [];
 
@@ -35,10 +37,11 @@ export default function Home() {
     if (!data) {
       return;
     }
-
+    
     const headers = (data as { headers?: Headers }).headers;
+    
     console.log("X-User-Id:", headers?.get("X-User-Id") ?? null);
-    console.log("X-User-Name:", headers?.get("X-User-Name") ?? null);
+    setCurrUserName(headers?.get("X-User-Name") ?? "mysterious user");
   }, [data]);
 
   
@@ -75,9 +78,9 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-900">
       <div className="mx-auto max-w-2xl">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-          Hackathon users
+          Björn's Quests
         </p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight">User list</h1>
+        <h1 className="mt-3 text-4xl font-bold tracking-tight"> Hi, {currUserName}!</h1>
         <p className="mt-3 text-slate-600">
           Everyone currently registered for the hackathon.
         </p>

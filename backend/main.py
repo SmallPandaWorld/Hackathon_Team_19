@@ -41,7 +41,7 @@ def add_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = User(name=user.name)
     db.add(db_user)
     db.commit()
-    return {"message": f"User '{user.name}' erfolgreich gespeichert."}
+    return {"message": f"User '{user.name}' saved successfully."}
 
 
 @app.get("/users")
