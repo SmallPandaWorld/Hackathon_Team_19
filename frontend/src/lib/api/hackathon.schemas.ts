@@ -301,6 +301,11 @@ export interface Player {
   discoverable: boolean;
 }
 
+export interface PlayerSearchResult {
+  player_id: number;
+  display_name: string;
+}
+
 export interface ProfileUpdate {
   /** @maxItems 20 */
   hobbies: string[];
@@ -499,6 +504,15 @@ export interface Suggestions {
   enabled: boolean;
   suggestions: Suggestion[];
 }
+
+export type SearchPlayersParams = {
+  /**
+   * Part of a display name
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+};
 
 export type AdminListQuestsParams = {
   status_filter?: string | null;

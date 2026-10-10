@@ -5,12 +5,16 @@ import {
   Card,
   Chip,
   Page,
+  inputStyles,
   PageTitle,
 } from "@/src/components/page";
 import { BadgeIcon } from "@/src/components/icons";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
+import { keepPreviousData } from "@tanstack/react-query";
+import { useSearchPlayers } from "@/src/lib/api/players";
+import { ChevronRight, Search } from "lucide-react";
 import {
   useDismissSuggestion,
   useListSuggestions,
@@ -30,7 +34,7 @@ import { useAction } from "@/src/lib/use-action";
 import { Check, ChevronDown, Send, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect} from "react";
 
 function nextBadge(badges: Badge[]): Badge | undefined {
   // The unearned badge the player is closest to.
@@ -46,6 +50,15 @@ function nextBadgeHint(badge: Badge): string {
   if (badge.target > 1)
     return `${left} more ${left === 1 ? "quest" : "quests"} to earn “${badge.title}”`;
   return `${badge.description.replace(/\.$/, "")} to earn “${badge.title}”`;
+}
+
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function Achievements({ player }: { player: Player }) {
@@ -389,6 +402,112 @@ function SuggestionsList() {
   );
 }
 
+// SEARCH RELATED
+const SEARCH_DELAY_MS = 400;
+const MIN_QUERY_LENGTH = 2;
+const CACHE_MS = 60_000;
+
+function SearchResults({ query }: { query: string }) {
+  const { data, isLoading, isError, isFetching, refetch } = useSearchPlayers(
+    { q: query },
+    {
+      query: {
+        placeholderData: keepPreviousData,
+        staleTime: CACHE_MS,
+        refetchOnWindowFocus: false,
+        retry: false,
+      },
+    },
+  );
+  const results = data?.status === 200 ? data.data : undefined;
+  const error = isError
+    ? "Could not search players."
+    : apiErrorMessage(data);
+
+  if (isLoading) return <LoadingState label="Searching..." />;
+  if (error || !results)
+    return (
+      <ErrorState
+        message={error ?? "Could not search players."}
+        onRetry={() => refetch()}
+      />
+    );
+  if (results.length === 0)
+    return (
+      <p className="text-sm text-muted">
+        No players found. Only players who turned on suggestions can be found.
+      </p>
+    );
+
+  return (
+    <ul
+      aria-busy={isFetching}
+      className={`flex flex-col gap-2 transition ${isFetching ? "opacity-60" : ""}`}
+    >
+      {results.map((result) => (
+        <li key={result.player_id}>
+          <Link
+            className="flex items-center gap-3 rounded-md bg-surface-variant p-3 hover:ring-2 hover:ring-primary"
+            href={`/profile?player_id=${result.player_id}`}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
+              {result.display_name.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              {result.display_name}
+            </span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted" />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SearchPlayers() {
+    const [text, setText] = useState("");
+    const query = useDebouncedValue(text.trim(), SEARCH_DELAY_MS);
+    const typing = text.trim() !== query;
+    const ready = query.length >= MIN_QUERY_LENGTH;
+    
+    return (
+      <Card className="flex flex-col gap-3">
+      <label className="text-sm font-semibold" htmlFor="player-search">
+        Find a player by name
+      </label>
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+        />
+        <input
+          autoComplete="off"
+          autoFocus
+          className={`${inputStyles} mt-0 pl-9`}
+          id="player-search"
+          maxLength={100}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Start typing a name..."
+          type="search"
+          value={text}
+        />
+      </div>
+      {text.trim().length < MIN_QUERY_LENGTH ? (
+        <p className="text-sm text-muted">
+          Type at least {MIN_QUERY_LENGTH} letters. Only players who turned on
+          suggestions can be found.
+        </p>
+      ) : ready ? (
+        <div aria-live="polite">
+          <SearchResults query={query} />
+        </div>
+      ) : typing ? (
+        <LoadingState label="Searching..." />
+      ) : null}
+      </Card>
+    );
+  }
+
 function MySubmissions() {
   const { data } = useListMySubmissions();
   const submissions = data?.status === 200 ? data.data : [];
@@ -523,6 +642,7 @@ function ProfileContent() {
         <>
           <Achievements player={player} />
           <SuggestionsList />
+          <SearchPlayers />
           {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
           <HobbyEditor player={player} />
           <MySubmissions />

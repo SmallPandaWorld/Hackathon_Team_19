@@ -758,3 +758,25 @@ def test_player_profile_unknown_player_and_missing_identity(client):
     assert client.get("/players/99999", headers=ALICE).status_code == 404
     assert client.get("/players/abc", headers=ALICE).status_code == 422
     assert client.get("/players/1").status_code == 401
+
+
+def test_player_search_finds_only_opted_in_players(client):
+    client.get("/me", headers=ALICE)
+    set_profile(client, BOB, [], discoverable=True)
+    set_profile(client, CAROL, [], discoverable=False)  # hidden
+
+    found = client.get("/players/search", params={"q": "bo"}, headers=ALICE).json()
+    assert [r["display_name"] for r in found] == ["Bob"]
+    assert client.get("/players/search", params={"q": "car"}, headers=ALICE).json() == []
+    # Case-insensitive, and never returns the searcher.
+    set_profile(client, ALICE, [], discoverable=True)
+    assert client.get("/players/search", params={"q": "ALI"}, headers=ALICE).json() == []
+
+
+def test_player_search_validates_query_and_treats_wildcards_literally(client):
+    set_profile(client, BOB, [], discoverable=True)
+    assert client.get("/players/search", params={"q": "b"}, headers=ALICE).status_code == 422
+    assert client.get("/players/search", headers=ALICE).status_code == 422
+    assert client.get("/players/search", params={"q": "bo"}).status_code == 401
+    assert client.get("/players/search", params={"q": "%%"}, headers=ALICE).json() == []
+    assert client.get("/players/search", params={"q": "__"}, headers=ALICE).json() == []
