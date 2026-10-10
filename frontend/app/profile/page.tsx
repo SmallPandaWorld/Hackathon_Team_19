@@ -19,6 +19,7 @@ import type { Badge, Player } from "@/src/lib/api/hackathon.schemas";
 import { useStartPairSession } from "@/src/lib/api/pair";
 import {
   useGetMe,
+  useGetPlayer,
   useListBadges,
   useListHobbies,
   useUpdateProfile,
@@ -28,8 +29,8 @@ import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import { Check, ChevronDown, Send, Users } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 function nextBadge(badges: Badge[]): Badge | undefined {
   // The unearned badge the player is closest to.
@@ -437,23 +438,83 @@ function MySubmissions() {
   );
 }
 
-export default function ProfilePage() {
-  const { data, isLoading, isError, refetch } = useGetMe();
+function OtherProfile({ player }: { player: Player }) {
+  const hobbies = useListHobbies();
+  const options = hobbies.data?.status === 200 ? hobbies.data.data : [];
+  const labels = player.hobbies.map(
+    (key) => options.find((option) => option.key === key)?.label ?? key,
+  );
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-on-primary">
+          {player.display_name.charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <p className="text-3xl font-bold">{player.total_points}</p>
+          <p className="text-sm text-muted">points</p>
+        </div>
+      </div>
+      {labels.length > 0 && (
+        <div>
+          <h2 className="font-semibold">Hobbies</h2>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {labels.map((label) => (
+              <li
+                className="rounded-full bg-surface-variant px-3 py-1.5 text-sm font-medium text-on-surface-variant"
+                key={label}
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ProfileContent() {
+  // `?player_id=` shows another player; without it the page is your own.
+  const rawId = useSearchParams().get("player_id");
+  const requestedId = rawId === null ? undefined : Number(rawId);
+  const invalidId =
+    requestedId !== undefined &&
+    (!Number.isInteger(requestedId) || requestedId < 1);
+
+  const me = useGetMe();
+  const myId = me.data?.status === 200 ? me.data.data.id : undefined;
+  // Your own ID in the URL shows your full profile, so skip fetching it twice.
+  const isOwn = requestedId === undefined || requestedId === myId;
+  const other = useGetPlayer(requestedId ?? 0, {
+    query: { enabled: !invalidId && !isOwn && myId !== undefined },
+  });
+
+  const { data, isLoading, isError, refetch } = isOwn ? me : other;
   const player = data?.status === 200 ? data.data : undefined;
-  const error = isError
-    ? "Could not load your profile."
-    : apiErrorMessage(data);
+  const error = invalidId
+    ? "That is not a valid player."
+    : isError
+      ? "Could not load this profile."
+      : apiErrorMessage(data);
+  // The other player's query stays idle until `me` has loaded.
+  const waiting = !isOwn && me.isLoading;
 
   return (
     <Page>
-      <PageTitle eyebrow="Profile">{player?.display_name ?? "You"}</PageTitle>
-      {isLoading ? (
+      <PageTitle eyebrow="Profile">
+        {player?.display_name ?? (isOwn ? "You" : "Player")}
+      </PageTitle>
+      {!invalidId && (isLoading || waiting) ? (
         <LoadingState label="Loading profile..." />
       ) : error || !player ? (
         <ErrorState
-          message={error ?? "Could not load your profile."}
-          onRetry={() => refetch()}
+          message={error ?? "Could not load this profile."}
+          onRetry={invalidId ? undefined : () => refetch()}
         />
+      ) : !isOwn ? (
+        <OtherProfile player={player} />
       ) : (
         <>
           <Achievements player={player} />
@@ -476,5 +537,20 @@ export default function ProfilePage() {
         </>
       )}
     </Page>
+  );
+}
+
+export default function ProfilePage() {
+  // useSearchParams() needs a Suspense boundary when cacheComponents is enabled.
+  return (
+    <Suspense
+      fallback={
+        <Page>
+          <LoadingState label="Loading profile..." />
+        </Page>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 }

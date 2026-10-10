@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_player, is_maintainer
 from badges import player_badges
 from database import get_db
-from game import bad_request, error_responses, total_points
+from game import bad_request, error_responses, not_found, total_points
 from hobbies import HOBBIES, parse_hobbies, serialize_hobbies
 from models import User
 from schemas import Badge, HobbyOption, Player, ProfileUpdate
@@ -23,6 +23,26 @@ def player_out(db: Session, player: User) -> Player:
         hobbies=parse_hobbies(player.hobbies),
         discoverable=player.discoverable,
     )
+
+
+@router.get("/players/{player_id}", response_model=Player, responses=error_responses(404))
+def get_player(
+    player_id: int,
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """A player's public profile.
+
+    Only players who opted in to suggestions are visible to others; a player
+    can always view themselves.
+    """
+    other = db.get(User, player_id)
+    if other is None or not (other.discoverable or other.id == player.id):
+        raise not_found("Player")
+    out = player_out(db, other)
+    if other.id != player.id:
+        out.is_maintainer = False
+    return out
 
 
 @router.get("/me", response_model=Player)

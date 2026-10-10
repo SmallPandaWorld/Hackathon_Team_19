@@ -726,3 +726,35 @@ def test_badge_progress(client):
     assert badges["explorer"]["progress"] == 2
     assert badges["century"]["progress"] == 30
     assert badges["first_quest"]["progress"] == badges["first_quest"]["target"] == 1
+
+
+def test_player_profile_of_self(client):
+    me = client.get("/me", headers=ALICE).json()
+    assert client.get(f"/players/{me['id']}", headers=ALICE).json() == me
+
+
+def test_player_profile_requires_opt_in(client):
+    bob = client.get("/me", headers=BOB).json()
+
+    # Bob has not opted in, so he is hidden from others.
+    assert client.get(f"/players/{bob['id']}", headers=ALICE).status_code == 404
+
+    client.put("/me/profile", headers=BOB, json={"hobbies": ["chess"], "discoverable": True})
+    seen = client.get(f"/players/{bob['id']}", headers=ALICE).json()
+    assert seen["display_name"] == "Bob"
+    assert seen["hobbies"] == ["chess"]
+    assert seen["is_maintainer"] is False
+
+
+def test_player_profile_hides_maintainer_flag(client):
+    admin = client.get("/me", headers=ADMIN).json()
+    assert admin["is_maintainer"] is True
+    client.put("/me/profile", headers=ADMIN, json={"hobbies": [], "discoverable": True})
+    seen = client.get(f"/players/{admin['id']}", headers=ALICE).json()
+    assert seen["is_maintainer"] is False
+
+
+def test_player_profile_unknown_player_and_missing_identity(client):
+    assert client.get("/players/99999", headers=ALICE).status_code == 404
+    assert client.get("/players/abc", headers=ALICE).status_code == 422
+    assert client.get("/players/1").status_code == 401

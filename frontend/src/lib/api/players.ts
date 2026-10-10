@@ -47,6 +47,197 @@ const withQueryKey = <T extends object, K>(
   return result;
 };
 
+export type getPlayerResponse200 = {
+  data: Player;
+  status: 200;
+};
+
+export type getPlayerResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type getPlayerResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type getPlayerResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type getPlayerResponseSuccess = getPlayerResponse200 & {
+  headers: Headers;
+};
+export type getPlayerResponseError = (
+  getPlayerResponse401 | getPlayerResponse404 | getPlayerResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPlayerResponse =
+  getPlayerResponseSuccess | getPlayerResponseError;
+
+export const getGetPlayerUrl = (playerId: number) => {
+  return `/api/players/${playerId}`;
+};
+
+/**
+ * A player's public profile.
+ *
+ * Only players who opted in to suggestions are visible to others; a player
+ * can always view themselves.
+ * @summary Get Player
+ */
+export const getPlayer = async (
+  playerId: number,
+  options?: RequestInit,
+): Promise<getPlayerResponse> => {
+  const res = await fetch(getGetPlayerUrl(playerId), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPlayerResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getPlayerResponse;
+};
+
+export const getGetPlayerQueryKey = (playerId: number) => {
+  return [`/api/players/${playerId}`] as const;
+};
+
+export const getGetPlayerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  playerId: number,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPlayerQueryKey(playerId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlayer>>> = ({
+    signal,
+  }) => getPlayer(playerId, { signal, ...fetchOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: playerId !== null && playerId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type GetPlayerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPlayer>>
+>;
+export type GetPlayerQueryError = ErrorResponse | HTTPValidationError;
+
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  playerId: number,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPlayer>>,
+          TError,
+          Awaited<ReturnType<typeof getPlayer>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  playerId: number,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPlayer>>,
+          TError,
+          Awaited<ReturnType<typeof getPlayer>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  playerId: number,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Player
+ */
+
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  playerId: number,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetPlayerQueryOptions(playerId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export type getMeResponse200 = {
   data: Player;
   status: 200;
