@@ -133,7 +133,7 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     quest.points = data.points
     quest.kind = data.kind
     quest.requires_approval = data.requires_approval and data.kind == SOLO
-    quest.requires_code = data.requires_code and data.kind == SOLO
+    quest.requires_code = data.requires_code and data.kind in (SOLO, MEETUP)
     quest.latitude = data.latitude
     quest.longitude = data.longitude
     is_meetup = data.kind == MEETUP

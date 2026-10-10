@@ -17,7 +17,27 @@ import {
 } from "react";
 import { CompletedNote, ResultBanner } from "./result-banner";
 
-export function CodeAction({ quest }: { quest: QuestOut }) {
+export type CodeCopy = {
+  label: string;
+  placeholder: string;
+  button: string;
+  hint: string;
+};
+
+const SOLO_COPY: CodeCopy = {
+  label: "Code from the quest sign",
+  placeholder: "Enter the printed code",
+  button: "Verify completion",
+  hint: "You can also scan the sign’s QR code with your phone camera. Each player earns points once.",
+};
+
+export function CodeAction({
+  quest,
+  copy = SOLO_COPY,
+}: {
+  quest: QuestOut;
+  copy?: CodeCopy;
+}) {
   const scannedCode = useSearchParams().get("code");
   const [code, setCode] = useState(scannedCode ?? "");
   const [result, setResult] = useState<CompletionResult | null>(null);
@@ -33,8 +53,7 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
   );
 
   useEffect(() => {
-    if (!scannedCode || attemptedScan.current === scannedCode)
-      return;
+    if (!scannedCode || attemptedScan.current === scannedCode) return;
     attemptedScan.current = scannedCode;
     setCode(scannedCode);
     void redeem(scannedCode);
@@ -55,14 +74,14 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
         className="text-sm font-medium text-on-surface-variant"
         htmlFor="quest-code"
       >
-        Code from the quest sign
+        {copy.label}
         <input
           autoComplete="off"
           className={`${inputStyles} font-mono`}
           id="quest-code"
           maxLength={40}
           onChange={(event) => setCode(event.target.value.toUpperCase())}
-          placeholder="Enter the printed code"
+          placeholder={copy.placeholder}
           required
           value={code}
         />
@@ -72,12 +91,9 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
         disabled={!!pending || !code.trim()}
         type="submit"
       >
-        {pending ? "Checking code..." : "Verify completion"}
+        {pending ? "Checking code..." : copy.button}
       </button>
-      <p className="text-center text-xs text-muted">
-        You can also scan the sign’s QR code with your phone camera. Each player
-        earns points once.
-      </p>
+      <p className="text-center text-xs text-muted">{copy.hint}</p>
       {error && <ErrorState message={error} />}
     </form>
   );

@@ -16,7 +16,11 @@ const getServerOrigin = () => "";
 
 function Sign({ questId }: { questId: string }) {
   const { data, isLoading, isError } = useAdminGetQuest(questId);
-  const origin = useSyncExternalStore(subscribeOrigin, getOrigin, getServerOrigin);
+  const origin = useSyncExternalStore(
+    subscribeOrigin,
+    getOrigin,
+    getServerOrigin,
+  );
 
   if (isLoading) return <LoadingState label="Loading QR sign..." />;
   const quest = data?.status === 200 ? data.data : undefined;
@@ -60,8 +64,9 @@ function Sign({ questId }: { questId: string }) {
         <h1 className="text-3xl font-bold">{quest.title}</h1>
         {quest.location && <p>{quest.location}</p>}
         <p className="max-w-md">
-          Complete the activity, then scan this QR code with your phone camera
-          or enter the code on the quest page.
+          {quest.kind === "meetup"
+            ? "You made it! Scan this QR code with your phone camera or enter the code on the quest page to check in."
+            : "Complete the activity, then scan this QR code with your phone camera or enter the code on the quest page."}
         </p>
         {origin && (
           <QRCodeSVG
@@ -90,7 +95,8 @@ function Sign({ questId }: { questId: string }) {
 
 export function PrintSign() {
   const { id } = useParams<{ id: string }>();
-  const validQuestId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  const validQuestId =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   return (
     <MaintainerOnly>
       {validQuestId ? (
