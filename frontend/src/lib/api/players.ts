@@ -737,8 +737,9 @@ export const getGetPlayerUrl = (username: string) => {
 /**
  * A player's public profile.
  *
- * Only players who opted in to suggestions are visible to others; a player
- * can always view themselves.
+ * Only players who opted in to suggestions are visible to others, except
+ * that friends and players with an open request between them can always
+ * see each other; a player can always view themselves.
  * @summary Get Player
  */
 export const getPlayer = async (
