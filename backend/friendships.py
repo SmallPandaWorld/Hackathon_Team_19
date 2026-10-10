@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from badges import FIRST_FRIEND, award_badge
 from game import as_utc, bad_request, conflict, not_found, total_points, utcnow
 from models import FRIEND_ACCEPTED, FRIEND_PENDING, Friendship, User
 from schemas import FriendOut, FriendRequestOut, Friends, FriendStatus
@@ -78,6 +79,10 @@ def accept_request(db: Session, player: User, username: str) -> None:
         raise not_found("Friend request")
     row.status = FRIEND_ACCEPTED
     row.accepted_at = utcnow()
+    # Both players earn the friend badge, in the same transaction; it stays
+    # if the friendship is removed later.
+    for player_id in (row.requester_id, row.addressee_id):
+        award_badge(db, player_id, FIRST_FRIEND, row.accepted_at)
     db.commit()
 
 

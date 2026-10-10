@@ -1,6 +1,10 @@
 """Friend requests, acceptance, removal and visibility rules."""
 
+from sqlalchemy import delete, select
+
 from conftest import act, identity
+from database import SessionLocal
+from models import EarnedBadge
 
 ALICE = identity("alice-id", "Alice")
 BOB = identity("bob-id", "Bob")
@@ -175,6 +179,33 @@ def test_players_only_see_their_own_connections(client):
     assert names(friends(client, BOB)["outgoing"]) == ["carol-id"]
 
 
+def suggested(client, headers):
+    return names(client.get("/me", headers=headers).json()["suggestions"]["suggestions"])
+
+
+def test_friends_and_open_requests_are_not_suggested(client):
+    for headers in (ALICE, BOB, CAROL):
+        assert client.put("/me", headers=headers, json={
+            "hobbies": ["chess"], "discoverable": True}).status_code == 200
+    assert suggested(client, ALICE) == ["bob-id", "carol-id"]
+
+    # An open request hides the player on both sides.
+    client.post("/friends/bob-id", headers=ALICE)
+    assert suggested(client, ALICE) == ["carol-id"]
+    assert suggested(client, BOB) == ["carol-id"]
+
+    client.post("/friends/alice-id/accept", headers=BOB)
+    assert suggested(client, ALICE) == ["carol-id"]
+    assert suggested(client, BOB) == ["carol-id"]
+
+    # Once the friendship is gone, they can be suggested again...
+    client.delete("/friends/bob-id", headers=ALICE)
+    assert suggested(client, ALICE) == ["bob-id", "carol-id"]
+    # ...unless the player hid them.
+    assert client.delete("/me/suggestions/bob-id", headers=ALICE).status_code in (200, 204)
+    assert suggested(client, ALICE) == ["carol-id"]
+
+
 def test_friends_need_identity(client):
     assert client.get("/friends").status_code == 401
     assert client.post("/friends/bob-id").status_code == 401
@@ -274,3 +305,92 @@ def test_friends_leaderboard_empty_state_and_removal(client):
 
 def test_leaderboard_rejects_unknown_scope(client):
     assert client.get("/leaderboard", params={"scope": "team"}, headers=ALICE).status_code == 422
+
+
+# --- Friend badge -------------------------------------------------------------
+
+def friend_badge(client, headers):
+    badges = {b["key"]: b for b in client.get("/me", headers=headers).json()["badges"]}
+    return badges["first_friend"]
+
+
+def stored_friend_badges():
+    with SessionLocal() as db:
+        return sorted(db.scalars(select(EarnedBadge.player_id).where(
+            EarnedBadge.badge_key == "first_friend")))
+
+
+def test_friend_badge_is_listed_with_its_condition(client):
+    badge = friend_badge(client, ALICE)
+    assert badge["title"] == "New friend"
+    assert badge["description"] == "Become friends with another player."
+    assert (badge["earned"], badge["progress"], badge["target"]) == (False, 0, 1)
+
+
+def test_accepted_friendship_unlocks_badge_for_both(client):
+    opt_in(client, ALICE)
+    opt_in(client, BOB)
+    befriend(client, ALICE, BOB, "bob-id", "alice-id")
+
+    for headers in (ALICE, BOB):
+        badge = friend_badge(client, headers)
+        assert badge["earned"] is True
+        assert badge["earned_at"]
+        assert badge["progress"] == 1
+    assert stored_friend_badges() == ["alice-id", "bob-id"]
+    # Also shown on each other's public profile.
+    seen = client.get("/players/bob-id", headers=ALICE).json()
+    assert {b["key"]: b for b in seen["badges"]}["first_friend"]["earned"] is True
+
+
+def test_self_pending_and_declined_requests_do_not_unlock(client):
+    opt_in(client, ALICE)
+    opt_in(client, BOB)
+    assert client.post("/friends/alice-id", headers=ALICE).status_code == 400
+
+    client.post("/friends/bob-id", headers=ALICE)            # pending
+    assert friend_badge(client, ALICE)["earned"] is False
+    assert friend_badge(client, BOB)["earned"] is False
+
+    client.delete("/friends/alice-id", headers=BOB)          # declined
+    client.post("/friends/bob-id", headers=ALICE)
+    client.delete("/friends/bob-id", headers=ALICE)          # cancelled
+    assert friend_badge(client, ALICE)["earned"] is False
+    assert friend_badge(client, BOB)["earned"] is False
+    assert stored_friend_badges() == []
+
+
+def test_badge_is_issued_once_and_kept_after_removal(client):
+    opt_in(client, ALICE)
+    opt_in(client, BOB)
+    opt_in(client, CAROL)
+    befriend(client, ALICE, BOB, "bob-id", "alice-id")
+    first = friend_badge(client, ALICE)["earned_at"]
+
+    # More friends, then removing and re-adding the same friend.
+    befriend(client, CAROL, ALICE, "alice-id", "carol-id")
+    client.delete("/friends/bob-id", headers=ALICE)
+    assert friend_badge(client, ALICE)["earned"] is True
+    assert friend_badge(client, BOB)["earned"] is True
+    befriend(client, BOB, ALICE, "alice-id", "bob-id")
+
+    assert friend_badge(client, ALICE)["earned_at"] == first
+    assert stored_friend_badges() == ["alice-id", "bob-id", "carol-id"]
+
+    # Removing every friend keeps the badge.
+    client.delete("/friends/bob-id", headers=ALICE)
+    client.delete("/friends/carol-id", headers=ALICE)
+    assert friends(client, ALICE)["friends"] == []
+    assert friend_badge(client, ALICE)["earned"] is True
+    assert friend_badge(client, ALICE)["earned_at"] == first
+
+
+def test_friendship_accepted_before_badges_were_stored_counts(client):
+    opt_in(client, ALICE)
+    opt_in(client, BOB)
+    befriend(client, ALICE, BOB, "bob-id", "alice-id")
+    with SessionLocal() as db:  # as on a database from before this badge
+        db.execute(delete(EarnedBadge))
+        db.commit()
+    assert friend_badge(client, ALICE)["earned"] is True
+    assert friend_badge(client, BOB)["earned"] is True

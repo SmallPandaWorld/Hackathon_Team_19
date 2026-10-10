@@ -127,7 +127,7 @@ Hackathon_Team_19/
 │   ├── models.py                   SQLAlchemy database tables
 │   ├── schemas.py                  API request and response models
 │   ├── game.py                     Shared scoring and game rules
-│   ├── badges.py                   Computed achievements
+│   ├── badges.py                   Achievements (computed, friend badge stored)
 │   ├── hobbies.py                  Fixed hobby catalog
 │   ├── friendships.py              Friend request rules and friends view
 │   ├── routers/
@@ -498,7 +498,7 @@ The join then ensures both host and partner have an approved completion. Each re
 
 Matching is deterministic, not AI-based. If the current player has not opted in, the response has `enabled=false` and no suggestions.
 
-Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded. A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
+Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded, and so are friends and players with an open friend request in either direction (they show in the friends section instead; they can be suggested again once that relation is removed). A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
 
 Suggestions include the username needed for invite and dismiss actions, plus the display name and shared hobby labels. Other hobbies are not included. Dismissals are one-directional and persist; duplicate dismissals are harmless. There is no restoration endpoint.
 
@@ -596,7 +596,7 @@ Never reuse a quest ID for a different activity, because saved history refers to
 
 ### 10.2 `backend/badges.py`
 
-Badges are computed rather than stored in a badge table. `player_badges()` reads approved completions ordered by completion time and ID, joins quest type, and evaluates the catalog:
+Quest badges are computed rather than stored. `player_badges()` reads approved completions ordered by completion time and ID, joins quest type, and evaluates the catalog. The friend badge is the exception, because it must outlive the friendship that unlocked it:
 
 | Key | Badge | Rule |
 | --- | --- | --- |
@@ -607,6 +607,9 @@ Badges are computed rather than stored in a badge table. `player_badges()` reads
 | `tour` | Pathfinder | Complete a multi-step quest |
 | `meetup` | Showed up | Complete a meetup check-in |
 | `century` | Century | Reach 100 approved points |
+| `first_friend` | New friend | Have a friend request accepted, as sender or addressee |
+
+`first_friend` is stored in the `earned_badges` table (one row per player and badge, unique). `accept_request()` in `friendships.py` calls `award_badge()` for both players in the same transaction as the acceptance; an existing row is left untouched, so more friends or removing and re-adding a friend never issue it again, and removing the friendship keeps it. Self, pending, declined, and cancelled requests never pass through acceptance, so they cannot unlock it. Friendships accepted before the table existed still count: the badge also takes the oldest current accepted friendship into account.
 
 Each response includes whether the badge is earned, the unlocking completion timestamp, capped progress, and target. Pending or rejected completions do not contribute. For an approval-required quest, the badge timestamp follows the stored completion timestamp, not necessarily the later review time.
 

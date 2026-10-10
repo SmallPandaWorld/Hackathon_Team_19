@@ -11,6 +11,7 @@ import {
   Handshake,
   ListChecks,
   Route,
+  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export const BADGE_ICONS: Record<string, LucideIcon> = {
   tour: Route,
   meetup: CalendarCheck,
   century: Gem,
+  first_friend: UserPlus,
 };
 
 export function KindIcon({

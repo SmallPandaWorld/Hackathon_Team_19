@@ -254,6 +254,23 @@ class Friendship(Base):
     accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
+class EarnedBadge(Base):
+    """A badge that must outlive what unlocked it (e.g. a removed friend).
+
+    Most badges are computed from completions (see badges.py); only these are
+    stored. One row per player and badge, so it can never be issued twice.
+    """
+
+    __tablename__ = "earned_badges"
+    __table_args__ = (UniqueConstraint("player_id", "badge_key"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    player_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    badge_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    earned_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class DismissedSuggestion(Base):
     __tablename__ = "dismissed_suggestions"
     __table_args__ = (UniqueConstraint("player_id", "dismissed_player_id"),)

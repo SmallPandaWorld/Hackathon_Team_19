@@ -25,6 +25,7 @@ from models import (
     SOLO,
     Completion,
     DismissedSuggestion,
+    Friendship,
     MeetupRsvp,
     PairSession,
     Quest,
@@ -693,7 +694,8 @@ def open_invitations(db: Session, player: User) -> List[PairSessionOut]:
 # Consent rules: only players who opted in (`discoverable`) appear in
 # suggestions, and only they receive suggestions. A suggestion shows the
 # display name and shared hobbies, nothing else. Dismissed players are never
-# suggested again.
+# suggested again; friends and players with an open friend request (either
+# way) aren't suggested while that relation exists.
 
 MAX_SUGGESTIONS = 20
 
@@ -705,12 +707,20 @@ def suggestions_for(db: Session, player: User) -> Suggestions:
     mine = set(parse_hobbies(player.hobbies))
     dismissed = set(db.scalars(select(DismissedSuggestion.dismissed_player_id).where(
         DismissedSuggestion.player_id == player.username)))
+    connected = set()
+    for requester_id, addressee_id in db.execute(
+        select(Friendship.requester_id, Friendship.addressee_id).where(or_(
+            Friendship.requester_id == player.username,
+            Friendship.addressee_id == player.username,
+        ))
+    ):
+        connected.add(addressee_id if requester_id == player.username else requester_id)
     candidates = db.scalars(select(User).where(
         User.discoverable.is_(True), User.username != player.username))
 
     suggestions = []
     for other in candidates:
-        if other.username in dismissed:
+        if other.username in dismissed or other.username in connected:
             continue
         shared = [key for key in parse_hobbies(other.hobbies) if key in mine]
         if shared:
