@@ -44,7 +44,7 @@ There are five quest types:
 | `multi_step` | Work through ordered activities | Complete the steps in order; the last step completes the quest |
 | `meetup` | Attend a scheduled campus event | Check in during the allowed time window |
 
-Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. A phone's camera app opens that link; the web app then submits the code to the backend. This is separate from the temporary codes used to join pair quests.
+Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. This is separate from the temporary codes used to join pair quests.
 
 Players can propose new solo quests and report inappropriate quest content. Maintainers can create and edit quests, publish or retire them, review ideas, approve completion claims, and resolve reports.
 
@@ -62,6 +62,7 @@ The backend owns identity, permissions, completion eligibility, and scoring. The
 | Icons | Lucide React `^1.54.0` | Consistent SVG icons |
 | Map | Leaflet `^1.9.4` and OpenStreetMap tiles | Campus locations and optional device location |
 | QR rendering | `qrcode.react` `^4.2.0` | Printable SVG for a quest's redemption link |
+| QR reading | `zxing-wasm` `^3.1.5` | In-browser QR decoding from the player's camera |
 | Backend | FastAPI and Uvicorn | HTTP API and request validation |
 | Persistence | SQLAlchemy 2 and SQLite by default | Players, quests, progress, reviews, and sessions |
 | API generation | FastAPI OpenAPI and Orval `^8.41.0` | Shared contract and frontend hooks |
@@ -718,6 +719,7 @@ Next.js App Router turns `app/.../page.tsx` paths into URLs. A folder named `[id
 | `/leaderboard` | `frontend/app/leaderboard/page.tsx` | Ranking and current-player position |
 | `/profile` | `frontend/app/profile/page.tsx` | Achievements, suggestions, hobbies, submitted ideas |
 | `/submit` | `frontend/app/submit/page.tsx` | Propose a solo quest |
+| `/dev/qr-scanner` | `frontend/app/dev/qr-scanner/page.tsx` | Development-only camera and QR link tester |
 | `/quests/[id]` | `frontend/app/quests/[id]/page.tsx` | Page shell and Suspense for quest detail |
 | `/join/[code]` | `frontend/app/join/[code]/page.tsx` | Page shell and Suspense for joining |
 | `/admin` | `frontend/app/admin/page.tsx` | Maintainer dashboard |
@@ -738,7 +740,7 @@ Home loads published quests with `useListQuests()`, then `sortQuests()` groups t
 
 An unfinished past meetup is omitted because it can no longer be completed. Rejected solo claims return to available activities, where the quest card says “Try again.”
 
-The page renders a campus motif, compact player summary, incoming pair invitations, and expandable code entry. New players see “How it works” expanded; returning players see it collapsed near the bottom. Here, a new player means no completed quests and no pending claims in the loaded quest list.
+The page renders a campus motif, compact player summary, incoming pair invitations, and expandable code entry. In development, it also links to `/dev/qr-scanner`. New players see “How it works” expanded; returning players see it collapsed near the bottom. Here, a new player means no completed quests and no pending claims in the loaded quest list.
 
 `QuestList`, `Section`, `Collapsible`, and `HowItWorks` are local display helpers. Collapsibles use native `details`/`summary` elements. The page ends with share and quest-suggestion actions.
 
@@ -876,7 +878,7 @@ The component asks players to confirm only after doing the activity. It has no s
 
 ### 14.2 `frontend/src/components/quest-actions/code-action.tsx`
 
-`CodeAction` shows a manual code field and sends a `redeem` action through `useQuestAction()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` reads that code and an effect submits it automatically when the quest loads. Scanning uses the phone's camera app, not a camera control inside the web app. A wrong code displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
+`CodeAction` is rendered only for solo quests with `requires_code`. It shows a manual code field and an in-app camera scanner that uses `zxing-wasm` to read QR frames in the browser. The scanner accepts the printed sign's quest link, checks that the link targets the current quest, extracts its code, and sends a `redeem` action through `useQuestAction()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` also reads that code and an effect submits it automatically when the link opens the quest. A wrong code displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
 
 ### 14.3 `frontend/src/components/quest-actions/quiz-action.tsx`
 
@@ -1083,8 +1085,8 @@ Maintainer selects Printed code or QR, saves the quest, and opens its print page
     → admin response supplies the quest's saved verification_code
     → sign shows that code and a QR for /quests/{id}?code={code}
 
-Player types the code or scans the QR with a phone camera
-    → QR opens the quest detail and CodeAction submits its URL code automatically
+Player types the code, scans from CodeAction, or opens the QR link with a phone camera
+    → CodeAction submits the code to the backend
     → POST /api/quests/{id}/actions with {"type": "redeem", "code": "..."}
     → backend checks publication, quest type, and the saved code
     → record_completion() grants the reward once to that player
@@ -1171,10 +1173,16 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-DEV_USER_ID=dev-player DEV_USER_NAME="Local Player" MAINTAINER_IDS=dev-player uvicorn main:app --reload
+DEV_USER_ID=dev DEV_USER_NAME="Test User" MAINTAINER_IDS=dev uvicorn main:app --reload
 ```
 
 This supplies a local player and maintainer when no VISCON proxy is present. A Conda environment can serve the same purpose; the code does not require a particular environment manager.
+
+The root `.env.example` has these local defaults. If running the backend with
+Docker Compose, copy it to `.env` first; Compose loads that file for the backend.
+The Python `uvicorn` command above needs the variables on its command line (or
+exported in that terminal), because Python does not automatically load the root
+`.env` file.
 
 Frontend:
 
@@ -1185,6 +1193,12 @@ npm run dev
 ```
 
 The browser app is at `http://localhost:3000/`. The direct backend is at `http://localhost:8000/`. Its interactive API documentation is at `http://localhost:8000/docs`, with the raw contract at `/openapi.json`.
+
+For scanner testing, use the development link on the home page or open
+`http://localhost:3000/dev/qr-scanner`. To test redemption too, create a local
+published solo quest with printed-code verification in `/admin`, print its QR
+sign, then open that quest on the local app and scan it. Local databases do not
+automatically contain production quests or codes.
 
 The Docker images use Python 3.14 and Node 24. Older setup notes mention Node 22; that is distinct from the current container runtime. These setup commands are instructions, not commands executed as part of writing this guide.
 
@@ -1347,7 +1361,7 @@ npm run build
 npm run lint
 ```
 
-API tests do not replace browser checks. Particularly useful browser cases are scanning a printed QR with a phone camera, opening its link after login, returning to a cached map, phone-width forms and navigation, native sharing fallback, expired pair-code retries, and opening/closing meetup windows. The repository does not currently contain an automated frontend browser-test suite.
+API tests do not replace browser checks. Particularly useful browser cases are scanning a printed QR inside the quest screen and with a phone camera, opening its link after login, returning to a cached map, phone-width forms and navigation, native sharing fallback, expired pair-code retries, and opening/closing meetup windows. The repository does not currently contain an automated frontend browser-test suite.
 
 ## 21. Where to make changes
 
