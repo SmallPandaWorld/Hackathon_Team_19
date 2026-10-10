@@ -31,16 +31,16 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div className="rounded-lg bg-surface dark:bg-surface-variant p-5 ring-1 ring-outline-variant">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Steps</h2>
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted">
             {doneCount}/{steps.length} done
           </span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-variant">
           <div
-            className="h-full rounded-full bg-indigo-600 transition-all"
+            className="h-full rounded-full bg-primary transition-all"
             style={{
               width: `${steps.length ? (doneCount / steps.length) * 100 : 0}%`,
             }}
@@ -51,12 +51,12 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
             const isNext = step.id === nextStep?.id;
             return (
               <li
-                className={`rounded-xl p-3 ring-1 ${
+                className={`rounded-md p-3 ring-1 ${
                   step.done
-                    ? "bg-emerald-50 ring-emerald-200"
+                    ? "bg-success-surface ring-success/40"
                     : isNext
-                      ? "bg-indigo-50 ring-indigo-300"
-                      : "ring-slate-200 opacity-60"
+                      ? "bg-surface-variant ring-outline"
+                      : "ring-outline-variant opacity-60"
                 }`}
                 key={step.id}
               >
@@ -64,8 +64,8 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                       step.done
-                        ? "bg-emerald-600 text-white"
-                        : "bg-white text-slate-600 ring-1 ring-slate-300"
+                        ? "bg-success text-surface"
+                        : "bg-surface dark:bg-surface-variant text-muted ring-1 ring-outline"
                     }`}
                   >
                     {step.done ? "✓" : step.position}
@@ -73,7 +73,7 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{step.title}</p>
                     {step.description && (
-                      <p className="mt-0.5 text-sm text-slate-600">
+                      <p className="mt-0.5 text-sm text-muted">
                         {step.description}
                       </p>
                     )}
@@ -95,13 +95,13 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
             );
           })}
         </ol>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted">
           Do the steps in order. You get the points when the last step is done.
         </p>
       </div>
       {result && <ResultBanner result={result} />}
       {!result && quest.completed && (
-        <p className="rounded-2xl bg-emerald-50 p-4 text-center font-semibold text-emerald-800 ring-1 ring-emerald-200">
+        <p className="rounded-lg bg-success-surface p-4 text-center font-semibold text-success ring-1 ring-success/40">
           ✓ All steps done. Quest completed!
         </p>
       )}

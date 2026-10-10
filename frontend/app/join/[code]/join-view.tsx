@@ -72,17 +72,17 @@ export function JoinView() {
     <div className="flex flex-col gap-4">
       <BackLink />
       <Card className="text-center">
-        <p className="text-sm text-slate-500">Partner quest</p>
+        <p className="text-sm text-muted">Partner quest</p>
         <h1 className="mt-1 text-2xl font-bold">{session.quest_title}</h1>
-        <p className="mt-3 text-slate-700">
+        <p className="mt-3 text-on-surface-variant">
           <span className="font-semibold">{session.host_name}</span> invited you
           to complete this quest together.
         </p>
-        <p className="mt-2 font-mono text-lg tracking-[0.2em] text-indigo-700">
+        <p className="mt-2 font-mono text-lg tracking-[0.2em] text-link">
           {session.code}
         </p>
         {blocked ? (
-          <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          <p className="mt-4 rounded-md bg-warning-surface p-3 text-sm text-warning ring-1 ring-warning/40">
             {blocked}
           </p>
         ) : (
@@ -98,7 +98,7 @@ export function JoinView() {
           </button>
         )}
         <Link
-          className="mt-3 inline-block text-sm font-semibold text-indigo-600"
+          className="mt-3 inline-block text-sm font-semibold text-link"
           href={`/quests/${session.quest_id}`}
         >
           Read the quest instructions

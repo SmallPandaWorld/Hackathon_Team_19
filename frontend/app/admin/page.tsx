@@ -45,7 +45,7 @@ function QuestsTab() {
       </Link>
       {quests.map((quest) => (
         <Link
-          className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 hover:ring-indigo-300"
+          className="flex items-center gap-3 rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant hover:ring-outline"
           href={`/admin/quests/${quest.id}`}
           key={quest.id}
         >
@@ -54,19 +54,19 @@ function QuestsTab() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate font-semibold">{quest.title}</span>
-            <span className="mt-1 flex flex-wrap gap-1.5 text-xs text-slate-500">
+            <span className="mt-1 flex flex-wrap gap-1.5 text-xs text-muted">
               <Chip className={STATUS_LABELS[quest.status].className}>
                 {STATUS_LABELS[quest.status].label}
               </Chip>
               <span>{quest.completion_count} completed</span>
               {quest.open_reports > 0 && (
-                <Chip className="bg-red-100 text-red-700">
+                <Chip className="border border-danger text-danger">
                   {quest.open_reports} reports
                 </Chip>
               )}
             </span>
           </span>
-          <span className="shrink-0 font-bold text-indigo-600">
+          <span className="shrink-0 rounded-sm bg-primary px-2 py-0.5 text-sm font-bold text-on-primary">
             +{quest.points}
           </span>
         </Link>
@@ -92,22 +92,20 @@ function IdeaCard({ quest }: { quest: AdminQuestOut }) {
 
   return (
     <Card>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted">
         Suggested by {quest.author_name ?? "unknown"}
       </p>
       <h3 className="mt-1 font-semibold">{quest.title}</h3>
       {quest.location && (
-        <p className="text-sm text-slate-500">📍 {quest.location}</p>
+        <p className="text-sm text-muted">📍 {quest.location}</p>
       )}
-      <p className="mt-2 whitespace-pre-line text-sm text-slate-700">
+      <p className="mt-2 whitespace-pre-line text-sm text-on-surface-variant">
         {quest.description}
       </p>
-      <p className="mt-2 text-sm text-slate-600">
-        Reward: {quest.points} points
-      </p>
-      <label className="mt-3 block text-sm font-medium text-slate-700">
+      <p className="mt-2 text-sm text-muted">Reward: {quest.points} points</p>
+      <label className="mt-3 block text-sm font-medium text-on-surface-variant">
         Note for the author{" "}
-        <span className="font-normal text-slate-500">(shown if rejected)</span>
+        <span className="font-normal text-muted">(shown if rejected)</span>
         <input
           className={inputStyles}
           onChange={(e) => setNote(e.target.value)}
@@ -139,11 +137,11 @@ function IdeaCard({ quest }: { quest: AdminQuestOut }) {
         </Link>
       </div>
       {blocked && (
-        <p className="mt-2 text-sm text-amber-700">
+        <p className="mt-2 text-sm text-warning">
           {quest.publish_problems.join(" ")}
         </p>
       )}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </Card>
   );
 }
@@ -156,7 +154,7 @@ function IdeasTab() {
   if (isLoading) return <LoadingState label="Loading ideas..." />;
   if (ideas.length === 0)
     return (
-      <p className="py-6 text-center text-slate-500">
+      <p className="py-6 text-center text-muted">
         No quest ideas waiting for review.
       </p>
     );
@@ -189,9 +187,7 @@ function ReviewsTab() {
   if (isLoading) return <LoadingState label="Loading completions..." />;
   if (completions.length === 0)
     return (
-      <p className="py-6 text-center text-slate-500">
-        Nothing waiting for review.
-      </p>
+      <p className="py-6 text-center text-muted">Nothing waiting for review.</p>
     );
 
   return (
@@ -199,18 +195,18 @@ function ReviewsTab() {
       {error && <ErrorState message={error} />}
       {completions.map((completion) => (
         <Card key={completion.id}>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             {formatZurich(completion.completed_at)}
           </p>
           <h3 className="mt-1 font-semibold">
             {completion.player_name} · {completion.quest_title}
           </h3>
-          <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+          <p className="mt-2 rounded bg-surface-variant p-3 text-sm text-on-surface-variant">
             {completion.note ? `“${completion.note}”` : "No description given."}
           </p>
-          <label className="mt-3 block text-sm font-medium text-slate-700">
+          <label className="mt-3 block text-sm font-medium text-on-surface-variant">
             Reason{" "}
-            <span className="font-normal text-slate-500">
+            <span className="font-normal text-muted">
               (shown to the player if rejected)
             </span>
             <input
@@ -265,7 +261,7 @@ function ReportsTab() {
 
   if (isLoading) return <LoadingState label="Loading reports..." />;
   if (reports.length === 0)
-    return <p className="py-6 text-center text-slate-500">No open reports.</p>;
+    return <p className="py-6 text-center text-muted">No open reports.</p>;
 
   return (
     <div className="flex flex-col gap-3">
@@ -274,7 +270,7 @@ function ReportsTab() {
         <Card key={report.id}>
           <div className="flex items-start justify-between gap-2">
             <Link
-              className="font-semibold text-indigo-700 hover:underline"
+              className="font-semibold text-link hover:underline"
               href={`/admin/quests/${report.quest_id}`}
             >
               {report.quest_title}
@@ -283,11 +279,11 @@ function ReportsTab() {
               {STATUS_LABELS[report.quest_status].label}
             </Chip>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted">
             Reported by {report.reporter_name} ·{" "}
             {formatZurich(report.created_at)}
           </p>
-          <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+          <p className="mt-2 rounded bg-surface-variant p-3 text-sm text-on-surface-variant">
             “{report.reason}”
           </p>
           <div className="mt-3 flex gap-2">
@@ -336,13 +332,13 @@ function Dashboard() {
   return (
     <>
       <div
-        className="grid grid-cols-4 gap-1 rounded-xl bg-slate-200 p-1"
+        className="grid grid-cols-4 gap-1 rounded-md bg-surface-container p-1"
         role="tablist"
       >
         {tabs.map(({ key, label }) => (
           <button
             aria-selected={tab === key}
-            className={`rounded-lg px-2 py-2 text-sm font-semibold ${tab === key ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"}`}
+            className={`rounded px-2 py-2 text-sm font-semibold ${tab === key ? "bg-surface dark:bg-surface-variant text-link " : "text-muted"}`}
             key={key}
             onClick={() => setTab(key)}
             role="tab"
@@ -350,7 +346,7 @@ function Dashboard() {
           >
             {label}
             {counts[key] > 0 && (
-              <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-xs text-white">
+              <span className="ml-1 rounded-full bg-on-surface px-1.5 text-xs text-surface">
                 {counts[key]}
               </span>
             )}

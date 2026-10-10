@@ -36,7 +36,7 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
     return <CompletedNote completedAt={quest.completed_at} />;
   if (quest.completion_status === "pending") {
     return (
-      <div className="rounded-2xl bg-amber-50 p-5 text-amber-900 ring-1 ring-amber-200">
+      <div className="rounded-lg bg-warning-surface p-5 text-warning ring-1 ring-warning/40">
         <p className="font-semibold">
           ⏳ Waiting for a maintainer to review your completion.
         </p>
@@ -50,7 +50,7 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
   return (
     <div className="flex flex-col gap-3">
       {quest.completion_status === "rejected" && (
-        <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
+        <div className="rounded-lg bg-danger-surface p-4 text-sm text-danger ring-1 ring-danger/40">
           <p className="font-semibold">
             Your last submission was not accepted.
           </p>
@@ -62,11 +62,11 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
       )}
       {quest.requires_approval && (
         <label
-          className="text-sm font-medium text-slate-700"
+          className="text-sm font-medium text-on-surface-variant"
           htmlFor="completion-note"
         >
           What did you do?{" "}
-          <span className="font-normal text-slate-500">
+          <span className="font-normal text-muted">
             (shown to the reviewer)
           </span>
           <textarea
@@ -92,7 +92,7 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
             ? "Submit for review"
             : "I completed this"}
       </button>
-      <p className="text-center text-xs text-slate-500">
+      <p className="text-center text-xs text-muted">
         {quest.requires_approval
           ? "A maintainer checks this quest before you get the points."
           : "Only tap after you have done the activity. Points are awarded once per quest."}

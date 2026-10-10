@@ -19,30 +19,45 @@ export const MEETUP_LABELS: Record<
   NonNullable<QuestOutMeetupState>,
   { label: string; className: string }
 > = {
-  upcoming: { label: "Upcoming", className: "bg-sky-100 text-sky-700" },
+  upcoming: { label: "Upcoming", className: "border border-link text-link" },
   live: {
-    label: "Check-in open",
-    className: "bg-emerald-100 text-emerald-700",
+    label: "● Check-in open",
+    className: "border border-success text-success",
   },
-  past: { label: "Over", className: "bg-slate-200 text-slate-600" },
-  cancelled: { label: "Cancelled", className: "bg-red-100 text-red-700" },
+  past: {
+    label: "Over",
+    className: "border border-outline-variant text-muted",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "border border-danger text-danger",
+  },
 };
 
 export const STATUS_LABELS: Record<
   QuestOutStatus,
   { label: string; className: string }
 > = {
-  draft: { label: "Draft", className: "bg-slate-200 text-slate-700" },
+  draft: {
+    label: "Draft",
+    className: "border border-outline text-on-surface-variant",
+  },
   pending_review: {
     label: "Waiting for review",
-    className: "bg-amber-100 text-amber-800",
+    className: "border border-warning text-warning",
   },
   published: {
     label: "Published",
-    className: "bg-emerald-100 text-emerald-700",
+    className: "border border-success text-success",
   },
-  rejected: { label: "Rejected", className: "bg-red-100 text-red-700" },
-  retired: { label: "Retired", className: "bg-slate-200 text-slate-500" },
+  rejected: {
+    label: "Rejected",
+    className: "border border-danger text-danger",
+  },
+  retired: {
+    label: "Retired",
+    className: "border border-outline-variant text-muted",
+  },
 };
 
 // Meetups are on campus, so times are always shown in Zurich time,

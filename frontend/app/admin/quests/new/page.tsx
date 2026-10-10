@@ -9,7 +9,7 @@ export default function NewQuestPage() {
   return (
     <Page>
       <Link
-        className="text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+        className="text-sm font-semibold text-link hover:underline"
         href="/admin"
       >
         ← Quest admin

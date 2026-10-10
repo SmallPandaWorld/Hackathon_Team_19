@@ -25,7 +25,8 @@ export function TabBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+    // z-index above Leaflet's map panes and controls (up to 1000).
+    <nav className="fixed inset-x-0 bottom-0 z-[1100] border-t border-outline-variant bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <ul className="mx-auto grid max-w-2xl grid-cols-4">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
@@ -33,13 +34,16 @@ export function TabBar() {
             <li key={tab.href}>
               <Link
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-0.5 py-2 text-xs font-semibold ${
+                className={`relative flex flex-col items-center gap-0.5 py-2 text-xs font-semibold ${
                   active
-                    ? "text-indigo-600"
-                    : "text-slate-500 hover:text-slate-700"
+                    ? "text-on-surface"
+                    : "text-muted hover:text-on-surface"
                 }`}
                 href={tab.href}
               >
+                {active && (
+                  <span className="absolute inset-x-6 top-0 h-[3px] rounded-b-sm bg-primary" />
+                )}
                 <span aria-hidden className="text-lg leading-none">
                   {tab.icon}
                 </span>

@@ -79,8 +79,8 @@ export interface AdminQuestIn {
   points: number;
   kind?: AdminQuestInKind;
   requires_approval?: boolean;
-  map_x?: number | null;
-  map_y?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   starts_at?: string | null;
   ends_at?: string | null;
   cancelled?: boolean;
@@ -137,8 +137,8 @@ export interface AdminQuestOut {
   kind: AdminQuestOutKind;
   status: AdminQuestOutStatus;
   requires_approval: boolean;
-  map_x?: number | null;
-  map_y?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   starts_at?: string | null;
   ends_at?: string | null;
   cancelled: boolean;
@@ -363,10 +363,10 @@ export interface QuestOut {
   kind: QuestOutKind;
   status: QuestOutStatus;
   requires_approval: boolean;
-  /** Map pin, % of width */
-  map_x?: number | null;
-  /** Map pin, % of height */
-  map_y?: number | null;
+  /** Map pin (WGS84) */
+  latitude?: number | null;
+  /** Map pin (WGS84) */
+  longitude?: number | null;
   starts_at?: string | null;
   ends_at?: string | null;
   meetup_state?: QuestOutMeetupState;

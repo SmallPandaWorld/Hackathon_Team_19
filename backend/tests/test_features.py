@@ -111,7 +111,7 @@ def test_invalid_input_is_rejected(client):
         {"prompt": "?", "choices": ["a", "b"], "correct_index": 5}])
     assert client.post("/admin/quests", headers=ADMIN, json=bad_quiz).status_code == 422
     assert client.post("/admin/quests", headers=ADMIN,
-                       json=quest_input(map_x=150, map_y=10)).status_code == 422
+                       json=quest_input(latitude=95, longitude=8.5)).status_code == 422
     assert client.post("/admin/quests", headers=ADMIN,
                        json=quest_input(kind="dance")).status_code == 422
 
@@ -498,10 +498,11 @@ def test_meetup_editor_stores_utc(client):
 
 def test_map_pins(client):
     quests = {q["id"]: q for q in client.get("/quests", headers=ALICE).json()}
-    assert quests[SOLO_ID]["map_x"] is not None and quests[SOLO_ID]["map_y"] is not None
-    assert quests[2]["map_x"] is None  # "anywhere" quests have no pin
+    assert 47.37 < quests[SOLO_ID]["latitude"] < 47.38  # ETH Zentrum
+    assert 8.54 < quests[SOLO_ID]["longitude"] < 8.55
+    assert quests[2]["latitude"] is None  # "anywhere" quests have no pin
     half_pin = client.put(f"/admin/quests/{SOLO_ID}", headers=ADMIN,
-                          json=quest_input(map_x=10))
+                          json=quest_input(latitude=47.376))
     assert half_pin.status_code == 409
 
 
@@ -645,7 +646,7 @@ def test_mvp_database_is_upgraded(tmp_path, monkeypatch):
     database.upgrade_legacy_schema()
 
     columns = {c["name"] for c in inspect(mvp_engine).get_columns("quests")}
-    assert {"kind", "status", "map_x", "starts_at"} <= columns
+    assert {"kind", "status", "latitude", "starts_at"} <= columns
     with mvp_engine.connect() as connection:
         quest = connection.execute(text("SELECT kind, status FROM quests")).one()
         assert tuple(quest) == ("solo", "published")

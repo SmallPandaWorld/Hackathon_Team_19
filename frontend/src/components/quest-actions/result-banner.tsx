@@ -6,10 +6,10 @@ export function ResultBanner({ result }: { result: CompletionResult }) {
   const pending = result.status === "pending";
   return (
     <div
-      className={`rounded-2xl p-5 ring-1 ${
+      className={`rounded-lg p-5 ring-1 ${
         pending
-          ? "bg-amber-50 text-amber-900 ring-amber-200"
-          : "bg-emerald-50 text-emerald-800 ring-emerald-200"
+          ? "bg-warning-surface text-warning ring-warning/40"
+          : "bg-success-surface text-success ring-success/40"
       }`}
       role="status"
     >
@@ -50,7 +50,7 @@ export function CompletedNote({
   completedAt?: string | null;
 }) {
   return (
-    <div className="rounded-2xl bg-emerald-50 p-5 text-emerald-800 ring-1 ring-emerald-200">
+    <div className="rounded-lg bg-success-surface p-5 text-success ring-1 ring-success/40">
       <p className="font-semibold">✓ You completed this quest.</p>
       {completedAt && (
         <p className="mt-1 text-sm">

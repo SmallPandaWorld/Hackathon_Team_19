@@ -76,9 +76,9 @@ class Quest(Base):
     # Solo quests only: completions wait for a maintainer.
     requires_approval: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0"))
-    # Pin on the campus map, in percent of the map's width/height.
-    map_x: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    map_y: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # Pin on the campus map (WGS84, as on OpenStreetMap).
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Meetups only.
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

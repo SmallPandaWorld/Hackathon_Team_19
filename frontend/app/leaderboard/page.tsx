@@ -10,19 +10,19 @@ function EntryRow({ entry }: { entry: LeaderboardEntry }) {
   return (
     <li
       className={`flex items-center gap-3 px-4 py-3 ${
-        entry.is_current_player ? "bg-indigo-50 font-semibold" : ""
+        entry.is_current_player ? "bg-surface-variant font-semibold" : ""
       }`}
     >
-      <span className="w-8 shrink-0 text-center font-bold text-slate-500">
+      <span className="w-8 shrink-0 text-center font-bold text-muted">
         {entry.rank}
       </span>
       <span className="min-w-0 flex-1 truncate">
         {entry.display_name}
         {entry.is_current_player && (
-          <span className="ml-2 text-xs text-indigo-600">(you)</span>
+          <span className="ml-2 text-xs text-link">(you)</span>
         )}
       </span>
-      <span className="shrink-0 font-bold text-indigo-600">{entry.points}</span>
+      <span className="shrink-0 font-bold text-link">{entry.points}</span>
     </li>
   );
 }
@@ -49,11 +49,11 @@ export default function LeaderboardPage() {
       ) : (
         <>
           {board.entries.length === 0 ? (
-            <p className="rounded-2xl bg-white p-6 text-center text-slate-500 ring-1 ring-slate-200">
+            <p className="rounded-lg bg-surface dark:bg-surface-variant p-6 text-center text-muted ring-1 ring-outline-variant">
               Nobody has points yet. Complete a quest to take first place!
             </p>
           ) : (
-            <ol className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+            <ol className="divide-y divide-outline-variant overflow-hidden rounded-lg bg-surface dark:bg-surface-variant ring-1 ring-outline-variant">
               {board.entries.map((entry) => (
                 <EntryRow entry={entry} key={entry.player_id} />
               ))}
@@ -61,8 +61,8 @@ export default function LeaderboardPage() {
           )}
           {!currentListed && (
             <div>
-              <p className="mb-2 text-sm text-slate-500">Your position</p>
-              <ol className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+              <p className="mb-2 text-sm text-muted">Your position</p>
+              <ol className="overflow-hidden rounded-lg bg-surface dark:bg-surface-variant ring-1 ring-outline-variant">
                 <EntryRow entry={board.current_player} />
               </ol>
             </div>

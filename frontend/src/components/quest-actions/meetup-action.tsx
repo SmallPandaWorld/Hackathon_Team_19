@@ -50,7 +50,7 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div className="rounded-lg bg-surface dark:bg-surface-variant p-5 ring-1 ring-outline-variant">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">When</h2>
           <Chip className={MEETUP_LABELS[state].className}>
@@ -59,12 +59,12 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
         </div>
         {quest.starts_at && quest.ends_at && (
           <p
-            className={`mt-2 text-lg font-semibold ${state === "cancelled" ? "line-through text-slate-400" : ""}`}
+            className={`mt-2 text-lg font-semibold ${state === "cancelled" ? "line-through text-muted" : ""}`}
           >
             {formatMeetupTime(quest.starts_at, quest.ends_at)}
           </p>
         )}
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-muted">
           {quest.rsvp_count ?? 0}{" "}
           {quest.rsvp_count === 1 ? "player is" : "players are"} coming
           {quest.rsvp ? ", including you." : "."}
@@ -95,7 +95,7 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
           {checkIn.isPending ? "Checking in..." : "I'm here: check in"}
         </button>
       ) : (
-        <p className="rounded-2xl bg-slate-100 p-4 text-center text-sm text-slate-600">
+        <p className="rounded-lg bg-surface-variant p-4 text-center text-sm text-muted">
           {CLOSED_MESSAGES[state]}
         </p>
       )}

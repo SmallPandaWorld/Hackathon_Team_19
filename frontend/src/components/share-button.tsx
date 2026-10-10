@@ -41,10 +41,7 @@ export function ShareButton({
         {label}
       </button>
       {feedback && (
-        <p
-          className="break-all text-center text-xs text-slate-500"
-          role="status"
-        >
+        <p className="break-all text-center text-xs text-muted" role="status">
           {feedback}
         </p>
       )}

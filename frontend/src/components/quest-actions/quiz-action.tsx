@@ -47,12 +47,12 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
         const checked = result?.correct[index];
         return (
           <fieldset
-            className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ${
+            className={`rounded-lg bg-surface dark:bg-surface-variant p-5  ring-1 ${
               checked === undefined
-                ? "ring-slate-200"
+                ? "ring-outline-variant"
                 : checked
-                  ? "ring-emerald-300"
-                  : "ring-red-300"
+                  ? "ring-success/40"
+                  : "ring-danger/40"
             }`}
             disabled={result !== null}
             key={question.id}
@@ -64,16 +64,16 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
             <div className="mt-3 flex flex-col gap-2">
               {question.choices.map((choice, choiceIndex) => (
                 <label
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 ring-1 ${
+                  className={`flex cursor-pointer items-center gap-3 rounded px-3 py-2 ring-1 ${
                     answers[index] === choiceIndex
-                      ? "bg-indigo-50 ring-indigo-300"
-                      : "ring-slate-200"
+                      ? "bg-surface-variant ring-outline"
+                      : "ring-outline-variant"
                   }`}
                   key={choiceIndex}
                 >
                   <input
                     checked={answers[index] === choiceIndex}
-                    className="accent-indigo-600"
+                    className="accent-on-surface"
                     name={`question-${question.id}`}
                     onChange={() =>
                       setAnswers((current) =>
@@ -88,7 +88,7 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
             </div>
             {checked !== undefined && (
               <p
-                className={`mt-2 text-sm font-semibold ${checked ? "text-emerald-700" : "text-red-700"}`}
+                className={`mt-2 text-sm font-semibold ${checked ? "text-success" : "text-danger"}`}
               >
                 {checked ? "✓ Correct" : "✗ Not quite"}
               </p>
@@ -99,7 +99,7 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
 
       {result && !result.passed ? (
         <div
-          className="rounded-2xl bg-amber-50 p-5 text-amber-900 ring-1 ring-amber-200"
+          className="rounded-lg bg-warning-surface p-5 text-warning ring-1 ring-warning/40"
           role="status"
         >
           <p className="font-semibold">

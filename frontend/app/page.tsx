@@ -32,10 +32,10 @@ export default function Home() {
 
       <Card>
         <h2 className="font-semibold">How it works</h2>
-        <ol className="mt-3 space-y-2 text-sm text-slate-600">
+        <ol className="mt-3 space-y-2 text-sm text-muted">
           {STEPS.map((step, index) => (
             <li className="flex gap-3" key={step}>
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
                 {index + 1}
               </span>
               {step}
@@ -46,7 +46,7 @@ export default function Home() {
 
       <Card>
         <h2 className="font-semibold">Got a code from another player?</h2>
-        <p className="mb-3 mt-1 text-sm text-slate-600">
+        <p className="mb-3 mt-1 text-sm text-muted">
           Enter it to complete a partner quest together.
         </p>
         <JoinCodeForm />
@@ -56,7 +56,7 @@ export default function Home() {
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-xl font-bold">Quests</h2>
           {quests && (
-            <span className="text-sm text-slate-500">{openCount} open</span>
+            <span className="text-sm text-muted">{openCount} open</span>
           )}
         </div>
 
@@ -68,7 +68,7 @@ export default function Home() {
             onRetry={() => refetch()}
           />
         ) : quests.length === 0 ? (
-          <p className="py-8 text-center text-slate-500">
+          <p className="py-8 text-center text-muted">
             No quests available yet.
           </p>
         ) : (

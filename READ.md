@@ -73,8 +73,19 @@ meetup not live), `410` expired/cancelled code.
   only show the shared hobbies, and dismissed players never come back.
 - **Badges** are computed from approved completions (never stored twice).
 - **Leaderboard**: only approved points; equal points share a rank.
-- **Map**: schematic SVG in `frontend/src/components/campus-map.tsx`. Pins
-  are percent coordinates, set by clicking the map in the quest editor.
+- **Map**: real OpenStreetMap tiles via Leaflet
+  (`frontend/src/components/campus-map.tsx`), no API key needed. Pins are
+  latitude/longitude, set by tapping the map in the quest editor. Dark mode
+  darkens the tiles with a CSS filter. OSM's tile policy is fine for event
+  traffic; switch to a hosted tile provider for anything bigger.
+
+### Design
+The look follows the VIS website (vis.ethz.ch): yellow `#ffe210` primary
+buttons with near-black text, ETH-blue links, flat surfaces with thin
+outlines, small radii, Inter with optical sizing (≈ Inter Display), and
+automatic light/dark mode. Colors are tokens in `frontend/app/globals.css`
+(use classes like `bg-primary`, `text-on-surface`, `border-outline-variant`);
+shared buttons, cards and chips live in `frontend/src/components/page.tsx`.
 
 ### Deployment / data
 The deployed SQLite database lives in the Docker volume `backend-data`

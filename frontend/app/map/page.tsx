@@ -6,7 +6,8 @@ import { QuestCard } from "@/src/components/quest-card";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useListQuests } from "@/src/lib/api/quests";
-import { useEffect, useState } from "react";
+import { KIND_LABELS } from "@/src/lib/quest-display";
+import { useEffect, useMemo, useState } from "react";
 
 export default function MapPage() {
   const { data, isLoading, isError, refetch } = useListQuests();
@@ -22,11 +23,26 @@ export default function MapPage() {
     if (match) setSelectedId(Number(match[1]));
   }, []);
 
-  const pinned =
-    quests?.filter((q) => q.map_x != null && q.map_y != null) ?? [];
+  const pinned = useMemo(
+    () =>
+      quests?.filter((q) => q.latitude != null && q.longitude != null) ?? [],
+    [quests],
+  );
   const unpinned =
-    quests?.filter((q) => q.map_x == null || q.map_y == null) ?? [];
+    quests?.filter((q) => q.latitude == null || q.longitude == null) ?? [];
   const selected = pinned.find((q) => q.id === selectedId);
+  const pins = useMemo(
+    () =>
+      pinned.map((q) => ({
+        id: q.id,
+        lat: q.latitude as number,
+        lng: q.longitude as number,
+        label: q.title,
+        icon: KIND_LABELS[q.kind].icon,
+        done: q.completed,
+      })),
+    [pinned],
+  );
 
   return (
     <Page>
@@ -44,17 +60,12 @@ export default function MapPage() {
           <div>
             <CampusMap
               onSelect={setSelectedId}
-              pins={pinned.map((q) => ({
-                id: q.id,
-                x: q.map_x as number,
-                y: q.map_y as number,
-                label: q.title,
-                done: q.completed,
-              }))}
+              pins={pins}
               selectedId={selectedId}
             />
-            <p className="mt-2 text-xs text-slate-500">
-              Tap a pin to see its quest. Green pins are quests you completed.
+            <p className="mt-2 text-xs text-muted">
+              Tap a pin to see its quest. Yellow pins are open, dark pins with ✓
+              are done.
             </p>
           </div>
 
@@ -62,8 +73,8 @@ export default function MapPage() {
             <QuestCard quest={selected} />
           ) : (
             pinned.length > 0 && (
-              <p className="rounded-2xl bg-white p-4 text-center text-sm text-slate-500 ring-1 ring-slate-200">
-                No quest selected.
+              <p className="rounded-lg border border-dashed border-outline-variant p-4 text-center text-sm text-muted">
+                Tap a pin to see the quest here.
               </p>
             )
           )}
@@ -83,7 +94,7 @@ export default function MapPage() {
           {unpinned.length > 0 && (
             <section>
               <h2 className="mb-1 text-lg font-bold">Anywhere on campus</h2>
-              <p className="mb-3 text-sm text-slate-500">
+              <p className="mb-3 text-sm text-muted">
                 These quests aren&apos;t tied to one place.
               </p>
               <ul className="flex flex-col gap-3">

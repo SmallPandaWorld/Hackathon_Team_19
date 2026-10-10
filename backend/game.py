@@ -237,8 +237,8 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             kind=quest.kind,
             status=quest.status,
             requires_approval=quest.requires_approval,
-            map_x=quest.map_x,
-            map_y=quest.map_y,
+            latitude=quest.latitude,
+            longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),
             ends_at=as_utc(quest.ends_at),
             meetup_state=meetup_state(quest, now),
@@ -275,7 +275,7 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
         problems.append("Instructions need at least 10 characters.")
     if quest.points < 1:
         problems.append("Points must be at least 1.")
-    if (quest.map_x is None) != (quest.map_y is None):
+    if (quest.latitude is None) != (quest.longitude is None):
         problems.append("Map pin needs both coordinates (or neither).")
     if quest.kind == QUIZ:
         questions = ordered_questions(db, quest.id)

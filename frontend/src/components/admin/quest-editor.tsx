@@ -89,9 +89,9 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   const [requiresApproval, setRequiresApproval] = useState(
     quest?.requires_approval ?? false,
   );
-  const [pin, setPin] = useState<{ x: number; y: number } | null>(
-    quest?.map_x != null && quest?.map_y != null
-      ? { x: quest.map_x, y: quest.map_y }
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
+    quest?.latitude != null && quest?.longitude != null
+      ? { lat: quest.latitude, lng: quest.longitude }
       : null,
   );
   const [startsAt, setStartsAt] = useState(toLocalInput(quest?.starts_at));
@@ -130,8 +130,8 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
       points: Number(points) || 0,
       kind,
       requires_approval: kind === "solo" && requiresApproval,
-      map_x: pin?.x ?? null,
-      map_y: pin?.y ?? null,
+      latitude: pin?.lat ?? null,
+      longitude: pin?.lng ?? null,
       starts_at: kind === "meetup" ? fromLocalInput(startsAt) : null,
       ends_at: kind === "meetup" ? fromLocalInput(endsAt) : null,
       cancelled: kind === "meetup" && cancelled,
@@ -197,18 +197,18 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             <Chip className={STATUS_LABELS[quest.status].className}>
               {STATUS_LABELS[quest.status].label}
             </Chip>
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-muted">
               {quest.completion_count} completed · {quest.open_reports} open
               reports
             </span>
           </div>
           {quest.author_name && (
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-muted">
               Suggested by {quest.author_name}
             </p>
           )}
           {quest.publish_problems.length > 0 && (
-            <ul className="mt-3 list-disc rounded-lg bg-amber-50 py-2 pl-8 pr-3 text-sm text-amber-900">
+            <ul className="mt-3 list-disc rounded bg-warning-surface py-2 pl-8 pr-3 text-sm text-warning">
               {quest.publish_problems.map((problem) => (
                 <li key={problem}>{problem}</li>
               ))}
@@ -231,14 +231,14 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-muted">
             Save your edits before publishing.
           </p>
         </Card>
       )}
 
       <Card className="flex flex-col gap-4">
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-on-surface-variant">
           Type
           <select
             className={inputStyles}
@@ -254,11 +254,11 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
               </option>
             ))}
           </select>
-          <span className="mt-1 block text-xs font-normal text-slate-500">
+          <span className="mt-1 block text-xs font-normal text-muted">
             {KIND_HELP[kind]}
           </span>
         </label>
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-on-surface-variant">
           Title
           <input
             className={inputStyles}
@@ -268,7 +268,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             value={title}
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-on-surface-variant">
           Instructions
           <textarea
             className={inputStyles}
@@ -280,9 +280,8 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           />
         </label>
         <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
-          <label className="text-sm font-medium text-slate-700">
-            Location{" "}
-            <span className="font-normal text-slate-500">(optional)</span>
+          <label className="text-sm font-medium text-on-surface-variant">
+            Location <span className="font-normal text-muted">(optional)</span>
             <input
               className={inputStyles}
               maxLength={255}
@@ -290,7 +289,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
               value={location}
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-on-surface-variant">
             Points
             <input
               className={inputStyles}
@@ -304,7 +303,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           </label>
         </div>
         {quest && quest.completion_count > 0 && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             Changing points only affects future completions.
           </p>
         )}
@@ -312,13 +311,13 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <label className="flex items-start gap-3 text-sm">
             <input
               checked={requiresApproval}
-              className="mt-0.5 h-4 w-4 accent-indigo-600"
+              className="mt-0.5 h-4 w-4 accent-on-surface"
               onChange={(e) => edited(setRequiresApproval)(e.target.checked)}
               type="checkbox"
             />
             <span>
               <span className="font-semibold">Maintainer approval</span>
-              <span className="block text-slate-600">
+              <span className="block text-muted">
                 Players describe what they did; points only after a maintainer
                 approves.
               </span>
@@ -331,7 +330,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Time</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-on-surface-variant">
               Starts
               <input
                 className={inputStyles}
@@ -340,7 +339,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 value={startsAt}
               />
             </label>
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-on-surface-variant">
               Ends
               <input
                 className={inputStyles}
@@ -351,7 +350,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </label>
           </div>
           {startsAt && endsAt && (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted">
               Players see: {formatZurich(new Date(startsAt).toISOString())} –{" "}
               {formatZurich(new Date(endsAt).toISOString())} (Zurich time)
             </p>
@@ -359,11 +358,11 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <label className="flex items-center gap-3 text-sm">
             <input
               checked={cancelled}
-              className="h-4 w-4 accent-red-600"
+              className="h-4 w-4 accent-on-surface"
               onChange={(e) => edited(setCancelled)(e.target.checked)}
               type="checkbox"
             />
-            <span className="font-semibold text-red-700">
+            <span className="font-semibold text-danger">
               Meetup is cancelled
             </span>
           </label>
@@ -374,17 +373,17 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
         <Card className="flex flex-col gap-3">
           <h2 className="font-semibold">Steps (in order)</h2>
           {quest && quest.completion_count > 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
               Once players have progress you can reword steps, but not add or
               remove them.
             </p>
           )}
           {steps.map((step, index) => (
-            <div className="rounded-xl bg-slate-50 p-3" key={index}>
+            <div className="rounded-md bg-surface-variant p-3" key={index}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Step {index + 1}</span>
                 <button
-                  className="text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-40"
+                  className="text-xs font-semibold text-muted hover:text-danger disabled:opacity-40"
                   disabled={steps.length <= 2}
                   onClick={() =>
                     edited(setSteps)(steps.filter((_, i) => i !== index))
@@ -447,13 +446,13 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 ),
               );
             return (
-              <div className="rounded-xl bg-slate-50 p-3" key={qIndex}>
+              <div className="rounded-md bg-surface-variant p-3" key={qIndex}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold">
                     Question {qIndex + 1}
                   </span>
                   <button
-                    className="text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-40"
+                    className="text-xs font-semibold text-muted hover:text-danger disabled:opacity-40"
                     disabled={questions.length <= 1}
                     onClick={() =>
                       edited(setQuestions)(
@@ -473,7 +472,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                   required
                   value={question.prompt}
                 />
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-muted">
                   Choices: select the correct one.
                 </p>
                 {question.choices.map((choice, cIndex) => (
@@ -481,7 +480,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                     <input
                       aria-label={`Choice ${cIndex + 1} is correct`}
                       checked={question.correct_index === cIndex}
-                      className="h-4 w-4 accent-emerald-600"
+                      className="h-4 w-4 accent-on-surface"
                       name={`correct-${qIndex}`}
                       onChange={() => update({ correct_index: cIndex })}
                       type="radio"
@@ -501,7 +500,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                     />
                     <button
                       aria-label={`Remove choice ${cIndex + 1}`}
-                      className="px-1 text-slate-400 hover:text-red-600 disabled:opacity-30"
+                      className="px-1 text-muted hover:text-danger disabled:opacity-30"
                       disabled={question.choices.length <= 2}
                       onClick={() =>
                         update({
@@ -524,7 +523,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
                 ))}
                 {question.choices.length < 8 && (
                   <button
-                    className="mt-2 text-xs font-semibold text-indigo-600"
+                    className="mt-2 text-xs font-semibold text-link"
                     onClick={() =>
                       update({ choices: [...question.choices, ""] })
                     }
@@ -557,7 +556,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <h2 className="font-semibold">Map pin</h2>
           {pin && (
             <button
-              className="text-xs font-semibold text-slate-500 hover:text-red-600"
+              className="text-xs font-semibold text-muted hover:text-danger"
               onClick={() => edited(setPin)(null)}
               type="button"
             >
@@ -565,37 +564,43 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             </button>
           )}
         </div>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted">
           Tap the map where the quest takes place. Leave it empty for “anywhere”
           quests.
         </p>
         <CampusMap
-          onPick={(x, y) => edited(setPin)({ x, y })}
+          className="h-80"
+          onPick={(lat, lng) => edited(setPin)({ lat, lng })}
           pins={
             pin
               ? [
                   {
                     id: 0,
-                    x: pin.x,
-                    y: pin.y,
+                    lat: pin.lat,
+                    lng: pin.lng,
                     label: title || "Quest location",
                   },
                 ]
               : []
           }
         />
+        {pin && (
+          <p className="text-xs text-muted">
+            {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
+          </p>
+        )}
       </Card>
 
       <div className="sticky bottom-20 z-10 flex flex-col gap-2">
         <button
-          className={`${buttonStyles.primary} py-4 text-lg shadow-lg`}
+          className={`${buttonStyles.primary} py-4 text-lg `}
           disabled={saving}
           type="submit"
         >
           {saving ? "Saving..." : quest ? "Save changes" : "Create draft"}
         </button>
         {saved && (
-          <p className="rounded-lg bg-emerald-50 p-2 text-center text-sm text-emerald-700">
+          <p className="rounded bg-success-surface p-2 text-center text-sm text-success">
             Saved ✓
           </p>
         )}

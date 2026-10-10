@@ -42,18 +42,18 @@ function WaitingForPartner({
   const seconds = String(secondsLeft % 60).padStart(2, "0");
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-white p-5 text-center shadow-sm ring-1 ring-indigo-200">
-      <p className="text-sm text-slate-600">Show this code to your partner:</p>
+    <div className="flex flex-col gap-3 rounded-lg bg-surface dark:bg-surface-variant p-5 text-center ring-1 ring-outline">
+      <p className="text-sm text-muted">Show this code to your partner:</p>
       <p
-        className="font-mono text-5xl font-bold tracking-[0.2em] text-indigo-700"
+        className="font-mono text-5xl font-bold tracking-[0.2em] text-link"
         aria-label={`Code ${session.code.split("").join(" ")}`}
       >
         {session.code}
       </p>
-      <p className="text-sm text-slate-500" role="timer">
+      <p className="text-sm text-muted" role="timer">
         {secondsLeft > 0 ? `Valid for ${minutes}:${seconds}` : "Expired"}
       </p>
-      <p className="animate-pulse text-sm font-semibold text-indigo-600">
+      <p className="animate-pulse text-sm font-semibold text-link">
         Waiting for your partner to join…
       </p>
       <ShareButton
@@ -64,7 +64,7 @@ function WaitingForPartner({
         title="Campus Voyager"
       />
       <button
-        className="text-sm font-semibold text-slate-500 hover:text-red-600"
+        className="text-sm font-semibold text-muted hover:text-danger"
         disabled={cancelling}
         onClick={onCancel}
         type="button"
@@ -121,7 +121,7 @@ export function PairAction({ quest }: { quest: QuestOut }) {
       <div className="flex flex-col gap-3">
         {partnerJustJoined && session?.is_host && (
           <p
-            className="rounded-2xl bg-emerald-50 p-4 text-lg font-bold text-emerald-800 ring-1 ring-emerald-200"
+            className="rounded-lg bg-success-surface p-4 text-lg font-bold text-success ring-1 ring-success/40"
             role="status"
           >
             🎉 {session.partner_name} joined! You both got +{quest.points}{" "}
@@ -130,7 +130,7 @@ export function PairAction({ quest }: { quest: QuestOut }) {
         )}
         <CompletedNote completedAt={quest.completed_at} />
         {session?.state === "completed" && (
-          <p className="text-center text-sm text-slate-600">
+          <p className="text-center text-sm text-muted">
             Completed together with{" "}
             {session.is_host ? session.partner_name : session.host_name}.
           </p>
@@ -148,16 +148,14 @@ export function PairAction({ quest }: { quest: QuestOut }) {
           session={session}
         />
       ) : (
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="rounded-lg bg-surface dark:bg-surface-variant p-5 ring-1 ring-outline-variant">
           <h2 className="font-semibold">Start together</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-muted">
             One of you starts the quest and shows the code; the other enters it.
             You both get the points.
           </p>
           {state === "expired" && (
-            <p className="mt-2 text-sm text-amber-700">
-              Your last code expired.
-            </p>
+            <p className="mt-2 text-sm text-warning">Your last code expired.</p>
           )}
           <button
             className={`${buttonStyles.primary} mt-3 w-full py-3`}
@@ -169,10 +167,10 @@ export function PairAction({ quest }: { quest: QuestOut }) {
               ? "Starting..."
               : "Get a code for my partner"}
           </button>
-          <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" />
+          <div className="my-4 flex items-center gap-3 text-xs text-muted">
+            <span className="h-px flex-1 bg-surface-container" />
             or enter your partner&apos;s code
-            <span className="h-px flex-1 bg-slate-200" />
+            <span className="h-px flex-1 bg-surface-container" />
           </div>
           <JoinCodeForm />
         </div>

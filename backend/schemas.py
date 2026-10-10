@@ -71,8 +71,8 @@ class QuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
-    map_x: Optional[float] = Field(default=None, description="Map pin, % of width")
-    map_y: Optional[float] = Field(default=None, description="Map pin, % of height")
+    latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
+    longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     meetup_state: Optional[MeetupState] = None
@@ -230,8 +230,8 @@ class AdminQuestIn(BaseModel):
     points: int = Field(ge=0, le=1000)
     kind: QuestKind = "solo"
     requires_approval: bool = False
-    map_x: Optional[float] = Field(default=None, ge=0, le=100)
-    map_y: Optional[float] = Field(default=None, ge=0, le=100)
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     cancelled: bool = False
@@ -252,8 +252,8 @@ class AdminQuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
-    map_x: Optional[float] = None
-    map_y: Optional[float] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     cancelled: bool

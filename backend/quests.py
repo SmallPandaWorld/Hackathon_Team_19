@@ -8,8 +8,7 @@ IDs are stable and below 1000 (quests created in the app start at 1000):
 never reuse or renumber an ID, because saved completions point to it.
 
 DRAFT CONTENT: titles, wording, times and points still need team approval.
-Map pins are percentages on the schematic map in the frontend
-(src/components/campus-map.tsx).
+Map pins are WGS84 coordinates, looked up on OpenStreetMap.
 """
 
 import json
@@ -31,8 +30,8 @@ QUESTS = [
         ),
         "location": "Polyterrasse, ETH main building (HG)",
         "points": 10,
-        "map_x": 22,
-        "map_y": 40,
+        "latitude": 47.37610,  # Polyterrasse viewpoint
+        "longitude": 8.54652,
     },
     {
         "id": 2,
@@ -56,8 +55,8 @@ QUESTS = [
         ),
         "location": "Any cafeteria on campus",
         "points": 15,
-        "map_x": 20,
-        "map_y": 72,
+        "latitude": 47.37630,  # Mensa Polyterrasse
+        "longitude": 8.54654,
     },
     {
         "id": 4,
@@ -101,8 +100,8 @@ QUESTS = [
         ),
         "location": "ETH main building (HG)",
         "points": 30,
-        "map_x": 62,
-        "map_y": 48,
+        "latitude": 47.37640,  # ETH main building (HG)
+        "longitude": 8.54800,
         "steps": [
             {"title": "Start at the Polyterrasse",
              "description": "Take in the view and find the entrance to the main building."},
@@ -122,8 +121,8 @@ QUESTS = [
         ),
         "location": "Polyterrasse, by the railing",
         "points": 20,
-        "map_x": 34,
-        "map_y": 30,
+        "latitude": 47.37617,  # Polyterrasse
+        "longitude": 8.54671,
         # 18:00–18:30 Zurich time (CEST = UTC+2), stored as UTC.
         "starts_at": datetime(2026, 10, 10, 16, 0),
         "ends_at": datetime(2026, 10, 10, 16, 30),

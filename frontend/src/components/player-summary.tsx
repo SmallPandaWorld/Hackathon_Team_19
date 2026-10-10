@@ -12,12 +12,12 @@ export function PlayerSummary() {
     : apiErrorMessage(data);
 
   if (isLoading) {
-    return <div className="h-16 animate-pulse rounded-2xl bg-white/60" />;
+    return <div className="h-16 animate-pulse rounded-lg bg-surface-variant" />;
   }
   if (error || !player) {
     return (
       <p
-        className="rounded-2xl bg-white p-4 text-sm text-red-600 ring-1 ring-slate-200"
+        className="rounded-lg bg-surface dark:bg-surface-variant p-4 text-sm text-danger ring-1 ring-outline-variant"
         role="alert"
       >
         {error ?? "Could not load your profile."}
@@ -28,28 +28,26 @@ export function PlayerSummary() {
   return (
     <div className="flex flex-col gap-3">
       <Link
-        className="flex items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 hover:ring-indigo-300"
+        className="flex items-center justify-between gap-4 rounded-lg bg-surface dark:bg-surface-variant p-4 ring-1 ring-outline-variant hover:ring-outline"
         href="/profile"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
             {player.display_name.charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">Playing as</p>
+            <p className="text-xs text-muted">Playing as</p>
             <p className="truncate font-semibold">{player.display_name}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-indigo-600">
-            {player.total_points}
-          </p>
-          <p className="text-xs text-slate-500">points</p>
+          <p className="text-2xl font-bold text-link">{player.total_points}</p>
+          <p className="text-xs text-muted">points</p>
         </div>
       </Link>
       {player.is_maintainer && (
         <Link
-          className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+          className="rounded-lg bg-warning-surface px-4 py-3 text-sm font-semibold text-warning ring-1 ring-warning/40 hover:bg-warning-surface"
           href="/admin"
         >
           🛠️ Maintainer tools: quests, reviews and reports →

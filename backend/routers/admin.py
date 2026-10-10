@@ -91,8 +91,8 @@ def admin_quest_out(db: Session, quest: Quest) -> AdminQuestOut:
         kind=quest.kind,
         status=quest.status,
         requires_approval=quest.requires_approval,
-        map_x=quest.map_x,
-        map_y=quest.map_y,
+        latitude=quest.latitude,
+        longitude=quest.longitude,
         starts_at=as_utc(quest.starts_at),
         ends_at=as_utc(quest.ends_at),
         cancelled=quest.cancelled,
@@ -125,8 +125,8 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     quest.points = data.points
     quest.kind = data.kind
     quest.requires_approval = data.requires_approval and data.kind == SOLO
-    quest.map_x = data.map_x
-    quest.map_y = data.map_y
+    quest.latitude = data.latitude
+    quest.longitude = data.longitude
     is_meetup = data.kind == MEETUP
     quest.starts_at = to_naive_utc(data.starts_at) if is_meetup else None
     quest.ends_at = to_naive_utc(data.ends_at) if is_meetup else None

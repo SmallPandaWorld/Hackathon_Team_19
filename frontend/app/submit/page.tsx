@@ -56,7 +56,7 @@ export default function SubmitPage() {
           <p className="text-lg font-bold">
             Thanks! “{submitted.title}” was sent for review. 💡
           </p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-muted">
             A maintainer checks every idea before it appears in the app. Follow
             its status on your profile.
           </p>
@@ -85,14 +85,14 @@ export default function SubmitPage() {
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <Card>
             <h2 className="font-semibold">Quest rules</h2>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
               {RULES.map((rule) => (
                 <li key={rule}>{rule}</li>
               ))}
             </ul>
           </Card>
           <Card className="flex flex-col gap-4">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-on-surface-variant">
               Title
               <input
                 className={inputStyles}
@@ -103,7 +103,7 @@ export default function SubmitPage() {
                 value={title}
               />
             </label>
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-on-surface-variant">
               Instructions
               <textarea
                 className={inputStyles}
@@ -116,9 +116,9 @@ export default function SubmitPage() {
                 value={description}
               />
             </label>
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-on-surface-variant">
               Location{" "}
-              <span className="font-normal text-slate-500">(optional)</span>
+              <span className="font-normal text-muted">(optional)</span>
               <input
                 className={inputStyles}
                 maxLength={255}
