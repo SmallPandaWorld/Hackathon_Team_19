@@ -1,6 +1,8 @@
 services:
   backend:
     build: ./backend
+    environment:
+      APP_ENV: ${APP_ENV:-production}
     ports:
       - 8000:8000
     restart: unless-stopped

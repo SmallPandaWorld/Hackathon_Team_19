@@ -1,150 +1,306 @@
 "use client";
 
+import { useEffect, useState, type FormEvent } from "react";
+import type {
+  QuestAnswerResult,
+  QuestAnswerSubmit,
+  QuestRead,
+  UserRead,
+} from "@/src/lib/api/hackathon.schemas";
 import {
-  useAddUserUsersPost,
-  useCurrentUserCurrentUserGet,
-  useGetUsersUsersGet,
-} from "@/src/lib/api/default";
-import bjorn from "@/assets/bjorn.png";
-import Image from "next/image";
-import {useState, type FormEvent } from "react";
+  getNextQuestQuestsNextGet,
+  submitQuestAnswerQuestsQuestIdAnswerPost,
+} from "@/src/lib/api/quests";
+import { getLeaderboardLeaderboardGet, getMeMeGet } from "@/src/lib/api/users";
 
-type UsersResponse = {
-  users: string[];
-  count: number;
+type ApiError = {
+  detail?: string;
 };
 
-function isUsersResponse(value: unknown): value is UsersResponse {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
+function errorMessage(body: unknown, status: number): string {
+  const detail = (body as ApiError | null)?.detail;
+  return detail ?? `Request failed (${status}).`;
+}
 
-  const response = value as Record<string, unknown>;
-  return (
-    Array.isArray(response.users) &&
-    response.users.every((user) => typeof user === "string") &&
-    typeof response.count === "number"
-  );
+async function fetchNextQuest(): Promise<QuestRead | null> {
+  const response = await getNextQuestQuestsNextGet();
+  const status = Number(response.status);
+  if (status === 404) return null;
+  if (status >= 400) throw new Error(errorMessage(response.data, status));
+  return response.data;
 }
 
 export default function Home() {
-  const { data, isLoading, isError, refetch } = useGetUsersUsersGet();
-  const { data: currentUserData } = useCurrentUserCurrentUserGet();
-  const addUser = useAddUserUsersPost();
-  const [name, setName] = useState("");
-  //const [currUserName, setCurrUserName] = useState("mysterious user");
-  const currUserName = (currentUserData?.status === 200 && currentUserData.data?.name ? currentUserData.data.name : "mysterious user");
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const users = isUsersResponse(data?.data) ? data.data.users : [];
+  const [user, setUser] = useState<UserRead | null>(null);
+  const [leaderboard, setLeaderboard] = useState<UserRead[]>([]);
+  const [quest, setQuest] = useState<QuestRead | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingNext, setLoadingNext] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
 
-
-  
-  async function handleAddUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedName = name.trim();
-
-    if (!trimmedName) {
-      setSubmitError("Please enter a name.");
-      return;
+    async function loadPage() {
+      try {
+        const userResponse = await getMeMeGet();
+        if (userResponse.status !== 200) {
+          throw new Error(
+            errorMessage(userResponse.data, Number(userResponse.status)),
+          );
+        }
+        const currentUser: UserRead = userResponse.data;
+        const [nextQuest, leaderboardResponse] = await Promise.all([
+          fetchNextQuest(),
+          getLeaderboardLeaderboardGet(),
+        ]);
+        if (leaderboardResponse.status !== 200) {
+          throw new Error(
+            errorMessage(
+              leaderboardResponse.data,
+              Number(leaderboardResponse.status),
+            ),
+          );
+        }
+        if (active) {
+          setUser(currentUser);
+          setQuest(nextQuest);
+          setLeaderboard(leaderboardResponse.data);
+        }
+      } catch (error) {
+        if (active) {
+          setPageError(
+            error instanceof Error ? error.message : "Unable to load the page.",
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
 
-    setSubmitError(null);
+    void loadPage();
+    return () => {
+      active = false;
+    };
+  }, []);
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!quest || !answer.trim()) return;
+
+    setSubmitting(true);
+    setFeedback(null);
     try {
-      const response = await addUser.mutateAsync({ data: { name: trimmedName } });
+      const submission: QuestAnswerSubmit = { answer: answer.trim() };
+      const response = await submitQuestAnswerQuestsQuestIdAnswerPost(
+        quest.id,
+        submission,
+      );
+      if (response.status !== 200) {
+        throw new Error(errorMessage(response.data, Number(response.status)));
+      }
+      const result: QuestAnswerResult = response.data;
+      setAnswer("");
 
-      if (response.status !== 201) {
-        setSubmitError("Unable to add this user.");
+      if (!result.correct) {
+        setFeedback({
+          kind: "error",
+          message:
+            "That answer isn’t correct. Try again or move to another quest.",
+        });
         return;
       }
 
-      setName("");
-      const refreshedUsers = await refetch();
-      if (refreshedUsers.isError) {
-        setSubmitError("User added, but the list could not be refreshed.");
-      }
-    } catch {
-      setSubmitError("Unable to add this user. Please try again.");
+      setUser((currentUser) =>
+        currentUser
+          ? { ...currentUser, score: result.total_score }
+          : currentUser,
+      );
+      setLeaderboard((entries) =>
+        entries
+          .map((entry) =>
+            entry.username === user?.username
+              ? { ...entry, score: result.total_score }
+              : entry,
+          )
+          .sort(
+            (first, second) =>
+              second.score - first.score ||
+              first.username.localeCompare(second.username),
+          ),
+      );
+      setFeedback({
+        kind: "success",
+        message: `Correct! You earned ${result.points_awarded} points.`,
+      });
+
+      setLoadingNext(true);
+      setQuest(await fetchNextQuest());
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        message:
+          error instanceof Error ? error.message : "Unable to submit answer.",
+      });
+    } finally {
+      setSubmitting(false);
+      setLoadingNext(false);
+    }
+  }
+
+  async function handleNextQuest() {
+    setLoadingNext(true);
+    setFeedback(null);
+    setAnswer("");
+    try {
+      setQuest(await fetchNextQuest());
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        message:
+          error instanceof Error ? error.message : "Unable to load a quest.",
+      });
+    } finally {
+      setLoadingNext(false);
     }
   }
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-900">
-      <div className="mx-auto max-w-2xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-          Björn's Quests
-        </p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight"> Hi, {currUserName}!</h1>
-        <p className="mt-3 text-slate-600">
-          Everyone currently registered for the hackathon.
-        </p>
+      <div className="mx-auto max-w-2xl space-y-6">
+        <section className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+            Björn&apos;s Quests
+          </p>
+          {loading ? (
+            <p className="mt-3 text-slate-600">Loading your profile...</p>
+          ) : pageError ? (
+            <p className="mt-3 text-red-700" role="alert">
+              {pageError}
+            </p>
+          ) : user ? (
+            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  Hi, {user.name}!
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">@{user.username}</p>
+              </div>
+              <p className="rounded-full bg-indigo-50 px-4 py-2 font-semibold text-indigo-700">
+                Score: {user.score}
+              </p>
+            </div>
+          ) : null}
+        </section>
 
-        <form
-          className="mt-8 flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-end"
-          onSubmit={handleAddUser}
-        >
-          <label className="flex-1 text-sm font-medium text-slate-700" htmlFor="user-name">
-            Add a user
-            <input
-              className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base font-normal outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              id="user-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Enter a name"
-              value={name}
-            />
-          </label>
-          <button
-            className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={addUser.isPending}
-            type="submit"
-          >
-            {addUser.isPending ? "Adding..." : "Add user"}
-          </button>
-          {submitError && (
-            <p className="basis-full text-sm text-red-600" role="alert">
-              {submitError}
+        <section className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+          <h2 className="text-xl font-semibold">Your next quest</h2>
+          {loading || loadingNext ? (
+            <p className="mt-4 text-slate-600">Loading quest...</p>
+          ) : quest ? (
+            <>
+              <p className="mt-4 text-lg leading-relaxed">{quest.question}</p>
+              <p className="mt-2 text-sm font-medium text-indigo-700">
+                Worth {quest.points} points
+              </p>
+
+              <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
+                <label
+                  className="block text-sm font-medium text-slate-700"
+                  htmlFor="quest-answer"
+                >
+                  Your answer
+                </label>
+                <input
+                  autoComplete="off"
+                  className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-base outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  id="quest-answer"
+                  onChange={(event) => setAnswer(event.target.value)}
+                  placeholder="Type your answer"
+                  value={answer}
+                />
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={submitting || !answer.trim()}
+                    type="submit"
+                  >
+                    {submitting ? "Checking..." : "Submit answer"}
+                  </button>
+                  <button
+                    className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    disabled={submitting || loadingNext}
+                    onClick={handleNextQuest}
+                    type="button"
+                  >
+                    Try another quest
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <p className="mt-4 text-slate-600">
+              No unsolved quests are available right now.
             </p>
           )}
-        </form>
 
-        <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          {isLoading ? (
-            <p className="text-slate-500">Loading users...</p>
-          ) : isError || !isUsersResponse(data?.data) ? (
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-red-600">Unable to load users.</p>
-              <button
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-                onClick={() => refetch()}
-                type="button"
-              >
-                Try again
-              </button>
-            </div>
-          ) : users.length === 0 ? (
-            <p className="text-slate-500">No users have registered yet.</p>
+          {feedback && (
+            <p
+              className={`mt-4 rounded-lg px-4 py-3 text-sm ${
+                feedback.kind === "success"
+                  ? "bg-green-50 text-green-800"
+                  : "bg-red-50 text-red-800"
+              }`}
+              role="status"
+            >
+              {feedback.message}
+            </p>
+          )}
+        </section>
+
+        <section className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+          <h2 className="text-xl font-semibold">Leaderboard</h2>
+          {loading ? (
+            <p className="mt-4 text-slate-600">Loading scores...</p>
+          ) : pageError ? (
+            <p className="mt-4 text-red-700" role="alert">
+              {pageError}
+            </p>
+          ) : leaderboard.length === 0 ? (
+            <p className="mt-4 text-slate-600">No users yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-100">
-              {users.map((user, index) => (
-                <li className="flex items-center gap-3 py-4 first:pt-0 last:pb-0" key={`${user}-${index}`}>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
-                    {user.charAt(0).toUpperCase()}
+            <ol className="mt-4 divide-y divide-slate-100">
+              {leaderboard.map((entry, index) => (
+                <li
+                  className={`flex items-center justify-between gap-4 py-3 ${
+                    entry.username === user?.username
+                      ? "font-semibold text-indigo-700"
+                      : "text-slate-700"
+                  }`}
+                  key={entry.username}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="w-7 shrink-0 text-right text-sm text-slate-400">
+                      {index + 1}.
+                    </span>
+                    <span className="truncate">
+                      {entry.name}{" "}
+                      <span className="text-slate-400">@{entry.username}</span>
+                    </span>
                   </span>
-                  <span className="font-medium">{user}</span>
+                  <span className="shrink-0">{entry.score} pts</span>
                 </li>
               ))}
-            </ul>
+            </ol>
           )}
         </section>
       </div>
-
-      <Image
-        alt="Björn"
-        className="pointer-events-none fixed bottom-0 left-0 h-auto w-48"
-        src={bjorn}
-        width={96}
-      />
     </main>
   );
 }
