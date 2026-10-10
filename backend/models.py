@@ -217,6 +217,20 @@ class QuestPhoto(Base):
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class QuestVote(Base):
+    """One up (+1) or down (-1) vote per player on a player-created quest."""
+
+    __tablename__ = "quest_votes"
+    __table_args__ = (UniqueConstraint("player_id", "quest_id"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    player_id: Mapped[str] = mapped_column(ForeignKey("users.username"), nullable=False)
+    quest_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("quests.id"), nullable=False, index=True)
+    value: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class QuestReport(Base):
     __tablename__ = "quest_reports"
     __table_args__ = (UniqueConstraint("player_id", "quest_id"),)

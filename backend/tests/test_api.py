@@ -152,6 +152,16 @@ def test_dev_fallback_user_is_maintainer(client, monkeypatch):
     assert client.get("/admin/quests", headers=ALICE).status_code == 403
 
 
+def test_dev_fallback_user_can_opt_out_of_maintainer(client, monkeypatch):
+    monkeypatch.setattr(auth, "DEV_USER_ID", "dev")
+    monkeypatch.setattr(auth, "DEV_USER_MAINTAINER", False)
+    assert client.get("/me").json()["is_maintainer"] is False
+    assert client.get("/admin/quests").status_code == 403
+    # MAINTAINER_IDS still grants the tools.
+    monkeypatch.setattr(auth, "DEV_USER_ID", "maintainer-id")
+    assert client.get("/me").json()["is_maintainer"] is True
+
+
 def test_simultaneous_first_requests_create_one_player(client):
     with ThreadPoolExecutor(max_workers=8) as pool:
         names = set(pool.map(lambda _: me(client)["display_name"], range(16)))
