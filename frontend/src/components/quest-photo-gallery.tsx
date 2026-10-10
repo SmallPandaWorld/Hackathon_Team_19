@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import Link from "next/link";
 import { buttonStyles, Card } from "@/src/components/page";
 
@@ -43,8 +43,36 @@ export function QuestPhotoGallery({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const isMountedRef = useRef(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const photos =
     photoResult.url === collectionUrl ? photoResult.photos : [];
+
+  useEffect(() => {
+    if (!cameraOpen || !videoRef.current || !cameraStreamRef.current) return;
+
+    const video = videoRef.current;
+    video.srcObject = cameraStreamRef.current;
+    void video.play().catch(() => {
+      setError("Could not start the camera preview. Please try again.");
+    });
+    return () => {
+      video.srcObject = null;
+    };
+  }, [cameraOpen]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +139,83 @@ export function QuestPhotoGallery({
     }
   }
 
+  function stopCamera() {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    setCameraOpen(false);
+  }
+
+  async function startCamera() {
+    setError(null);
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    setCameraStarting(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } },
+      });
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      cameraStreamRef.current = stream;
+      setCameraOpen(true);
+    } catch {
+      if (isMountedRef.current) {
+        setError(
+          "Could not access the camera. Check your browser permissions and try again.",
+        );
+      }
+    } finally {
+      if (isMountedRef.current) setCameraStarting(false);
+    }
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      setError("The camera is still starting. Please try again in a moment.");
+      return;
+    }
+
+    const maxDimension = 2048;
+    const scale = Math.min(
+      1,
+      maxDimension / Math.max(video.videoWidth, video.videoHeight),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setError("Could not prepare the photo. Please try again.");
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setCapturing(true);
+    stopCamera();
+    canvas.toBlob(
+      (blob) => {
+        setCapturing(false);
+        if (!blob) {
+          setError("Could not prepare the photo. Please try again.");
+          return;
+        }
+        const file = new File([blob], "quest-photo.jpg", {
+          type: "image/jpeg",
+        });
+        void upload(file);
+      },
+      "image/jpeg",
+      0.88,
+    );
+  }
+
   async function deletePhoto(photo: QuestPhoto) {
     if (!photo.is_mine) return;
     if (
@@ -164,7 +269,9 @@ export function QuestPhotoGallery({
         <input
           accept="image/png,image/jpeg,image/webp"
           className="hidden"
-          disabled={!completed || uploading || deletingId !== null}
+          disabled={
+            !completed || uploading || deletingId !== null || cameraOpen
+          }
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
@@ -173,23 +280,90 @@ export function QuestPhotoGallery({
           ref={inputRef}
           type="file"
         />
+        <input
+          accept="image/png,image/jpeg,image/webp"
+          capture="environment"
+          className="hidden"
+          disabled={!completed || uploading || deletingId !== null}
+          onChange={(event) => {
+            const selected = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (selected) void upload(selected);
+          }}
+          ref={cameraInputRef}
+          type="file"
+        />
         {!completed && (
           <p className="text-sm text-muted">
             Complete this quest to upload a photo.
           </p>
         )}
-        <button
-          className={`${buttonStyles.primary} self-start py-2`}
-          disabled={!completed || uploading || deletingId !== null}
-          onClick={() => inputRef.current?.click()}
-          type="button"
-        >
-          {uploading
-            ? "Uploading…"
-            : photos.length > 0
-              ? "Upload more photos"
-              : "Upload Photo"}
-        </button>
+        {!cameraOpen ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className={`${buttonStyles.secondary} inline-flex items-center gap-2 py-2`}
+              disabled={
+                !completed ||
+                uploading ||
+                deletingId !== null ||
+                cameraStarting ||
+                capturing
+              }
+              onClick={() => void startCamera()}
+              type="button"
+            >
+              <Camera aria-hidden className="h-4 w-4" />
+              {cameraStarting ? "Starting camera…" : "Take photo"}
+            </button>
+            <button
+              className={`${buttonStyles.primary} py-2`}
+              disabled={
+                !completed ||
+                uploading ||
+                deletingId !== null ||
+                cameraStarting ||
+                capturing
+              }
+              onClick={() => inputRef.current?.click()}
+              type="button"
+            >
+              {uploading
+                ? "Uploading…"
+                : photos.length > 0
+                  ? "Upload more photos"
+                  : "Upload Photo"}
+            </button>
+          </div>
+        ) : (
+          <div className="w-full max-w-lg space-y-3">
+            <video
+              aria-label="Live camera preview"
+              autoPlay
+              className="aspect-video w-full rounded-xl bg-black object-cover"
+              muted
+              playsInline
+              ref={videoRef}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                className={`${buttonStyles.primary} py-2`}
+                disabled={capturing}
+                onClick={capturePhoto}
+                type="button"
+              >
+                {capturing ? "Preparing photo…" : "Capture photo"}
+              </button>
+              <button
+                className={`${buttonStyles.secondary} py-2`}
+                disabled={capturing}
+                onClick={stopCamera}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         {error && <p className="text-sm text-danger">{error}</p>}
         {message && <p className="text-sm text-muted">{message}</p>}
       </div>
