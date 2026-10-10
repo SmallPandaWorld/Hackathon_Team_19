@@ -22,6 +22,7 @@ import type {
 
 import type {
   ErrorResponse,
+  GetLeaderboardParams,
   HTTPValidationError,
   Leaderboard,
   Me,
@@ -737,8 +738,9 @@ export const getGetPlayerUrl = (username: string) => {
 /**
  * A player's public profile.
  *
- * Only players who opted in to suggestions are visible to others; a player
- * can always view themselves.
+ * Only players who opted in to suggestions are visible to others, except
+ * that friends and players with an open request between them can always
+ * see each other; a player can always view themselves.
  * @summary Get Player
  */
 export const getPlayer = async (
@@ -899,28 +901,52 @@ export type getLeaderboardResponse401 = {
   status: 401;
 };
 
+export type getLeaderboardResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
 export type getLeaderboardResponseSuccess = getLeaderboardResponse200 & {
   headers: Headers;
 };
-export type getLeaderboardResponseError = getLeaderboardResponse401 & {
+export type getLeaderboardResponseError = (
+  getLeaderboardResponse401 | getLeaderboardResponse422
+) & {
   headers: Headers;
 };
 
 export type getLeaderboardResponse =
   getLeaderboardResponseSuccess | getLeaderboardResponseError;
 
-export const getGetLeaderboardUrl = () => {
-  return `/api/leaderboard`;
+export const getGetLeaderboardUrl = (params?: GetLeaderboardParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/leaderboard?${stringifiedParams}`
+    : `/api/leaderboard`;
 };
 
 /**
  * Players ranked by approved points. Equal points share a rank (1, 1, 3, ...).
+ *
+ * The same scoring applies to both scopes. The global view lists players
+ * with at least one point; the friends view lists you and every accepted
+ * friend, points or not, so the group is always complete.
  * @summary Get Leaderboard
  */
 export const getLeaderboard = async (
+  params?: GetLeaderboardParams,
   options?: RequestInit,
 ): Promise<getLeaderboardResponse> => {
-  const res = await fetch(getGetLeaderboardUrl(), {
+  const res = await fetch(getGetLeaderboardUrl(params), {
     ...options,
     method: "GET",
   });
@@ -935,26 +961,29 @@ export const getLeaderboard = async (
   } as getLeaderboardResponse;
 };
 
-export const getGetLeaderboardQueryKey = () => {
-  return [`/api/leaderboard`] as const;
+export const getGetLeaderboardQueryKey = (params?: GetLeaderboardParams) => {
+  return [`/api/leaderboard`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetLeaderboardQueryOptions = <
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
-  >;
-  fetch?: RequestInit;
-}) => {
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  params?: GetLeaderboardParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({
     signal,
-  }) => getLeaderboard({ signal, ...fetchOptions });
+  }) => getLeaderboard(params, { signal, ...fetchOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getLeaderboard>>,
@@ -966,12 +995,13 @@ export const getGetLeaderboardQueryOptions = <
 export type GetLeaderboardQueryResult = NonNullable<
   Awaited<ReturnType<typeof getLeaderboard>>
 >;
-export type GetLeaderboardQueryError = ErrorResponse;
+export type GetLeaderboardQueryError = ErrorResponse | HTTPValidationError;
 
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params: undefined | GetLeaderboardParams,
   options: {
     query: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -992,8 +1022,9 @@ export function useGetLeaderboard<
 };
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params?: GetLeaderboardParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -1014,8 +1045,9 @@ export function useGetLeaderboard<
 };
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params?: GetLeaderboardParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -1032,8 +1064,9 @@ export function useGetLeaderboard<
 
 export function useGetLeaderboard<
   TData = Awaited<ReturnType<typeof getLeaderboard>>,
-  TError = ErrorResponse,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params?: GetLeaderboardParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
@@ -1044,7 +1077,7 @@ export function useGetLeaderboard<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getGetLeaderboardQueryOptions(options);
+  const queryOptions = getGetLeaderboardQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

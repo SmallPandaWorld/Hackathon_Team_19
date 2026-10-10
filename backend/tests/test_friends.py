@@ -2,7 +2,7 @@
 
 from sqlalchemy import delete, select
 
-from conftest import identity
+from conftest import act, identity
 from database import SessionLocal
 from models import EarnedBadge
 
@@ -276,3 +276,99 @@ def test_friendship_accepted_before_badges_were_stored_counts(client):
         db.commit()
     assert friend_badge(client, ALICE)["earned"] is True
     assert friend_badge(client, BOB)["earned"] is True
+
+
+# --- Friends leaderboard ------------------------------------------------------
+
+def complete(client, headers, number):
+    from sample_quests import QUESTS
+    return act(client, headers, QUESTS[number - 1]["id"], "complete")
+
+
+def board(client, headers, scope):
+    response = client.get("/leaderboard", params={"scope": scope}, headers=headers)
+    assert response.status_code == 200
+    return response.json()
+
+
+def ranking(payload):
+    return [(e["rank"], e["display_name"], e["points"]) for e in payload["entries"]]
+
+
+def befriend(client, requester, addressee, addressee_id, requester_id):
+    assert client.post(f"/friends/{addressee_id}", headers=requester).status_code == 201
+    assert client.post(f"/friends/{requester_id}/accept", headers=addressee).status_code == 200
+
+
+def test_friends_leaderboard_ranks_only_accepted_friends(client):
+    for headers in (ALICE, BOB, CAROL):
+        opt_in(client, headers)
+    dave = identity("dave-id", "Dave")
+    opt_in(client, dave)
+    complete(client, ALICE, 1)   # 10
+    complete(client, BOB, 1)     # 10
+    complete(client, CAROL, 2)   # 20
+    complete(client, dave, 2)    # 20
+
+    befriend(client, ALICE, BOB, "bob-id", "alice-id")
+    befriend(client, ALICE, CAROL, "carol-id", "alice-id")
+    client.post("/friends/dave-id", headers=ALICE)  # pending: not in the group
+
+    mine = board(client, ALICE, "friends")
+    assert mine["scope"] == "friends"
+    assert mine["friend_count"] == 2
+    # Ranked within the group only: Dave's 20 points don't count here.
+    assert ranking(mine) == [(1, "Carol", 20), (2, "Alice", 10), (2, "Bob", 10)]
+    assert [e["is_current_player"] for e in mine["entries"]] == [False, True, False]
+    assert mine["current_player"]["rank"] == 2
+
+    # Same points, different group: global rank differs.
+    everyone = board(client, ALICE, "global")
+    assert everyone["scope"] == "global"
+    assert ranking(everyone) == [
+        (1, "Carol", 20), (1, "Dave", 20), (3, "Alice", 10), (3, "Bob", 10)]
+    assert everyone["current_player"]["rank"] == 3
+    # The default stays global.
+    assert client.get("/leaderboard", headers=ALICE).json()["scope"] == "global"
+
+
+def test_friends_leaderboard_is_scoped_and_includes_zero_points(client):
+    for headers in (ALICE, BOB, CAROL):
+        opt_in(client, headers)
+    complete(client, ALICE, 1)
+    befriend(client, ALICE, BOB, "bob-id", "alice-id")
+    befriend(client, BOB, CAROL, "carol-id", "bob-id")
+
+    # Bob with no points is still listed among Alice's friends.
+    assert ranking(board(client, ALICE, "friends")) == [(1, "Alice", 10), (2, "Bob", 0)]
+    # Carol is Bob's friend, not Alice's: each player sees their own group.
+    assert ranking(board(client, BOB, "friends")) == [
+        (1, "Alice", 10), (2, "Bob", 0), (2, "Carol", 0)]
+    assert ranking(board(client, CAROL, "friends")) == [(1, "Bob", 0), (1, "Carol", 0)]
+
+
+def test_friends_leaderboard_empty_state_and_removal(client):
+    opt_in(client, ALICE)
+    opt_in(client, BOB)
+    complete(client, BOB, 1)
+
+    alone = board(client, ALICE, "friends")
+    assert alone["friend_count"] == 0
+    assert ranking(alone) == [(1, "Alice", 0)]
+    assert alone["current_player"]["is_current_player"] is True
+
+    befriend(client, ALICE, BOB, "bob-id", "alice-id")
+    assert ranking(board(client, ALICE, "friends")) == [(1, "Bob", 10), (2, "Alice", 0)]
+
+    # Removing the friend updates both boards at once.
+    client.delete("/friends/alice-id", headers=BOB)
+    assert ranking(board(client, ALICE, "friends")) == [(1, "Alice", 0)]
+    assert ranking(board(client, BOB, "friends")) == [(1, "Bob", 10)]
+    # Declined requests never counted.
+    client.post("/friends/alice-id", headers=BOB)
+    client.delete("/friends/bob-id", headers=ALICE)
+    assert board(client, ALICE, "friends")["friend_count"] == 0
+
+
+def test_leaderboard_rejects_unknown_scope(client):
+    assert client.get("/leaderboard", params={"scope": "team"}, headers=ALICE).status_code == 422
