@@ -9,14 +9,20 @@ import { StepsAction } from "@/src/components/quest-actions/steps-action";
 import { BackLink, ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
-import { useGetQuest, useReportQuest } from "@/src/lib/api/quests";
+import { useGetQuest } from "@/src/lib/api/quests";
 import { KIND_LABELS, STATUS_LABELS } from "@/src/lib/quest-display";
-import { useAction } from "@/src/lib/use-action";
+import { useQuestAction } from "@/src/lib/use-quest-action";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { KindIcon } from "@/src/components/icons";
 import { MapPin } from "lucide-react";
+
+// While the player hosts a pair session, poll the quest so the screen
+// notices when the partner joins.
+const PAIR_POLL_MS = 3000;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function QuestAction({ quest }: { quest: QuestOut }) {
   if (quest.status !== "published") {
@@ -43,23 +49,14 @@ function QuestAction({ quest }: { quest: QuestOut }) {
 }
 
 function ReportQuest({ quest }: { quest: QuestOut }) {
-  const reportQuest = useReportQuest();
-  const { error, run, refreshAll } = useAction();
+  const { perform, pending, error } = useQuestAction(quest.id);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (
-      await run(() =>
-        reportQuest.mutateAsync({
-          questId: quest.id,
-          data: { reason: reason.trim() },
-        }),
-      )
-    ) {
+    if (await perform({ type: "report", reason: reason.trim() })) {
       setOpen(false);
-      await refreshAll();
     }
   }
 
@@ -105,7 +102,7 @@ function ReportQuest({ quest }: { quest: QuestOut }) {
       <div className="mt-3 flex gap-2">
         <button
           className={`${buttonStyles.danger} flex-1 py-2`}
-          disabled={reportQuest.isPending || reason.trim().length < 5}
+          disabled={pending !== null || reason.trim().length < 5}
           type="submit"
         >
           Send report
@@ -125,11 +122,20 @@ function ReportQuest({ quest }: { quest: QuestOut }) {
 
 export function QuestDetail() {
   const { id } = useParams<{ id: string }>();
-  const questId = Number(id);
-  const validId = Number.isInteger(questId) && questId > 0;
+  const validId = UUID_PATTERN.test(id);
 
-  const { data, isLoading, isError, refetch } = useGetQuest(questId, {
-    query: { enabled: validId },
+  const { data, isLoading, isError, refetch } = useGetQuest(id, {
+    query: {
+      enabled: validId,
+      refetchInterval: (query) => {
+        const response = query.state.data;
+        const session =
+          response?.status === 200 ? response.data.pair_session : null;
+        return session?.is_host && session.state === "waiting"
+          ? PAIR_POLL_MS
+          : false;
+      },
+    },
   });
 
   const quest = data?.status === 200 ? data.data : undefined;

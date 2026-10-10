@@ -7,7 +7,16 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useListQuests } from "@/src/lib/api/quests";
 import { X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+
+function subscribeHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
+function readHashId() {
+  return window.location.hash.match(/^#quest-(.+)$/)?.[1] ?? null;
+}
 
 export default function MapPage() {
   const { data, isLoading, isError, refetch } = useListQuests();
@@ -15,13 +24,10 @@ export default function MapPage() {
   const error = isError
     ? "Could not load quests. Check your connection."
     : apiErrorMessage(data);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-
-  // "Show on map" links point to /map#quest-ID.
-  useEffect(() => {
-    const match = window.location.hash.match(/^#quest-(\d+)$/);
-    if (match) setSelectedId(Number(match[1]));
-  }, []);
+  // "Show on map" links point to /map#quest-ID; a tapped pin overrides it.
+  const hashId = useSyncExternalStore(subscribeHash, readHashId, () => null);
+  const [picked, setSelectedId] = useState<string | null | undefined>();
+  const selectedId = picked === undefined ? hashId : picked;
 
   const pinned = useMemo(
     () =>

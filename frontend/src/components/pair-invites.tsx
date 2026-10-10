@@ -1,15 +1,15 @@
 "use client";
 
 import { buttonStyles } from "@/src/components/page";
-import { useListPairInvites } from "@/src/lib/api/pair";
+import { useGetMe } from "@/src/lib/api/players";
 import { Users } from "lucide-react";
 import Link from "next/link";
 
-// Partner-quest invitations from suggested players. Polled, so an invite
-// shows up while the app is open.
+// Partner-quest invitations from suggested players, part of GET /me. Polled,
+// so an invite shows up while the app is open.
 export function PairInvites() {
-  const { data } = useListPairInvites({ query: { refetchInterval: 15000 } });
-  const invites = data?.status === 200 ? data.data : [];
+  const { data } = useGetMe({ query: { refetchInterval: 15000 } });
+  const invites = data?.status === 200 ? data.data.invitations : [];
   if (invites.length === 0) return null;
 
   return (

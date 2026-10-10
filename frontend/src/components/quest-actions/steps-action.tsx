@@ -6,28 +6,21 @@ import type {
   CompletionResult,
   QuestOut,
 } from "@/src/lib/api/hackathon.schemas";
-import { useCompleteStep } from "@/src/lib/api/quests";
-import { useAction } from "@/src/lib/use-action";
+import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useState } from "react";
 import { ResultBanner } from "./result-banner";
 import { Check } from "lucide-react";
 
 export function StepsAction({ quest }: { quest: QuestOut }) {
   const steps = quest.steps ?? [];
-  const completeStep = useCompleteStep();
-  const { error, run, refreshAll } = useAction();
+  const { perform, pending, error } = useQuestAction(quest.id);
   const [result, setResult] = useState<CompletionResult | null>(null);
   const nextStep = steps.find((step) => !step.done);
   const doneCount = steps.filter((step) => step.done).length;
 
-  async function handleStep(stepId: number) {
-    const response = await run(() =>
-      completeStep.mutateAsync({ questId: quest.id, stepId }),
-    );
-    if (response?.status === 200) {
-      if (response.data.completion) setResult(response.data.completion);
-      await refreshAll();
-    }
+  async function handleStep(stepId: string) {
+    const response = await perform({ type: "step", step_id: stepId });
+    if (response?.completion) setResult(response.completion);
   }
 
   return (
@@ -91,11 +84,11 @@ export function StepsAction({ quest }: { quest: QuestOut }) {
                 {isNext && !result && (
                   <button
                     className={`${buttonStyles.primary} mt-3 w-full py-2`}
-                    disabled={completeStep.isPending}
+                    disabled={pending !== null}
                     onClick={() => handleStep(step.id)}
                     type="button"
                   >
-                    {completeStep.isPending
+                    {pending
                       ? "Saving..."
                       : "Done with this step"}
                   </button>

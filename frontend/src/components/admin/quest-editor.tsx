@@ -5,15 +5,14 @@ import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
 import {
   useAdminCreateQuest,
-  useAdminSetQuestStatus,
   useAdminUpdateQuest,
 } from "@/src/lib/api/admin";
 import type {
   AdminQuestIn,
   AdminQuestInKind,
   AdminQuestOut,
+  AdminQuestPatch,
   QuizQuestionIn,
-  StatusChangeStatus,
   StepIn,
 } from "@/src/lib/api/hackathon.schemas";
 import {
@@ -25,6 +24,8 @@ import { useAction } from "@/src/lib/use-action";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+
+type StatusChange = NonNullable<AdminQuestPatch["status"]>;
 
 // <input type="datetime-local"> works in the browser's local time.
 function toLocalInput(iso?: string | null): string {
@@ -49,7 +50,7 @@ const KIND_HELP: Record<AdminQuestInKind, string> = {
 
 const STATUS_ACTIONS: Record<
   string,
-  { status: StatusChangeStatus; label: string; style: string }[]
+  { status: StatusChange; label: string; style: string }[]
 > = {
   draft: [
     { status: "published", label: "Publish", style: buttonStyles.primary },
@@ -78,7 +79,6 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   const router = useRouter();
   const createQuest = useAdminCreateQuest();
   const updateQuest = useAdminUpdateQuest();
-  const setStatus = useAdminSetQuestStatus();
   const { error, run, refreshAll } = useAction();
   const [saved, setSaved] = useState(false);
 
@@ -163,11 +163,11 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     }
   }
 
-  async function changeStatus(status: StatusChangeStatus) {
+  async function changeStatus(status: StatusChange) {
     if (!quest) return;
-    let note: string | null = null;
+    const data: AdminQuestPatch = { status };
     if (status === "rejected") {
-      note =
+      data.review_note =
         window.prompt("Why is this idea rejected? (shown to the author)") ??
         null;
     }
@@ -181,7 +181,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     }
     if (
       await run(() =>
-        setStatus.mutateAsync({ questId: quest.id, data: { status, note } }),
+        updateQuest.mutateAsync({ questId: quest.id, data }),
       )
     ) {
       await refreshAll();
@@ -220,7 +220,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
               <button
                 className={`${action.style} py-2 text-sm`}
                 disabled={
-                  setStatus.isPending ||
+                  updateQuest.isPending ||
                   (action.status === "published" &&
                     quest.publish_problems.length > 0)
                 }
@@ -576,7 +576,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
             pin
               ? [
                   {
-                    id: 0,
+                    id: "new",
                     lat: pin.lat,
                     lng: pin.lng,
                     label: title || "Quest location",

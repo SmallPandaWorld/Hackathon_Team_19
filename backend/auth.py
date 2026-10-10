@@ -1,17 +1,20 @@
 """Player identity from the VISCON managed proxy.
 
 The proxy authenticates users (Switch edu-ID) and forwards:
-  X-User-Id    unique, stable user identifier
+  X-User-Id    unique, stable username (the `users` primary key)
   X-User-Name  percent-encoded display name
 
 These headers are only trustworthy when every request comes through the
 managed proxy, so the backend port must not be publicly reachable
 (see docker-compose.yml).
 
-For local development without the proxy, set DEV_USER_ID (and optionally
-DEV_USER_NAME). It is used only when no X-User-Id header is present.
+Local development without the proxy: set DEV_USER_ID (and optionally
+DEV_USER_NAME). It is used only when no X-User-Id header is present, and
+that fallback player is always a maintainer, so the admin tools work
+locally. Never set DEV_USER_ID in deployment.
 
-Maintainers (quest editor, reviews, reports) are listed in MAINTAINER_IDS.
+In production, maintainers (quest editor, reviews, reports) are the
+usernames listed in MAINTAINER_IDS (comma separated).
 """
 
 import os
@@ -32,27 +35,27 @@ DEV_USER_NAME = os.getenv("DEV_USER_NAME", "Dev Player")
 
 
 def _read_identity(request: Request) -> "tuple[Optional[str], str]":
-    user_id = (request.headers.get("x-user-id") or "").strip()
+    username = (request.headers.get("x-user-id") or "").strip()
     name = unquote(request.headers.get("x-user-name") or "").strip()
-    if not user_id and DEV_USER_ID:
+    if not username and DEV_USER_ID:
         return DEV_USER_ID, DEV_USER_NAME
-    return (user_id or None), name
+    return (username or None), name
 
 
 def get_current_player(request: Request, db: Session = Depends(get_db)) -> User:
     """Find or create the player for the authenticated identity."""
-    viscon_user_id, name = _read_identity(request)
-    if viscon_user_id is None:
+    username, name = _read_identity(request)
+    if username is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated. Open the app through the VISCON login.",
         )
     name = name[:255]
 
-    query = select(User).where(User.viscon_user_id == viscon_user_id)
+    query = select(User).where(User.username == username)
     player = db.scalars(query).first()
     if player is None:
-        db.add(User(viscon_user_id=viscon_user_id, name=name or "Player"))
+        db.add(User(username=username, name=name or "Player"))
         try:
             db.commit()
         except IntegrityError:
@@ -74,7 +77,9 @@ MAINTAINER_IDS = {
 
 
 def is_maintainer(player: User) -> bool:
-    return player.viscon_user_id in MAINTAINER_IDS
+    # The dev fallback identity always gets the maintainer tools.
+    return player.username in MAINTAINER_IDS or (
+        bool(DEV_USER_ID) and player.username == DEV_USER_ID)
 
 
 def require_maintainer(player: User = Depends(get_current_player)) -> User:

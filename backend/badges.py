@@ -26,7 +26,7 @@ BADGES = [
 ]
 
 
-def player_badges(db: Session, player_id: int) -> List[Badge]:
+def player_badges(db: Session, player_id: str) -> List[Badge]:
     rows = db.execute(
         select(Completion.completed_at, Completion.points_awarded, Quest.kind)
         .join(Quest, Quest.id == Completion.quest_id)

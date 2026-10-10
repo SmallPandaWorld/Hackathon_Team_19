@@ -14,8 +14,8 @@ export const AdminCompletionOutStatus = {
 } as const;
 
 export interface AdminCompletionOut {
-  id: number;
-  quest_id: number;
+  id: string;
+  quest_id: string;
   quest_title: string;
   player_name: string;
   note?: string | null;
@@ -33,6 +33,14 @@ export const AdminQuestInKind = {
   quiz: "quiz",
   multi_step: "multi_step",
   meetup: "meetup",
+} as const;
+
+export type AdminQuestInStatus =
+  (typeof AdminQuestInStatus)[keyof typeof AdminQuestInStatus];
+
+export const AdminQuestInStatus = {
+  draft: "draft",
+  published: "published",
 } as const;
 
 export interface StepIn {
@@ -88,6 +96,7 @@ export interface AdminQuestIn {
   steps?: StepIn[];
   /** @maxItems 20 */
   questions?: QuizQuestionIn[];
+  status?: AdminQuestInStatus;
 }
 
 export type AdminQuestOutKind =
@@ -125,11 +134,11 @@ export interface AdminQuizQuestionOut {
   choices: string[];
   /** @minimum 0 */
   correct_index: number;
-  id: number;
+  id: string;
 }
 
 export interface AdminQuestOut {
-  id: number;
+  id: string;
   title: string;
   description: string;
   location?: string | null;
@@ -152,6 +161,49 @@ export interface AdminQuestOut {
   publish_problems: string[];
 }
 
+export type AdminQuestPatchKind =
+  (typeof AdminQuestPatchKind)[keyof typeof AdminQuestPatchKind] | null;
+
+export const AdminQuestPatchKind = {
+  solo: "solo",
+  pair: "pair",
+  quiz: "quiz",
+  multi_step: "multi_step",
+  meetup: "meetup",
+} as const;
+
+export type AdminQuestPatchStatus =
+  (typeof AdminQuestPatchStatus)[keyof typeof AdminQuestPatchStatus] | null;
+
+export const AdminQuestPatchStatus = {
+  draft: "draft",
+  published: "published",
+  rejected: "rejected",
+  retired: "retired",
+} as const;
+
+/**
+ * Change only the fields you send (status changes publish, retire or reject).
+ */
+export interface AdminQuestPatch {
+  title?: string | null;
+  description?: string | null;
+  location?: string | null;
+  points?: number | null;
+  kind?: AdminQuestPatchKind;
+  requires_approval?: boolean | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  cancelled?: boolean | null;
+  steps?: StepIn[] | null;
+  questions?: QuizQuestionIn[] | null;
+  status?: AdminQuestPatchStatus;
+  /** Shown to the author on rejection */
+  review_note?: string | null;
+}
+
 export type AdminReportOutQuestStatus =
   (typeof AdminReportOutQuestStatus)[keyof typeof AdminReportOutQuestStatus];
 
@@ -164,8 +216,8 @@ export const AdminReportOutQuestStatus = {
 } as const;
 
 export interface AdminReportOut {
-  id: number;
-  quest_id: number;
+  id: string;
+  quest_id: string;
   quest_title: string;
   quest_status: AdminReportOutQuestStatus;
   reporter_name: string;
@@ -185,7 +237,11 @@ export interface Badge {
   target: number;
 }
 
-export interface CompleteRequest {
+/**
+ * Complete a solo quest or check in at a live meetup.
+ */
+export interface CompleteAction {
+  type: "complete";
   /** What the player did (shown to reviewers on approval quests) */
   note?: string | null;
 }
@@ -200,7 +256,7 @@ export const CompletionResultStatus = {
 } as const;
 
 export interface CompletionResult {
-  quest_id: number;
+  quest_id: string;
   /** True once the completion is approved */
   completed: boolean;
   status: CompletionResultStatus;
@@ -236,6 +292,10 @@ export interface HTTPValidationError {
   detail?: ValidationError[];
 }
 
+export interface Health {
+  message: string;
+}
+
 export interface HobbyOption {
   key: string;
   label: string;
@@ -244,7 +304,6 @@ export interface HobbyOption {
 export interface LeaderboardEntry {
   /** Players with equal points share a rank */
   rank: number;
-  player_id: number;
   display_name: string;
   points: number;
   is_current_player: boolean;
@@ -254,6 +313,19 @@ export interface Leaderboard {
   /** Players with at least one point, best first */
   entries: LeaderboardEntry[];
   current_player: LeaderboardEntry;
+}
+
+export interface Suggestion {
+  username: string;
+  display_name: string;
+  /** Labels of hobbies you share */
+  shared_hobbies: string[];
+}
+
+export interface Suggestions {
+  /** False until the player opts in */
+  enabled: boolean;
+  suggestions: Suggestion[];
 }
 
 export type PairSessionOutState =
@@ -268,7 +340,7 @@ export const PairSessionOutState = {
 
 export interface PairSessionOut {
   code: string;
-  quest_id: number;
+  quest_id: string;
   quest_title: string;
   host_name: string;
   partner_name?: string | null;
@@ -279,32 +351,85 @@ export interface PairSessionOut {
   invited_name?: string | null;
 }
 
+export type SubmissionOutStatus =
+  (typeof SubmissionOutStatus)[keyof typeof SubmissionOutStatus];
+
+export const SubmissionOutStatus = {
+  draft: "draft",
+  pending_review: "pending_review",
+  published: "published",
+  rejected: "rejected",
+  retired: "retired",
+} as const;
+
+export interface SubmissionOut {
+  id: string;
+  title: string;
+  description: string;
+  location?: string | null;
+  status: SubmissionOutStatus;
+  review_note?: string | null;
+}
+
+export interface Me {
+  username: string;
+  display_name: string;
+  total_points: number;
+  is_maintainer: boolean;
+  /** Chosen hobby keys, see hobby_options */
+  hobbies: string[];
+  /** Opted in to connection suggestions */
+  discoverable: boolean;
+  badges: Badge[];
+  /** All selectable hobbies */
+  hobby_options: HobbyOption[];
+  suggestions: Suggestions;
+  /** Open pair invites addressed to me */
+  invitations: PairSessionOut[];
+  /** Quests I proposed, newest first */
+  submissions: SubmissionOut[];
+}
+
+export const PairCancelActionValue = {
+  type: "pair_cancel",
+} as const;
+export type PairCancelAction = typeof PairCancelActionValue;
+
 export interface PairJoinResult {
   session: PairSessionOut;
   completion: CompletionResult;
 }
 
-export interface PairStartRequest {
-  /** Invite a suggested player: the code appears on their home screen */
-  invite_player_id?: number | null;
+/**
+ * Start a pair quest and get a code (replaces your earlier open code).
+ */
+export interface PairStartAction {
+  type: "pair_start";
+  /** Invite a suggested username: the code appears on their home screen */
+  invite_username?: string | null;
 }
 
-export interface Player {
-  /** Internal player ID */
-  id: number;
+export interface PlayerSearchResult {
+  username: string;
   display_name: string;
-  total_points: number;
-  is_maintainer: boolean;
-  /** Hobby keys, see GET /hobbies */
-  hobbies: string[];
-  /** Opted in to connection suggestions */
-  discoverable: boolean;
 }
 
 export interface ProfileUpdate {
   /** @maxItems 20 */
   hobbies: string[];
   discoverable: boolean;
+}
+
+/**
+ * What other players may see of a discoverable player.
+ */
+export interface PublicPlayer {
+  username: string;
+  display_name: string;
+  total_points: number;
+  /** Hobby keys, see Me.hobby_options */
+  hobbies: string[];
+  badges: Badge[];
 }
 
 export type QuestOutKind = (typeof QuestOutKind)[keyof typeof QuestOutKind];
@@ -349,7 +474,7 @@ export const QuestOutCompletionStatus = {
 } as const;
 
 export interface StepOut {
-  id: number;
+  id: string;
   position: number;
   title: string;
   description: string;
@@ -357,14 +482,14 @@ export interface StepOut {
 }
 
 export interface QuizQuestionOut {
-  id: number;
+  id: string;
   position: number;
   prompt: string;
   choices: string[];
 }
 
 export interface QuestOut {
-  id: number;
+  id: string;
   title: string;
   /** Instructions for the activity */
   description: string;
@@ -395,6 +520,25 @@ export interface QuestOut {
   rsvp?: boolean;
   rsvp_count?: number;
   reported?: boolean;
+  /** My latest pair session for this quest (host or partner) */
+  pair_session?: PairSessionOut | null;
+}
+
+export interface QuizResult {
+  passed: boolean;
+  correct_count: number;
+  total: number;
+  /** Per question, whether the answer was right */
+  correct: boolean[];
+}
+
+export interface QuestActionResult {
+  /** The quest as it is after the action */
+  quest: QuestOut;
+  /** Set when the action completed or submitted the quest */
+  completion?: CompletionResult | null;
+  /** Set for type=quiz */
+  quiz?: QuizResult | null;
 }
 
 export interface QuestSubmission {
@@ -411,21 +555,14 @@ export interface QuestSubmission {
   location?: string | null;
 }
 
-export interface QuizResult {
-  passed: boolean;
-  correct_count: number;
-  total: number;
-  /** Per question, whether the answer was right */
-  correct: boolean[];
-  completion?: CompletionResult | null;
-}
-
-export interface QuizSubmission {
+export interface QuizAction {
+  type: "quiz";
   /** Chosen choice index per question, in order */
   answers: number[];
 }
 
-export interface ReportRequest {
+export interface ReportAction {
+  type: "report";
   /**
    * @minLength 5
    * @maxLength 500
@@ -438,39 +575,36 @@ export interface ReportResolution {
   retire_quest: boolean;
 }
 
-export interface RsvpResult {
-  rsvp: boolean;
-  rsvp_count: number;
+export interface RsvpAction {
+  type: "rsvp";
+  attending: boolean;
 }
 
-export type StatusChangeStatus =
-  (typeof StatusChangeStatus)[keyof typeof StatusChangeStatus];
-
-export const StatusChangeStatus = {
-  draft: "draft",
-  published: "published",
-  rejected: "rejected",
-  retired: "retired",
-} as const;
-
-export interface StatusChange {
-  status: StatusChangeStatus;
-  /** Shown to the author on rejection */
-  note?: string | null;
+/**
+ * Mark the next step of a multi-step quest as done.
+ */
+export interface StepAction {
+  type: "step";
+  step_id: string;
 }
 
-export interface StepResult {
-  step_id: number;
-  steps_done: number;
-  steps_total: number;
-  /** Set when this step finished the quest */
-  completion?: CompletionResult | null;
-}
+export type SearchPlayersParams = {
+  /**
+   * Part of a display name
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+};
 
-export type SubmissionOutStatus =
-  (typeof SubmissionOutStatus)[keyof typeof SubmissionOutStatus];
+export type AdminListQuestsParams = {
+  status?: AdminListQuestsStatus;
+};
 
-export const SubmissionOutStatus = {
+export type AdminListQuestsStatus =
+  (typeof AdminListQuestsStatus)[keyof typeof AdminListQuestsStatus] | null;
+
+export const AdminListQuestsStatus = {
   draft: "draft",
   pending_review: "pending_review",
   published: "published",
@@ -478,32 +612,15 @@ export const SubmissionOutStatus = {
   retired: "retired",
 } as const;
 
-export interface SubmissionOut {
-  id: number;
-  title: string;
-  description: string;
-  location?: string | null;
-  status: SubmissionOutStatus;
-  review_note?: string | null;
-}
-
-export interface Suggestion {
-  player_id: number;
-  display_name: string;
-  /** Labels of hobbies you share */
-  shared_hobbies: string[];
-}
-
-export interface Suggestions {
-  /** False until the player opts in */
-  enabled: boolean;
-  suggestions: Suggestion[];
-}
-
-export type AdminListQuestsParams = {
-  status_filter?: string | null;
-};
-
 export type AdminListCompletionsParams = {
-  status_filter?: string;
+  status?: AdminListCompletionsStatus;
 };
+
+export type AdminListCompletionsStatus =
+  (typeof AdminListCompletionsStatus)[keyof typeof AdminListCompletionsStatus];
+
+export const AdminListCompletionsStatus = {
+  approved: "approved",
+  pending: "pending",
+  rejected: "rejected",
+} as const;

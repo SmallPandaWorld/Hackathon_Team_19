@@ -4,6 +4,7 @@ import {
   buttonStyles,
   Card,
   Chip,
+  inputStyles,
   Page,
   PageTitle,
 } from "@/src/components/page";
@@ -11,25 +12,47 @@ import { BadgeIcon } from "@/src/components/icons";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
+import type {
+  Badge,
+  HobbyOption,
+  Me,
+  PublicPlayer,
+} from "@/src/lib/api/hackathon.schemas";
 import {
   useDismissSuggestion,
-  useListSuggestions,
-} from "@/src/lib/api/connections";
-import type { Badge, Player } from "@/src/lib/api/hackathon.schemas";
-import { useStartPairSession } from "@/src/lib/api/pair";
-import {
   useGetMe,
-  useListBadges,
-  useListHobbies,
-  useUpdateProfile,
+  useGetPlayer,
+  useSearchPlayers,
+  useUpdateMe,
 } from "@/src/lib/api/players";
-import { useListMySubmissions, useListQuests } from "@/src/lib/api/quests";
+import { useActOnQuest, useListQuests } from "@/src/lib/api/quests";
 import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
-import { Check, ChevronDown, Send, Users } from "lucide-react";
+import { keepPreviousData } from "@tanstack/react-query";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Send,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
+
+function profileHref(username: string): string {
+  return `/profile?player=${encodeURIComponent(username)}`;
+}
+
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 function nextBadge(badges: Badge[]): Badge | undefined {
   // The unearned badge the player is closest to.
@@ -47,10 +70,8 @@ function nextBadgeHint(badge: Badge): string {
   return `${badge.description.replace(/\.$/, "")} to earn “${badge.title}”`;
 }
 
-function Achievements({ player }: { player: Player }) {
-  const { data, isLoading } = useListBadges();
-  const badges = data?.status === 200 ? data.data : [];
-  if (isLoading) return <LoadingState label="Loading badges..." />;
+function Achievements({ player }: { player: Me }) {
+  const badges = player.badges;
   const earned = badges.filter((badge) => badge.earned);
   const next = nextBadge(badges);
 
@@ -165,14 +186,13 @@ function Achievements({ player }: { player: Player }) {
   );
 }
 
-function HobbyEditor({ player }: { player: Player }) {
-  const hobbies = useListHobbies();
-  const updateProfile = useUpdateProfile();
+function HobbyEditor({ player }: { player: Me }) {
+  const updateMe = useUpdateMe();
   const { error, run, refreshAll } = useAction();
   const [selected, setSelected] = useState<string[]>(player.hobbies);
   const [discoverable, setDiscoverable] = useState(player.discoverable);
   const [saved, setSaved] = useState(false);
-  const options = hobbies.data?.status === 200 ? hobbies.data.data : [];
+  const options = player.hobby_options;
   const changed =
     discoverable !== player.discoverable ||
     selected.length !== player.hobbies.length ||
@@ -190,7 +210,7 @@ function HobbyEditor({ player }: { player: Player }) {
   async function save() {
     if (
       await run(() =>
-        updateProfile.mutateAsync({
+        updateMe.mutateAsync({
           data: { hobbies: selected, discoverable },
         }),
       )
@@ -250,11 +270,11 @@ function HobbyEditor({ player }: { player: Player }) {
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           className={`${buttonStyles.primary} py-2`}
-          disabled={!changed || updateProfile.isPending}
+          disabled={!changed || updateMe.isPending}
           onClick={save}
           type="button"
         >
-          {updateProfile.isPending ? "Saving..." : "Save"}
+          {updateMe.isPending ? "Saving..." : "Save"}
         </button>
         {selected.length > 0 && (
           <button
@@ -279,14 +299,13 @@ function HobbyEditor({ player }: { player: Player }) {
   );
 }
 
-function SuggestionsList() {
-  const { data, isLoading } = useListSuggestions();
+function SuggestionsList({ player }: { player: Me }) {
   const quests = useListQuests();
   const dismiss = useDismissSuggestion();
-  const startSession = useStartPairSession();
+  const startSession = useActOnQuest();
   const router = useRouter();
   const { error, run, refreshAll } = useAction();
-  const result = data?.status === 200 ? data.data : undefined;
+  const result = player.suggestions;
   // A partner quest to play with a suggestion: one the player hasn't done
   // yet if possible, otherwise any (then only the invitee earns points).
   const pairQuests =
@@ -295,18 +314,16 @@ function SuggestionsList() {
       : [];
   const pairQuest = pairQuests.find((q) => !q.completed) ?? pairQuests[0];
 
-  async function invite(playerId: number) {
+  async function invite(username: string) {
     if (!pairQuest) return;
     const response = await run(() =>
       startSession.mutateAsync({
         questId: pairQuest.id,
-        data: { invite_player_id: playerId },
+        data: { type: "pair_start", invite_username: username },
       }),
     );
     if (response) router.push(`/quests/${pairQuest.id}`);
   }
-
-  if (isLoading || !result) return null;
 
   return (
     <Card>
@@ -335,15 +352,23 @@ function SuggestionsList() {
             {result.suggestions.map((suggestion) => (
               <li
                 className="flex items-center gap-3 rounded-md bg-surface-variant p-3"
-                key={suggestion.player_id}
+                key={suggestion.username}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
+                <Link
+                  aria-hidden
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary"
+                  href={profileHref(suggestion.username)}
+                  tabIndex={-1}
+                >
                   {suggestion.display_name.charAt(0).toUpperCase()}
-                </span>
+                </Link>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">
+                  <Link
+                    className="block truncate font-semibold hover:underline"
+                    href={profileHref(suggestion.username)}
+                  >
                     {suggestion.display_name}
-                  </p>
+                  </Link>
                   <p className="text-xs text-muted">
                     You both like {suggestion.shared_hobbies.join(", ")}
                   </p>
@@ -352,7 +377,7 @@ function SuggestionsList() {
                   <button
                     className={`${buttonStyles.primary} flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm`}
                     disabled={startSession.isPending}
-                    onClick={() => invite(suggestion.player_id)}
+                    onClick={() => invite(suggestion.username)}
                     type="button"
                   >
                     <Send aria-hidden className="h-4 w-4" /> Invite
@@ -365,7 +390,7 @@ function SuggestionsList() {
                   onClick={async () => {
                     if (
                       await run(() =>
-                        dismiss.mutateAsync({ playerId: suggestion.player_id }),
+                        dismiss.mutateAsync({ username: suggestion.username }),
                       )
                     )
                       await refreshAll();
@@ -384,9 +409,110 @@ function SuggestionsList() {
   );
 }
 
-function MySubmissions() {
-  const { data } = useListMySubmissions();
-  const submissions = data?.status === 200 ? data.data : [];
+const SEARCH_DELAY_MS = 400;
+const MIN_QUERY_LENGTH = 2;
+const SEARCH_CACHE_MS = 60_000;
+
+function SearchResults({ query }: { query: string }) {
+  const { data, isLoading, isError, isFetching, refetch } = useSearchPlayers(
+    { q: query },
+    {
+      query: {
+        placeholderData: keepPreviousData,
+        staleTime: SEARCH_CACHE_MS,
+        refetchOnWindowFocus: false,
+        retry: false,
+      },
+    },
+  );
+  const results = data?.status === 200 ? data.data : undefined;
+  const error = isError ? "Could not search players." : apiErrorMessage(data);
+
+  if (isLoading) return <LoadingState label="Searching..." />;
+  if (error || !results)
+    return (
+      <ErrorState
+        message={error ?? "Could not search players."}
+        onRetry={() => refetch()}
+      />
+    );
+  if (results.length === 0)
+    return (
+      <p className="text-sm text-muted">
+        No players found. Only players who turned on suggestions can be found.
+      </p>
+    );
+
+  return (
+    <ul
+      aria-busy={isFetching}
+      className={`flex flex-col gap-2 transition ${isFetching ? "opacity-60" : ""}`}
+    >
+      {results.map((result) => (
+        <li key={result.username}>
+          <Link
+            className="flex items-center gap-3 rounded-md bg-surface-variant p-3 hover:ring-2 hover:ring-primary"
+            href={profileHref(result.username)}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
+              {result.display_name.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              {result.display_name}
+            </span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted" />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SearchPlayers() {
+  const [text, setText] = useState("");
+  const trimmed = text.trim();
+  const query = useDebouncedValue(trimmed, SEARCH_DELAY_MS);
+  const ready = query.length >= MIN_QUERY_LENGTH;
+
+  return (
+    <Card className="flex flex-col gap-3">
+      <label className="font-semibold" htmlFor="player-search">
+        Find a player by name
+      </label>
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+        />
+        <input
+          autoComplete="off"
+          className={`${inputStyles} mt-0 pl-9`}
+          id="player-search"
+          maxLength={100}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Start typing a name..."
+          type="search"
+          value={text}
+        />
+      </div>
+      {trimmed.length < MIN_QUERY_LENGTH ? (
+        <p className="text-sm text-muted">
+          Type at least {MIN_QUERY_LENGTH} letters. Only players who turned on
+          suggestions can be found.
+        </p>
+      ) : ready ? (
+        <div aria-live="polite">
+          <SearchResults query={query} />
+        </div>
+      ) : (
+        <LoadingState label="Searching..." />
+      )}
+    </Card>
+  );
+}
+
+function MySubmissions({ player }: { player: Me }) {
+  const submissions = player.submissions;
 
   return (
     <Card>
@@ -437,44 +563,174 @@ function MySubmissions() {
   );
 }
 
-export default function ProfilePage() {
-  const { data, isLoading, isError, refetch } = useGetMe();
-  const player = data?.status === 200 ? data.data : undefined;
-  const error = isError
+function OtherProfile({
+  player,
+  hobbyOptions,
+}: {
+  player: PublicPlayer;
+  hobbyOptions: HobbyOption[];
+}) {
+  const labels = player.hobbies.map(
+    (key) => hobbyOptions.find((option) => option.key === key)?.label ?? key,
+  );
+  const earned = player.badges.filter((badge) => badge.earned);
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-on-primary">
+          {player.display_name.charAt(0).toUpperCase()}
+        </span>
+        <div className="flex-1">
+          <p className="text-3xl font-bold">{player.total_points}</p>
+          <p className="text-sm text-muted">points</p>
+        </div>
+        <div className="text-right">
+          <p className="text-3xl font-bold">
+            {earned.length}
+            <span className="text-lg text-muted">/{player.badges.length}</span>
+          </p>
+          <p className="text-sm text-muted">badges</p>
+        </div>
+      </div>
+      {earned.length > 0 && (
+        <ul aria-label="Earned badges" className="flex flex-wrap gap-2">
+          {earned.map((badge) => (
+            <li
+              className="flex h-10 w-10 items-center justify-center rounded-sm bg-primary text-on-primary"
+              key={badge.key}
+              title={badge.title}
+            >
+              <BadgeIcon badgeKey={badge.key} />
+              <span className="sr-only">{badge.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {labels.length > 0 && (
+        <div>
+          <h2 className="font-semibold">Hobbies</h2>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {labels.map((label) => (
+              <li
+                className="rounded-full bg-surface-variant px-3 py-1.5 text-sm font-medium text-on-surface-variant"
+                key={label}
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <Link
+        className="text-sm font-semibold text-link hover:underline"
+        href="/profile"
+      >
+        Back to your profile
+      </Link>
+    </Card>
+  );
+}
+
+function OwnProfile({ player }: { player: Me }) {
+  return (
+    <>
+      <Achievements player={player} />
+      <SuggestionsList player={player} />
+      <SearchPlayers />
+      {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
+      <HobbyEditor player={player} />
+      <MySubmissions player={player} />
+      <ShareButton
+        className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
+        label={
+          <>
+            <Send aria-hidden className="h-4 w-4" /> Invite a friend to Campus
+            Voyager
+          </>
+        }
+        path="/"
+        text="Join me on Campus Voyager: explore ETH and complete quests together!"
+        title="Campus Voyager"
+      />
+    </>
+  );
+}
+
+function ProfileContent() {
+  // `?player=<username>` shows another player; without it the page is your own.
+  const requested = useSearchParams().get("player")?.trim() || undefined;
+
+  const me = useGetMe();
+  const myself = me.data?.status === 200 ? me.data.data : undefined;
+  // Your own username in the URL shows your full profile, so skip fetching it twice.
+  const isOwn = requested === undefined || requested === myself?.username;
+  // Waits for `me`: it decides whether this is your own profile and labels the hobbies.
+  const other = useGetPlayer(encodeURIComponent(requested ?? ""), {
+    query: { enabled: !isOwn && myself !== undefined },
+  });
+  const otherPlayer = other.data?.status === 200 ? other.data.data : undefined;
+
+  const meError = me.isError
     ? "Could not load your profile."
-    : apiErrorMessage(data);
+    : apiErrorMessage(me.data);
+  const otherError = other.isError
+    ? "Could not load this profile."
+    : other.data?.status === 404
+      ? "This player doesn't exist or keeps their profile private."
+      : apiErrorMessage(other.data);
+
+  let title = "You";
+  let body: ReactNode;
+  if (me.isLoading) {
+    body = <LoadingState label="Loading profile..." />;
+  } else if (meError || !myself) {
+    body = (
+      <ErrorState
+        message={meError ?? "Could not load your profile."}
+        onRetry={() => me.refetch()}
+      />
+    );
+  } else if (isOwn) {
+    title = myself.display_name;
+    body = <OwnProfile player={myself} />;
+  } else if (other.isPending) {
+    title = "Player";
+    body = <LoadingState label="Loading profile..." />;
+  } else if (otherError || !otherPlayer) {
+    title = "Player";
+    body = (
+      <ErrorState
+        message={otherError ?? "Could not load this profile."}
+        onRetry={() => other.refetch()}
+      />
+    );
+  } else {
+    title = otherPlayer.display_name;
+    body = (
+      <OtherProfile hobbyOptions={myself.hobby_options} player={otherPlayer} />
+    );
+  }
 
   return (
     <Page>
-      <PageTitle eyebrow="Profile">{player?.display_name ?? "You"}</PageTitle>
-      {isLoading ? (
-        <LoadingState label="Loading profile..." />
-      ) : error || !player ? (
-        <ErrorState
-          message={error ?? "Could not load your profile."}
-          onRetry={() => refetch()}
-        />
-      ) : (
-        <>
-          <Achievements player={player} />
-          <SuggestionsList />
-          {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
-          <HobbyEditor player={player} />
-          <MySubmissions />
-          <ShareButton
-            className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
-            label={
-              <>
-                <Send aria-hidden className="h-4 w-4" /> Invite a friend to
-                Campus Voyager
-              </>
-            }
-            path="/"
-            text="Join me on Campus Voyager: explore ETH and complete quests together!"
-            title="Campus Voyager"
-          />
-        </>
-      )}
+      <PageTitle eyebrow="Profile">{title}</PageTitle>
+      {body}
     </Page>
+  );
+}
+
+export default function ProfilePage() {
+  // useSearchParams() needs a Suspense boundary when cacheComponents is enabled.
+  return (
+    <Suspense
+      fallback={
+        <Page>
+          <LoadingState label="Loading profile..." />
+        </Page>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 }

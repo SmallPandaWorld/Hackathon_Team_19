@@ -16,7 +16,7 @@ import {
   useAdminListReports,
   useAdminResolveReport,
   useAdminReviewCompletion,
-  useAdminSetQuestStatus,
+  useAdminUpdateQuest,
 } from "@/src/lib/api/admin";
 import type { AdminQuestOut } from "@/src/lib/api/hackathon.schemas";
 import { STATUS_LABELS, formatZurich } from "@/src/lib/quest-display";
@@ -74,16 +74,19 @@ function QuestsTab() {
 }
 
 function IdeaCard({ quest }: { quest: AdminQuestOut }) {
-  const setStatus = useAdminSetQuestStatus();
+  const updateQuest = useAdminUpdateQuest();
   const { error, run, refreshAll } = useAction();
   const [note, setNote] = useState("");
   const blocked = quest.publish_problems.length > 0;
 
   async function decide(status: "published" | "rejected") {
     const call = () =>
-      setStatus.mutateAsync({
+      updateQuest.mutateAsync({
         questId: quest.id,
-        data: { status, note: note.trim() || null },
+        data:
+          status === "rejected"
+            ? { status, review_note: note.trim() || null }
+            : { status },
       });
     if (await run(call)) await refreshAll();
   }
@@ -116,7 +119,7 @@ function IdeaCard({ quest }: { quest: AdminQuestOut }) {
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           className={`${buttonStyles.primary} py-2 text-sm`}
-          disabled={blocked || setStatus.isPending}
+          disabled={blocked || updateQuest.isPending}
           onClick={() => decide("published")}
           type="button"
         >
@@ -124,7 +127,7 @@ function IdeaCard({ quest }: { quest: AdminQuestOut }) {
         </button>
         <button
           className={`${buttonStyles.danger} py-2 text-sm`}
-          disabled={setStatus.isPending}
+          disabled={updateQuest.isPending}
           onClick={() => decide("rejected")}
           type="button"
         >
@@ -149,7 +152,7 @@ function IdeaCard({ quest }: { quest: AdminQuestOut }) {
 
 function IdeasTab() {
   const { data, isLoading } = useAdminListQuests({
-    status_filter: "pending_review",
+    status: "pending_review",
   });
   const ideas = data?.status === 200 ? data.data : [];
   if (isLoading) return <LoadingState label="Loading ideas..." />;
@@ -172,10 +175,10 @@ function ReviewsTab() {
   const { data, isLoading } = useAdminListCompletions();
   const review = useAdminReviewCompletion();
   const { error, run, refreshAll } = useAction();
-  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const completions = data?.status === 200 ? data.data : [];
 
-  async function decide(completionId: number, approve: boolean) {
+  async function decide(completionId: string, approve: boolean) {
     const note = notes[completionId]?.trim() || null;
     if (
       await run(() =>
@@ -251,10 +254,10 @@ function ReportsTab() {
   const { error, run, refreshAll } = useAction();
   const reports = data?.status === 200 ? data.data : [];
 
-  async function decide(reportId: number, retireQuest: boolean) {
+  async function dismiss(reportId: string) {
     if (
       await run(() =>
-        resolve.mutateAsync({ reportId, data: { retire_quest: retireQuest } }),
+        resolve.mutateAsync({ reportId, data: { retire_quest: false } }),
       )
     )
       await refreshAll();
@@ -288,18 +291,16 @@ function ReportsTab() {
             “{report.reason}”
           </p>
           <div className="mt-3 flex gap-2">
+            <Link
+              className={`${buttonStyles.secondary} flex-1 py-2 text-center text-sm`}
+              href={`/admin/quests/${report.quest_id}`}
+            >
+              Edit quest
+            </Link>
             <button
               className={`${buttonStyles.danger} flex-1 py-2 text-sm`}
               disabled={resolve.isPending}
-              onClick={() => decide(report.id, true)}
-              type="button"
-            >
-              Remove quest
-            </button>
-            <button
-              className={`${buttonStyles.secondary} flex-1 py-2 text-sm`}
-              disabled={resolve.isPending}
-              onClick={() => decide(report.id, false)}
+              onClick={() => dismiss(report.id)}
               type="button"
             >
               Dismiss report
@@ -313,7 +314,7 @@ function ReportsTab() {
 
 function Dashboard() {
   const [tab, setTab] = useState<Tab>("quests");
-  const ideas = useAdminListQuests({ status_filter: "pending_review" });
+  const ideas = useAdminListQuests({ status: "pending_review" });
   const completions = useAdminListCompletions();
   const reports = useAdminListReports();
   const counts: Record<Tab, number> = {

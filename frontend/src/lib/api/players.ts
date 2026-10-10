@@ -21,12 +21,14 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
-  Badge,
   ErrorResponse,
   HTTPValidationError,
-  HobbyOption,
-  Player,
+  Leaderboard,
+  Me,
+  PlayerSearchResult,
   ProfileUpdate,
+  PublicPlayer,
+  SearchPlayersParams,
 } from "./hackathon.schemas";
 
 const withQueryKey = <T extends object, K>(
@@ -48,7 +50,7 @@ const withQueryKey = <T extends object, K>(
 };
 
 export type getMeResponse200 = {
-  data: Player;
+  data: Me;
   status: 200;
 };
 
@@ -71,7 +73,8 @@ export const getGetMeUrl = () => {
 };
 
 /**
- * The current player with their total points.
+ * Everything about the current player: points, badges, hobbies,
+ * connection suggestions, open pair invitations and submitted quests.
  * @summary Get Me
  */
 export const getMe = async (options?: RequestInit): Promise<getMeResponse> => {
@@ -203,52 +206,51 @@ export function useGetMe<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export type updateProfileResponse200 = {
-  data: Player;
+export type updateMeResponse200 = {
+  data: Me;
   status: 200;
 };
 
-export type updateProfileResponse400 = {
+export type updateMeResponse400 = {
   data: ErrorResponse;
   status: 400;
 };
 
-export type updateProfileResponse401 = {
+export type updateMeResponse401 = {
   data: ErrorResponse;
   status: 401;
 };
 
-export type updateProfileResponse422 = {
+export type updateMeResponse422 = {
   data: HTTPValidationError;
   status: 422;
 };
 
-export type updateProfileResponseSuccess = updateProfileResponse200 & {
+export type updateMeResponseSuccess = updateMeResponse200 & {
   headers: Headers;
 };
-export type updateProfileResponseError = (
-  updateProfileResponse400 | updateProfileResponse401 | updateProfileResponse422
+export type updateMeResponseError = (
+  updateMeResponse400 | updateMeResponse401 | updateMeResponse422
 ) & {
   headers: Headers;
 };
 
-export type updateProfileResponse =
-  updateProfileResponseSuccess | updateProfileResponseError;
+export type updateMeResponse = updateMeResponseSuccess | updateMeResponseError;
 
-export const getUpdateProfileUrl = () => {
-  return `/api/me/profile`;
+export const getUpdateMeUrl = () => {
+  return `/api/me`;
 };
 
 /**
  * Set hobbies and whether the player appears in connection suggestions.
  *
  * Send an empty list to remove all hobbies.
- * @summary Update Profile
+ * @summary Update Me
  */
-export const updateProfile = async (
+export const updateMe = async (
   profileUpdate: ProfileUpdate,
   options?: RequestInit,
-): Promise<updateProfileResponse> => {
+): Promise<updateMeResponse> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -270,7 +272,7 @@ export const updateProfile = async (
     }
     return headers;
   };
-  const res = await fetch(getUpdateProfileUrl(), {
+  const res = await fetch(getUpdateMeUrl(), {
     ...options,
     method: "PUT",
     headers: {
@@ -282,34 +284,30 @@ export const updateProfile = async (
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: updateProfileResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as updateProfileResponse;
+  const data: updateMeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as updateMeResponse;
 };
 
-export const getUpdateProfileMutationKey = () => ["updateProfile"] as const;
+export const getUpdateMeMutationKey = () => ["updateMe"] as const;
 
-export const getUpdateProfileMutationOptions = <
+export const getUpdateMeMutationOptions = <
   TError = ErrorResponse | HTTPValidationError,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateProfile>>,
+    Awaited<ReturnType<typeof updateMe>>,
     TError,
-    UpdateProfileMutationVariables,
+    UpdateMeMutationVariables,
     TContext
   >;
   fetch?: RequestInit;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof updateProfile>>,
+  Awaited<ReturnType<typeof updateMe>>,
   TError,
-  UpdateProfileMutationVariables,
+  UpdateMeMutationVariables,
   TContext
 > => {
-  const mutationKey = getUpdateProfileMutationKey();
+  const mutationKey = getUpdateMeMutationKey();
   const { mutation: mutationOptions, fetch: fetchOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -319,141 +317,311 @@ export const getUpdateProfileMutationOptions = <
     : { mutation: { mutationKey }, fetch: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updateProfile>>,
-    UpdateProfileMutationVariables
+    Awaited<ReturnType<typeof updateMe>>,
+    UpdateMeMutationVariables
   > = (props) => {
     const { data } = props ?? {};
 
-    return updateProfile(data, fetchOptions);
+    return updateMe(data, fetchOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type UpdateProfileMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updateProfile>>
+export type UpdateMeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMe>>
 >;
-export type UpdateProfileMutationBody = ProfileUpdate;
-export type UpdateProfileMutationError = ErrorResponse | HTTPValidationError;
-export type UpdateProfileMutationVariables = { data: ProfileUpdate };
+export type UpdateMeMutationBody = ProfileUpdate;
+export type UpdateMeMutationError = ErrorResponse | HTTPValidationError;
+export type UpdateMeMutationVariables = { data: ProfileUpdate };
 
 /**
- * @summary Update Profile
+ * @summary Update Me
  */
-export const useUpdateProfile = <
+export const useUpdateMe = <
   TError = ErrorResponse | HTTPValidationError,
   TContext = unknown,
 >(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof updateProfile>>,
+      Awaited<ReturnType<typeof updateMe>>,
       TError,
-      UpdateProfileMutationVariables,
+      UpdateMeMutationVariables,
       TContext
     >;
     fetch?: RequestInit;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof updateProfile>>,
+  Awaited<ReturnType<typeof updateMe>>,
   TError,
-  UpdateProfileMutationVariables,
+  UpdateMeMutationVariables,
   TContext
 > => {
-  return useMutation(getUpdateProfileMutationOptions(options), queryClient);
+  return useMutation(getUpdateMeMutationOptions(options), queryClient);
 };
-export type listBadgesResponse200 = {
-  data: Badge[];
-  status: 200;
+export type dismissSuggestionResponse204 = {
+  data: void;
+  status: 204;
 };
 
-export type listBadgesResponse401 = {
+export type dismissSuggestionResponse400 = {
+  data: ErrorResponse;
+  status: 400;
+};
+
+export type dismissSuggestionResponse401 = {
   data: ErrorResponse;
   status: 401;
 };
 
-export type listBadgesResponseSuccess = listBadgesResponse200 & {
+export type dismissSuggestionResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type dismissSuggestionResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type dismissSuggestionResponseSuccess = dismissSuggestionResponse204 & {
   headers: Headers;
 };
-export type listBadgesResponseError = listBadgesResponse401 & {
+export type dismissSuggestionResponseError = (
+  | dismissSuggestionResponse400
+  | dismissSuggestionResponse401
+  | dismissSuggestionResponse404
+  | dismissSuggestionResponse422
+) & {
   headers: Headers;
 };
 
-export type listBadgesResponse =
-  listBadgesResponseSuccess | listBadgesResponseError;
+export type dismissSuggestionResponse =
+  dismissSuggestionResponseSuccess | dismissSuggestionResponseError;
 
-export const getListBadgesUrl = () => {
-  return `/api/me/badges`;
+export const getDismissSuggestionUrl = (username: string) => {
+  return `/api/me/suggestions/${username}`;
 };
 
 /**
- * All badges, with whether and when the current player earned them.
- * @summary List Badges
+ * Stop suggesting this player (idempotent).
+ * @summary Dismiss Suggestion
  */
-export const listBadges = async (
+export const dismissSuggestion = async (
+  username: string,
   options?: RequestInit,
-): Promise<listBadgesResponse> => {
-  const res = await fetch(getListBadgesUrl(), {
+): Promise<dismissSuggestionResponse> => {
+  const res = await fetch(getDismissSuggestionUrl(username), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: dismissSuggestionResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as dismissSuggestionResponse;
+};
+
+export const getDismissSuggestionMutationKey = () =>
+  ["dismissSuggestion"] as const;
+
+export const getDismissSuggestionMutationOptions = <
+  TError = ErrorResponse | HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissSuggestion>>,
+    TError,
+    DismissSuggestionMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dismissSuggestion>>,
+  TError,
+  DismissSuggestionMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDismissSuggestionMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dismissSuggestion>>,
+    DismissSuggestionMutationVariables
+  > = (props) => {
+    const { username } = props ?? {};
+
+    return dismissSuggestion(username, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DismissSuggestionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissSuggestion>>
+>;
+
+export type DismissSuggestionMutationError =
+  ErrorResponse | HTTPValidationError;
+export type DismissSuggestionMutationVariables = { username: string };
+
+/**
+ * @summary Dismiss Suggestion
+ */
+export const useDismissSuggestion = <
+  TError = ErrorResponse | HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof dismissSuggestion>>,
+      TError,
+      DismissSuggestionMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof dismissSuggestion>>,
+  TError,
+  DismissSuggestionMutationVariables,
+  TContext
+> => {
+  return useMutation(getDismissSuggestionMutationOptions(options), queryClient);
+};
+export type searchPlayersResponse200 = {
+  data: PlayerSearchResult[];
+  status: 200;
+};
+
+export type searchPlayersResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type searchPlayersResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type searchPlayersResponseSuccess = searchPlayersResponse200 & {
+  headers: Headers;
+};
+export type searchPlayersResponseError = (
+  searchPlayersResponse401 | searchPlayersResponse422
+) & {
+  headers: Headers;
+};
+
+export type searchPlayersResponse =
+  searchPlayersResponseSuccess | searchPlayersResponseError;
+
+export const getSearchPlayersUrl = (params: SearchPlayersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/players?${stringifiedParams}`
+    : `/api/players`;
+};
+
+/**
+ * Discoverable players whose name contains the query, A to Z.
+ *
+ * Same consent rule as profile pages: players who did not opt in to
+ * suggestions cannot be found. Never returns the searcher.
+ * @summary Search Players
+ */
+export const searchPlayers = async (
+  params: SearchPlayersParams,
+  options?: RequestInit,
+): Promise<searchPlayersResponse> => {
+  const res = await fetch(getSearchPlayersUrl(params), {
     ...options,
     method: "GET",
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: listBadgesResponse["data"] = body ? JSON.parse(body) : {};
+  const data: searchPlayersResponse["data"] = body ? JSON.parse(body) : {};
   return {
     data,
     status: res.status,
     headers: res.headers,
-  } as listBadgesResponse;
+  } as searchPlayersResponse;
 };
 
-export const getListBadgesQueryKey = () => {
-  return [`/api/me/badges`] as const;
+export const getSearchPlayersQueryKey = (params?: SearchPlayersParams) => {
+  return [`/api/players`, ...(params ? [params] : [])] as const;
 };
 
-export const getListBadgesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listBadges>>,
-  TError = ErrorResponse,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>
-  >;
-  fetch?: RequestInit;
-}) => {
+export const getSearchPlayersQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchPlayers>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  params: SearchPlayersParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchPlayers>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListBadgesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getSearchPlayersQueryKey(params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listBadges>>> = ({
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchPlayers>>> = ({
     signal,
-  }) => listBadges({ signal, ...fetchOptions });
+  }) => searchPlayers(params, { signal, ...fetchOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listBadges>>,
+    Awaited<ReturnType<typeof searchPlayers>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type ListBadgesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listBadges>>
+export type SearchPlayersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPlayers>>
 >;
-export type ListBadgesQueryError = ErrorResponse;
+export type SearchPlayersQueryError = ErrorResponse | HTTPValidationError;
 
-export function useListBadges<
-  TData = Awaited<ReturnType<typeof listBadges>>,
-  TError = ErrorResponse,
+export function useSearchPlayers<
+  TData = Awaited<ReturnType<typeof searchPlayers>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params: SearchPlayersParams,
   options: {
     query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof searchPlayers>>, TError, TData>
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listBadges>>,
+          Awaited<ReturnType<typeof searchPlayers>>,
           TError,
-          Awaited<ReturnType<typeof listBadges>>
+          Awaited<ReturnType<typeof searchPlayers>>
         >,
         "initialData"
       >;
@@ -463,19 +631,20 @@ export function useListBadges<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useListBadges<
-  TData = Awaited<ReturnType<typeof listBadges>>,
-  TError = ErrorResponse,
+export function useSearchPlayers<
+  TData = Awaited<ReturnType<typeof searchPlayers>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params: SearchPlayersParams,
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof searchPlayers>>, TError, TData>
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listBadges>>,
+          Awaited<ReturnType<typeof searchPlayers>>,
           TError,
-          Awaited<ReturnType<typeof listBadges>>
+          Awaited<ReturnType<typeof searchPlayers>>
         >,
         "initialData"
       >;
@@ -485,13 +654,14 @@ export function useListBadges<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useListBadges<
-  TData = Awaited<ReturnType<typeof listBadges>>,
-  TError = ErrorResponse,
+export function useSearchPlayers<
+  TData = Awaited<ReturnType<typeof searchPlayers>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params: SearchPlayersParams,
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof searchPlayers>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -500,16 +670,17 @@ export function useListBadges<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 /**
- * @summary List Badges
+ * @summary Search Players
  */
 
-export function useListBadges<
-  TData = Awaited<ReturnType<typeof listBadges>>,
-  TError = ErrorResponse,
+export function useSearchPlayers<
+  TData = Awaited<ReturnType<typeof searchPlayers>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  params: SearchPlayersParams,
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof searchPlayers>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -517,7 +688,7 @@ export function useListBadges<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getListBadgesQueryOptions(options);
+  const queryOptions = getSearchPlayersQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,
@@ -527,98 +698,121 @@ export function useListBadges<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export type listHobbiesResponse200 = {
-  data: HobbyOption[];
+export type getPlayerResponse200 = {
+  data: PublicPlayer;
   status: 200;
 };
 
-export type listHobbiesResponse401 = {
+export type getPlayerResponse401 = {
   data: ErrorResponse;
   status: 401;
 };
 
-export type listHobbiesResponseSuccess = listHobbiesResponse200 & {
+export type getPlayerResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type getPlayerResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type getPlayerResponseSuccess = getPlayerResponse200 & {
   headers: Headers;
 };
-export type listHobbiesResponseError = listHobbiesResponse401 & {
+export type getPlayerResponseError = (
+  getPlayerResponse401 | getPlayerResponse404 | getPlayerResponse422
+) & {
   headers: Headers;
 };
 
-export type listHobbiesResponse =
-  listHobbiesResponseSuccess | listHobbiesResponseError;
+export type getPlayerResponse =
+  getPlayerResponseSuccess | getPlayerResponseError;
 
-export const getListHobbiesUrl = () => {
-  return `/api/hobbies`;
+export const getGetPlayerUrl = (username: string) => {
+  return `/api/players/${username}`;
 };
 
 /**
- * The hobbies a player can choose from.
- * @summary List Hobbies
+ * A player's public profile.
+ *
+ * Only players who opted in to suggestions are visible to others; a player
+ * can always view themselves.
+ * @summary Get Player
  */
-export const listHobbies = async (
+export const getPlayer = async (
+  username: string,
   options?: RequestInit,
-): Promise<listHobbiesResponse> => {
-  const res = await fetch(getListHobbiesUrl(), {
+): Promise<getPlayerResponse> => {
+  const res = await fetch(getGetPlayerUrl(username), {
     ...options,
     method: "GET",
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: listHobbiesResponse["data"] = body ? JSON.parse(body) : {};
+  const data: getPlayerResponse["data"] = body ? JSON.parse(body) : {};
   return {
     data,
     status: res.status,
     headers: res.headers,
-  } as listHobbiesResponse;
+  } as getPlayerResponse;
 };
 
-export const getListHobbiesQueryKey = () => {
-  return [`/api/hobbies`] as const;
+export const getGetPlayerQueryKey = (username: string) => {
+  return [`/api/players/${username}`] as const;
 };
 
-export const getListHobbiesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listHobbies>>,
-  TError = ErrorResponse,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof listHobbies>>, TError, TData>
-  >;
-  fetch?: RequestInit;
-}) => {
+export const getGetPlayerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  username: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListHobbiesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetPlayerQueryKey(username);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listHobbies>>> = ({
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlayer>>> = ({
     signal,
-  }) => listHobbies({ signal, ...fetchOptions });
+  }) => getPlayer(username, { signal, ...fetchOptions });
 
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listHobbies>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
+  return {
+    queryKey,
+    queryFn,
+    enabled: username !== null && username !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
 };
 
-export type ListHobbiesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listHobbies>>
+export type GetPlayerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPlayer>>
 >;
-export type ListHobbiesQueryError = ErrorResponse;
+export type GetPlayerQueryError = ErrorResponse | HTTPValidationError;
 
-export function useListHobbies<
-  TData = Awaited<ReturnType<typeof listHobbies>>,
-  TError = ErrorResponse,
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  username: string,
   options: {
     query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listHobbies>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listHobbies>>,
+          Awaited<ReturnType<typeof getPlayer>>,
           TError,
-          Awaited<ReturnType<typeof listHobbies>>
+          Awaited<ReturnType<typeof getPlayer>>
         >,
         "initialData"
       >;
@@ -628,19 +822,20 @@ export function useListHobbies<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useListHobbies<
-  TData = Awaited<ReturnType<typeof listHobbies>>,
-  TError = ErrorResponse,
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  username: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listHobbies>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listHobbies>>,
+          Awaited<ReturnType<typeof getPlayer>>,
           TError,
-          Awaited<ReturnType<typeof listHobbies>>
+          Awaited<ReturnType<typeof getPlayer>>
         >,
         "initialData"
       >;
@@ -650,13 +845,14 @@ export function useListHobbies<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useListHobbies<
-  TData = Awaited<ReturnType<typeof listHobbies>>,
-  TError = ErrorResponse,
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  username: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listHobbies>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -665,16 +861,17 @@ export function useListHobbies<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 /**
- * @summary List Hobbies
+ * @summary Get Player
  */
 
-export function useListHobbies<
-  TData = Awaited<ReturnType<typeof listHobbies>>,
-  TError = ErrorResponse,
+export function useGetPlayer<
+  TData = Awaited<ReturnType<typeof getPlayer>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  username: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listHobbies>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getPlayer>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -682,7 +879,172 @@ export function useListHobbies<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getListHobbiesQueryOptions(options);
+  const queryOptions = getGetPlayerQueryOptions(username, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export type getLeaderboardResponse200 = {
+  data: Leaderboard;
+  status: 200;
+};
+
+export type getLeaderboardResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type getLeaderboardResponseSuccess = getLeaderboardResponse200 & {
+  headers: Headers;
+};
+export type getLeaderboardResponseError = getLeaderboardResponse401 & {
+  headers: Headers;
+};
+
+export type getLeaderboardResponse =
+  getLeaderboardResponseSuccess | getLeaderboardResponseError;
+
+export const getGetLeaderboardUrl = () => {
+  return `/api/leaderboard`;
+};
+
+/**
+ * Players ranked by approved points. Equal points share a rank (1, 1, 3, ...).
+ * @summary Get Leaderboard
+ */
+export const getLeaderboard = async (
+  options?: RequestInit,
+): Promise<getLeaderboardResponse> => {
+  const res = await fetch(getGetLeaderboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getLeaderboardResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getLeaderboardResponse;
+};
+
+export const getGetLeaderboardQueryKey = () => {
+  return [`/api/leaderboard`] as const;
+};
+
+export const getGetLeaderboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({
+    signal,
+  }) => getLeaderboard({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeaderboard>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLeaderboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeaderboard>>
+>;
+export type GetLeaderboardQueryError = ErrorResponse;
+
+export function useGetLeaderboard<
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLeaderboard>>,
+          TError,
+          Awaited<ReturnType<typeof getLeaderboard>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLeaderboard<
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLeaderboard>>,
+          TError,
+          Awaited<ReturnType<typeof getLeaderboard>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLeaderboard<
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Leaderboard
+ */
+
+export function useGetLeaderboard<
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetLeaderboardQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

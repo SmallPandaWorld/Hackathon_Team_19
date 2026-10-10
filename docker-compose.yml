@@ -11,7 +11,8 @@ services:
       # Set it on the server, e.g. in a .env file next to this file.
       MAINTAINER_IDS: ${MAINTAINER_IDS:-}
     env_file:
-      - .env
+      - path: .env
+        required: false
     volumes:
       # Survives `docker compose down` / rebuilds. Never use `down -v`.
       - backend-data:/data

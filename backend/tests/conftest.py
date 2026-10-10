@@ -37,3 +37,9 @@ def client(empty_client):
 
 def identity(user_id: str, name: str = "Test Player") -> dict:
     return {"X-User-Id": user_id, "X-User-Name": name}
+
+
+def act(client, headers, quest_id, action_type, **fields):
+    """POST a quest action; returns the response."""
+    return client.post(f"/quests/{quest_id}/actions", headers=headers,
+                       json={"type": action_type, **fields})
