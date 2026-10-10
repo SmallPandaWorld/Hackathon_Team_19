@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from database import ensure_schema
-from routers import admin, pair, players, quests
+from routers import admin, friends, pair, players, quests
 
 
 @asynccontextmanager
