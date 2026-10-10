@@ -10,7 +10,7 @@ from conftest import act, identity
 from database import SessionLocal
 from game import utcnow
 from models import PairSession, Quest
-from quests import QUESTS
+from sample_quests import QUESTS
 
 ALICE = identity("alice-id", "Alice")
 BOB = identity("bob-id", "Bob")
