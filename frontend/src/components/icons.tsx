@@ -1,14 +1,17 @@
 // One icon family (Lucide, 2px line icons) for the whole app.
 import type { QuestOutKind } from "@/src/lib/api/hackathon.schemas";
 import {
+  Aperture,
   Brain,
   CalendarCheck,
   CalendarDays,
+  Camera,
   Compass,
   Flag,
   Footprints,
   Gem,
   Handshake,
+  ImageUp,
   ListChecks,
   Route,
   UserPlus,
@@ -34,6 +37,9 @@ export const BADGE_ICONS: Record<string, LucideIcon> = {
   meetup: CalendarCheck,
   century: Gem,
   first_friend: UserPlus,
+  first_avatar: ImageUp,
+  first_quest_photo: Camera,
+  quest_photo_master: Aperture,
 };
 
 export function KindIcon({

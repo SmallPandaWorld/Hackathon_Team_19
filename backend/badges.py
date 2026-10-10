@@ -5,7 +5,9 @@ stored, so they can never be issued twice and always match the player's
 progress. `earned_at` is the completion that unlocked them.
 
 The friend badge must survive the friendship being removed, so it is stored
-in `earned_badges` when a request is accepted (see `award_badge`).
+in `earned_badges` when a request is accepted (see `award_badge`). The photo
+badges work the same way: they are stored when the picture is uploaded, so
+deleting pictures later never takes a badge away.
 """
 
 from datetime import datetime
@@ -27,10 +29,15 @@ from models import (
     EarnedBadge,
     Friendship,
     Quest,
+    QuestPhoto,
 )
 from schemas import Badge
 
 FIRST_FRIEND = "first_friend"
+FIRST_AVATAR = "first_avatar"
+FIRST_QUEST_PHOTO = "first_quest_photo"
+QUEST_PHOTO_MASTER = "quest_photo_master"
+QUEST_PHOTO_MASTER_TARGET = 20
 
 # key, title, description, rule
 BADGES = [
@@ -42,6 +49,10 @@ BADGES = [
     ("meetup", "Showed up", "Check in at a group meetup.", ("kind", MEETUP)),
     ("century", "Century", "Collect 100 points.", ("points", 100)),
     (FIRST_FRIEND, "New friend", "Become friends with another player.", ("friend", None)),
+    (FIRST_AVATAR, "First profile picture", "Add a profile picture.", ("stored", None)),
+    (FIRST_QUEST_PHOTO, "First quest photo", "Share your first quest photo.", ("photos", 1)),
+    (QUEST_PHOTO_MASTER, "Quest photo master",
+     f"Share {QUEST_PHOTO_MASTER_TARGET} quest photos.", ("photos", QUEST_PHOTO_MASTER_TARGET)),
 ]
 
 
@@ -52,6 +63,22 @@ def award_badge(db: Session, player_id: str, key: str, earned_at: datetime) -> N
         .values(player_id=player_id, badge_key=key, earned_at=earned_at)
         .on_conflict_do_nothing(index_elements=["player_id", "badge_key"])
     )
+
+
+def stored_badge_at(db: Session, player_id: str, key: str) -> Optional[datetime]:
+    return db.scalar(select(EarnedBadge.earned_at).where(
+        EarnedBadge.player_id == player_id, EarnedBadge.badge_key == key))
+
+
+def award_photo_badges(db: Session, player_id: str, uploaded_at: datetime) -> None:
+    """Call after a quest photo was saved: stores the photo badges the
+    player's photo count has just reached. Does not commit."""
+    count = db.scalar(select(func.count()).select_from(QuestPhoto).where(
+        QuestPhoto.uploader_id == player_id))
+    if count >= 1:
+        award_badge(db, player_id, FIRST_QUEST_PHOTO, uploaded_at)
+    if count >= QUEST_PHOTO_MASTER_TARGET:
+        award_badge(db, player_id, QUEST_PHOTO_MASTER, uploaded_at)
 
 
 def first_friend_at(db: Session, player_id: str) -> Optional[datetime]:
@@ -74,10 +101,25 @@ def player_badges(db: Session, player_id: str) -> List[Badge]:
         .order_by(Completion.completed_at, Completion.id)
     ).all()
 
+    photo_times = list(db.scalars(
+        select(QuestPhoto.uploaded_at).where(QuestPhoto.uploader_id == player_id)
+        .order_by(QuestPhoto.uploaded_at, QuestPhoto.id)))
+
     badges = []
     for key, title, description, (rule, value) in BADGES:
         earned_at: Optional[datetime] = None
-        if rule == "count":
+        if rule == "stored":
+            earned_at = stored_badge_at(db, player_id, key)
+            progress, target = (1 if earned_at else 0), 1
+        elif rule == "photos":
+            # Current photos count as progress; a stored badge survives deletions.
+            stored = stored_badge_at(db, player_id, key)
+            if len(photo_times) >= value:
+                earned_at = photo_times[value - 1]
+            if stored is not None and (earned_at is None or stored < earned_at):
+                earned_at = stored
+            progress, target = (value if earned_at else len(photo_times)), value
+        elif rule == "count":
             progress, target = len(rows), value
             if len(rows) >= value:
                 earned_at = rows[value - 1].completed_at

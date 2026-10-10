@@ -190,9 +190,9 @@ def test_new_app_shows_quest_added_by_maintainer(empty_client):
     assert [quest["title"] for quest in quests] == ["Find the VIS office"]
 
 
-def test_lists_seeded_quests_in_seed_order(client):
+def test_lists_seeded_quests_newest_first(client):
     quests = client.get("/quests", headers=ALICE).json()
-    assert [quest["id"] for quest in quests] == [str(q["id"]) for q in QUESTS]
+    assert [quest["id"] for quest in quests] == [str(q["id"]) for q in reversed(QUESTS)]
     for quest in quests:
         assert quest["title"] and quest["description"]
         assert quest["points"] == QUEST_POINTS[quest["id"]]
