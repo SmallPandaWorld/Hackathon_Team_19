@@ -129,11 +129,13 @@ Hackathon_Team_19/
 │   ├── quests.py                   Built-in quest seed data
 │   ├── badges.py                   Computed achievements
 │   ├── hobbies.py                  Fixed hobby catalog
+│   ├── friendships.py              Friend request rules and friends view
 │   ├── routers/
 │   │   ├── __init__.py             Empty package marker
 │   │   ├── players.py              Profile, hobbies, badges
 │   │   ├── quests.py               Quest play, RSVP, ideas, reports
 │   │   ├── pair.py                 Partner codes, invitations, joins
+│   │   ├── friends.py              Friend requests and friends list
 │   │   ├── social.py               Shared-interest suggestions
 │   │   ├── leaderboard.py          Ranking calculation
 │   │   └── admin.py                Maintainer operations
@@ -469,6 +471,17 @@ Session state is computed from its fields, in this order: completed, cancelled, 
 Joining rejects the host's own code, expired/cancelled sessions, already-used codes claimed by someone else, and unavailable quests. A conditional SQL update atomically claims a session whose partner is still empty and whose validity conditions still hold. This is what prevents two different partners from both winning the same session.
 
 The join then ensures both host and partner have an approved completion. Each reward remains unique per player and quest. A repeat join by the same partner can return their existing completion.
+
+### 9.3b `backend/routers/friends.py`
+
+| Method | Path | Function / behavior |
+| --- | --- | --- |
+| GET | `/friends` | `list_friends`: accepted friends (most points first), incoming and outgoing open requests (newest first) |
+| POST | `/friends/{username}` | `send_friend_request`: 400 for yourself, 404 for unknown or non-discoverable players, 409 if any relation already exists |
+| POST | `/friends/{username}/accept` | `accept_friend_request`: only the addressee of an open request; 404 otherwise |
+| DELETE | `/friends/{username}` | `remove_friend`: declines an incoming request, cancels an outgoing one, or ends a friendship; 404 if nothing exists |
+
+Every endpoint returns the caller's updated `Friends` view. The rules live in `backend/friendships.py`; `GET /players/{username}` adds `friend_status` (`none`, `outgoing`, `incoming`, `friends`) so the profile page can show the right button. The frontend lives in `frontend/src/components/friends.tsx` (`FriendActions` on another player's profile, `FriendsCard` on your own).
 
 ### 9.4 `backend/routers/social.py`
 
@@ -1386,7 +1399,7 @@ These details matter when reading or extending the code:
 1. **Physical activity is largely self-reported.** Solo and step buttons do not prove campus presence. A printed code proves possession of a shareable code, not where the player was. Pair joining proves two app identities participated in a code flow, not that a physical game happened. Meetup check-in checks time, not GPS proximity.
 2. **Invitation eligibility is narrower than the API's wording suggests.** The backend checks that both players are discoverable, the invitee exists, and it is not a self-invite. It does not separately require shared hobbies or confirm that the invitee is in the host's current suggestion list. The normal UI chooses from suggestions.
 3. **A code is shareable beyond the addressed invitee.** The invitee field controls who sees the in-app invitation; it does not restrict joining to that person.
-4. **No friend graph or chat is stored.** Suggestions, dismissals, invitations, and native link sharing are the implemented social mechanisms.
+4. **Friendships are stored, chat is not.** `friendships` holds one row per pair of players (a pending request or an accepted friendship); suggestions, dismissals, invitations and native link sharing are the other social mechanisms. Requests can only be sent to discoverable players, but an existing request or friendship stays manageable by both players even after one opts out, and `GET /players/{username}` stays visible between them.
 5. **Pair claim and rewards are separate commits.** Conditional claiming protects against competing partners; it does not make the entire multi-player operation transactional as one unit.
 6. **Completion insertion has explicit duplicate protection; not every workflow has the same concurrency guarantees.** Claim review checks pending state before updating, while the code does not use a conditional atomic review update. Sequential-repeat tests should not be read as proof of all concurrent-review outcomes.
 7. **Time-sensitive UI needs fresh data.** Pair waits and incoming invites explicitly poll. Meetup state is recalculated when the server builds quest views, but no dedicated meetup polling timer is added in its action component.

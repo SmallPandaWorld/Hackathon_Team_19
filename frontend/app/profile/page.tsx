@@ -8,6 +8,7 @@ import {
   Page,
   PageTitle,
 } from "@/src/components/page";
+import { FriendActions, FriendsCard } from "@/src/components/friends";
 import { BadgeIcon } from "@/src/components/icons";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
@@ -593,6 +594,7 @@ function OtherProfile({
           <p className="text-sm text-muted">badges</p>
         </div>
       </div>
+      <FriendActions player={player} />
       {earned.length > 0 && (
         <ul aria-label="Earned badges" className="flex flex-wrap gap-2">
           {earned.map((badge) => (
@@ -636,6 +638,7 @@ function OwnProfile({ player }: { player: Me }) {
   return (
     <>
       <Achievements player={player} />
+      <FriendsCard />
       <SuggestionsList player={player} />
       <SearchPlayers />
       {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}

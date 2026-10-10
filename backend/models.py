@@ -200,6 +200,32 @@ class QuestReport(Base):
     resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+# Friendship statuses. A row is a request until the addressee accepts it.
+FRIEND_PENDING = "pending"
+FRIEND_ACCEPTED = "accepted"
+
+
+class Friendship(Base):
+    """A friend request (`pending`) or an accepted friendship.
+
+    One row per pair of players; the reverse direction is checked in code
+    (see friendships.py), so two players never hold two rows.
+    """
+
+    __tablename__ = "friendships"
+    __table_args__ = (UniqueConstraint("requester_id", "addressee_id"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    requester_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    addressee_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=FRIEND_PENDING, server_default=FRIEND_PENDING)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
 class DismissedSuggestion(Base):
     __tablename__ = "dismissed_suggestions"
     __table_args__ = (UniqueConstraint("player_id", "dismissed_player_id"),)

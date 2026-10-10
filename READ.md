@@ -59,6 +59,7 @@ meetup not live), `410` expired/cancelled code.
 | Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (propose an idea) |
 | Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `pair_start` (optional `invite_username`), `pair_cancel` |
 | Partner quests | `GET`/`POST /pair/{code}` (look up / join a code) |
+| Friends | `GET /friends` (friends + incoming/outgoing requests), `POST /friends/{username}` (send request), `POST /friends/{username}/accept`, `DELETE /friends/{username}` (decline / cancel / remove); `GET /players/{username}` includes `friend_status` |
 | Maintainers | `GET`/`POST /admin/quests`, `GET`/`PATCH /admin/quests/{id}` (`status` publishes/retires/rejects), `GET /admin/completions` (+ `POST …/review`), `GET /admin/reports` (+ `POST …/resolve`) |
 
 ### Game rules (defaults, change them in code)
