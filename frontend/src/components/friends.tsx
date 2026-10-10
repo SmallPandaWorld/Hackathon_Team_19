@@ -263,7 +263,7 @@ export function FriendsCard() {
 
           {friends.friends.length === 0 ? (
             <p className="mt-1 text-sm text-muted">
-              No friends yet. Find players by name below or open a suggested
+              No friends yet. Find someone by name above or open a suggested
               player&apos;s profile and tap “Add friend”.
             </p>
           ) : (
