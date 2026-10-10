@@ -193,7 +193,7 @@ export default function Home() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <ShareButton
-          className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
+          className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2 h-15`}
           label={
             <>
               <Send aria-hidden className="h-4 w-4" /> Invite a friend
@@ -204,7 +204,7 @@ export default function Home() {
           title="Campus Voyager"
         />
         <Link
-          className={`${buttonStyles.secondary} flex items-center justify-center gap-2`}
+          className={`${buttonStyles.secondary} flex items-center justify-center gap-2 h-15`}
           href="/submit"
         >
           <Lightbulb aria-hidden className="h-4 w-4" /> Suggest a quest
