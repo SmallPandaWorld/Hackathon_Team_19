@@ -17,6 +17,8 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
+import type { UserRead } from "./hackathon.schemas";
+
 const withQueryKey = <T extends object, K>(
   query: T,
   queryKey: K,
@@ -35,83 +37,88 @@ const withQueryKey = <T extends object, K>(
   return result;
 };
 
-export type rootGetResponse200 = {
-  data: unknown;
+export type getMeMeGetResponse200 = {
+  data: UserRead;
   status: 200;
 };
 
-export type rootGetResponseSuccess = rootGetResponse200 & {
+export type getMeMeGetResponseSuccess = getMeMeGetResponse200 & {
   headers: Headers;
 };
-export type rootGetResponse = rootGetResponseSuccess;
+export type getMeMeGetResponse = getMeMeGetResponseSuccess;
 
-export const getRootGetUrl = () => {
-  return `/api/`;
+export const getGetMeMeGetUrl = () => {
+  return `/api/me`;
 };
 
 /**
- * @summary Root
+ * Return the logged-in user's profile and score.
+ * @summary Get Me
  */
-export const rootGet = async (
+export const getMeMeGet = async (
   options?: RequestInit,
-): Promise<rootGetResponse> => {
-  const res = await fetch(getRootGetUrl(), {
+): Promise<getMeMeGetResponse> => {
+  const res = await fetch(getGetMeMeGetUrl(), {
     ...options,
     method: "GET",
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: rootGetResponse["data"] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as rootGetResponse;
+  const data: getMeMeGetResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getMeMeGetResponse;
 };
 
-export const getRootGetQueryKey = () => {
-  return [`/api/`] as const;
+export const getGetMeMeGetQueryKey = () => {
+  return [`/api/me`] as const;
 };
 
-export const getRootGetQueryOptions = <
-  TData = Awaited<ReturnType<typeof rootGet>>,
+export const getGetMeMeGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMeMeGet>>,
   TError = unknown,
 >(options?: {
   query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    UseQueryOptions<Awaited<ReturnType<typeof getMeMeGet>>, TError, TData>
   >;
   fetch?: RequestInit;
 }) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getRootGetQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetMeMeGetQueryKey();
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof rootGet>>> = ({
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMeMeGet>>> = ({
     signal,
-  }) => rootGet({ signal, ...fetchOptions });
+  }) => getMeMeGet({ signal, ...fetchOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof rootGet>>,
+    Awaited<ReturnType<typeof getMeMeGet>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type RootGetQueryResult = NonNullable<
-  Awaited<ReturnType<typeof rootGet>>
+export type GetMeMeGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMeMeGet>>
 >;
-export type RootGetQueryError = unknown;
+export type GetMeMeGetQueryError = unknown;
 
-export function useRootGet<
-  TData = Awaited<ReturnType<typeof rootGet>>,
+export function useGetMeMeGet<
+  TData = Awaited<ReturnType<typeof getMeMeGet>>,
   TError = unknown,
 >(
   options: {
     query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getMeMeGet>>, TError, TData>
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof rootGet>>,
+          Awaited<ReturnType<typeof getMeMeGet>>,
           TError,
-          Awaited<ReturnType<typeof rootGet>>
+          Awaited<ReturnType<typeof getMeMeGet>>
         >,
         "initialData"
       >;
@@ -121,19 +128,19 @@ export function useRootGet<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useRootGet<
-  TData = Awaited<ReturnType<typeof rootGet>>,
+export function useGetMeMeGet<
+  TData = Awaited<ReturnType<typeof getMeMeGet>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getMeMeGet>>, TError, TData>
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof rootGet>>,
+          Awaited<ReturnType<typeof getMeMeGet>>,
           TError,
-          Awaited<ReturnType<typeof rootGet>>
+          Awaited<ReturnType<typeof getMeMeGet>>
         >,
         "initialData"
       >;
@@ -143,13 +150,13 @@ export function useRootGet<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useRootGet<
-  TData = Awaited<ReturnType<typeof rootGet>>,
+export function useGetMeMeGet<
+  TData = Awaited<ReturnType<typeof getMeMeGet>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getMeMeGet>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -158,16 +165,16 @@ export function useRootGet<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 /**
- * @summary Root
+ * @summary Get Me
  */
 
-export function useRootGet<
-  TData = Awaited<ReturnType<typeof rootGet>>,
+export function useGetMeMeGet<
+  TData = Awaited<ReturnType<typeof getMeMeGet>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+      UseQueryOptions<Awaited<ReturnType<typeof getMeMeGet>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -175,7 +182,7 @@ export function useRootGet<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getRootGetQueryOptions(options);
+  const queryOptions = getGetMeMeGetQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

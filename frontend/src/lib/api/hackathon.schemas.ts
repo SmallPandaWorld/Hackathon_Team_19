@@ -18,15 +18,51 @@ export interface HTTPValidationError {
   detail?: ValidationError[];
 }
 
-export interface LoginInfo {
-  username: string;
-  name: string;
-  score: number;
+export interface QuestAnswerResult {
+  quest_id: string;
+  submitted_answer: string;
+  correct_answer: string | null;
+  correct: boolean;
+  points_awarded: number;
+  total_score: number;
 }
 
-export interface UserCreate {
-  username: string;
-  name: string;
+export interface QuestAnswerSubmit {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  answer: string;
+}
+
+export interface QuestCreate {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  question: string;
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  answer: string;
+  /** @exclusiveMinimum 0 */
+  points: number;
+}
+
+export interface QuestInspection {
+  id: string;
+  question: string;
+  answer: string;
+  points: number;
+  participants: string[];
+  solvers: string[];
+}
+
+export interface QuestRead {
+  id: string;
+  question: string;
+  points: number;
 }
 
 export interface UserRead {
