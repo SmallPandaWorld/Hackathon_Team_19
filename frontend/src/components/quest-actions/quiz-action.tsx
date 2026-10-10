@@ -2,43 +2,45 @@
 
 import { buttonStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
-import type { QuestOut, QuizResult } from "@/src/lib/api/hackathon.schemas";
-import { useSubmitQuiz } from "@/src/lib/api/quests";
-import { useAction } from "@/src/lib/use-action";
+import type {
+  CompletionResult,
+  QuestOut,
+  QuizResult,
+} from "@/src/lib/api/hackathon.schemas";
+import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useState } from "react";
 import { CompletedNote, ResultBanner } from "./result-banner";
 import { Check, X } from "lucide-react";
 
 export function QuizAction({ quest }: { quest: QuestOut }) {
   const questions = quest.questions ?? [];
-  const submitQuiz = useSubmitQuiz();
-  const { error, run, refreshAll } = useAction();
+  const { perform, pending, error } = useQuestAction(quest.id);
   const [answers, setAnswers] = useState<(number | null)[]>(() =>
     questions.map(() => null),
   );
   const [result, setResult] = useState<QuizResult | null>(null);
+  const [completion, setCompletion] = useState<CompletionResult | null>(null);
   const allAnswered = answers.every((answer) => answer !== null);
 
   async function handleSubmit() {
-    const response = await run(() =>
-      submitQuiz.mutateAsync({
-        questId: quest.id,
-        data: { answers: answers as number[] },
-      }),
-    );
-    if (response?.status === 200) {
-      setResult(response.data);
-      if (response.data.passed) await refreshAll();
+    const response = await perform({
+      type: "quiz",
+      answers: answers as number[],
+    });
+    if (response?.quiz) {
+      setResult(response.quiz);
+      setCompletion(response.completion ?? null);
     }
   }
 
   function retry() {
     setResult(null);
+    setCompletion(null);
     setAnswers(questions.map(() => null));
   }
 
-  if (result?.passed && result.completion)
-    return <ResultBanner result={result.completion} />;
+  if (result?.passed && completion)
+    return <ResultBanner result={completion} />;
   if (quest.completed && !result)
     return <CompletedNote completedAt={quest.completed_at} />;
 
@@ -126,11 +128,11 @@ export function QuizAction({ quest }: { quest: QuestOut }) {
       ) : (
         <button
           className={`${buttonStyles.primary} w-full py-4 text-lg`}
-          disabled={!allAnswered || submitQuiz.isPending}
+          disabled={!allAnswered || pending !== null}
           onClick={handleSubmit}
           type="button"
         >
-          {submitQuiz.isPending
+          {pending
             ? "Checking..."
             : allAnswered
               ? "Check my answers"

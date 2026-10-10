@@ -9,7 +9,7 @@ import { createElement, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 export type MapPin = {
-  id: number;
+  id: string;
   lat: number;
   lng: number;
   label: string;
@@ -19,8 +19,8 @@ export type MapPin = {
 
 type Props = {
   pins: MapPin[];
-  selectedId?: number | null;
-  onSelect?: (id: number) => void;
+  selectedId?: string | null;
+  onSelect?: (id: string) => void;
   // Editor mode: tapping the map reports the tapped coordinates.
   onPick?: (lat: number, lng: number) => void;
   className?: string;

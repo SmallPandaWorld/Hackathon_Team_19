@@ -17,6 +17,8 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
+import type { Health } from "./hackathon.schemas";
+
 const withQueryKey = <T extends object, K>(
   query: T,
   queryKey: K,
@@ -36,7 +38,7 @@ const withQueryKey = <T extends object, K>(
 };
 
 export type rootResponse200 = {
-  data: unknown;
+  data: Health;
   status: 200;
 };
 

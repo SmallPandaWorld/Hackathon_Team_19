@@ -3,17 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
 
-import models  # noqa: F401  (registers all tables)
-from database import Base, SessionLocal, engine, upgrade_legacy_schema
+from database import SessionLocal, ensure_schema
 from quests import seed_quests
-from routers import admin, leaderboard, pair, players, quests, social
+from routers import admin, pair, players, quests
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    upgrade_legacy_schema()
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
     with SessionLocal() as db:
         seed_quests(db)
     yield
@@ -41,10 +40,14 @@ app.add_middleware(
 )
 
 
-@app.get("/", tags=["health"])
+class Health(BaseModel):
+    message: str
+
+
+@app.get("/", tags=["health"], response_model=Health)
 async def root():
-    return {"message": "Hello World"}
+    return Health(message="Hello World")
 
 
-for module in (players, quests, pair, social, leaderboard, admin):
+for module in (players, quests, pair, admin):
     app.include_router(module.router)

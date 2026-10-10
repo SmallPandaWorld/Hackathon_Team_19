@@ -26,12 +26,12 @@ import type {
   AdminListQuestsParams,
   AdminQuestIn,
   AdminQuestOut,
+  AdminQuestPatch,
   AdminReportOut,
   CompletionReview,
   ErrorResponse,
   HTTPValidationError,
   ReportResolution,
-  StatusChange,
 } from "./hackathon.schemas";
 
 const withQueryKey = <T extends object, K>(
@@ -103,7 +103,7 @@ export const getAdminListQuestsUrl = (params?: AdminListQuestsParams) => {
 };
 
 /**
- * All quests, newest first. Filter with `status_filter`, e.g. pending_review.
+ * All quests, newest first. Filter by `status`, e.g. pending_review.
  * @summary Admin List Quests
  */
 export const adminListQuests = async (
@@ -286,6 +286,11 @@ export type adminCreateQuestResponse403 = {
   status: 403;
 };
 
+export type adminCreateQuestResponse409 = {
+  data: ErrorResponse;
+  status: 409;
+};
+
 export type adminCreateQuestResponse422 = {
   data: HTTPValidationError;
   status: 422;
@@ -297,6 +302,7 @@ export type adminCreateQuestResponseSuccess = adminCreateQuestResponse201 & {
 export type adminCreateQuestResponseError = (
   | adminCreateQuestResponse401
   | adminCreateQuestResponse403
+  | adminCreateQuestResponse409
   | adminCreateQuestResponse422
 ) & {
   headers: Headers;
@@ -310,7 +316,8 @@ export const getAdminCreateQuestUrl = () => {
 };
 
 /**
- * Create a quest as a draft. Publish it with the status endpoint.
+ * Create a quest, as a draft by default. Creating it as `published`
+ * fails with 409 if it isn't publishable yet.
  * @summary Admin Create Quest
  */
 export const adminCreateQuest = async (
@@ -471,7 +478,7 @@ export type adminGetQuestResponseError = (
 export type adminGetQuestResponse =
   adminGetQuestResponseSuccess | adminGetQuestResponseError;
 
-export const getAdminGetQuestUrl = (questId: number) => {
+export const getAdminGetQuestUrl = (questId: string) => {
   return `/api/admin/quests/${questId}`;
 };
 
@@ -479,7 +486,7 @@ export const getAdminGetQuestUrl = (questId: number) => {
  * @summary Admin Get Quest
  */
 export const adminGetQuest = async (
-  questId: number,
+  questId: string,
   options?: RequestInit,
 ): Promise<adminGetQuestResponse> => {
   const res = await fetch(getAdminGetQuestUrl(questId), {
@@ -497,7 +504,7 @@ export const adminGetQuest = async (
   } as adminGetQuestResponse;
 };
 
-export const getAdminGetQuestQueryKey = (questId: number) => {
+export const getAdminGetQuestQueryKey = (questId: string) => {
   return [`/api/admin/quests/${questId}`] as const;
 };
 
@@ -505,7 +512,7 @@ export const getAdminGetQuestQueryOptions = <
   TData = Awaited<ReturnType<typeof adminGetQuest>>,
   TError = ErrorResponse | HTTPValidationError,
 >(
-  questId: number,
+  questId: string,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof adminGetQuest>>, TError, TData>
@@ -542,7 +549,7 @@ export function useAdminGetQuest<
   TData = Awaited<ReturnType<typeof adminGetQuest>>,
   TError = ErrorResponse | HTTPValidationError,
 >(
-  questId: number,
+  questId: string,
   options: {
     query: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof adminGetQuest>>, TError, TData>
@@ -565,7 +572,7 @@ export function useAdminGetQuest<
   TData = Awaited<ReturnType<typeof adminGetQuest>>,
   TError = ErrorResponse | HTTPValidationError,
 >(
-  questId: number,
+  questId: string,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof adminGetQuest>>, TError, TData>
@@ -588,7 +595,7 @@ export function useAdminGetQuest<
   TData = Awaited<ReturnType<typeof adminGetQuest>>,
   TError = ErrorResponse | HTTPValidationError,
 >(
-  questId: number,
+  questId: string,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof adminGetQuest>>, TError, TData>
@@ -607,7 +614,7 @@ export function useAdminGetQuest<
   TData = Awaited<ReturnType<typeof adminGetQuest>>,
   TError = ErrorResponse | HTTPValidationError,
 >(
-  questId: number,
+  questId: string,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof adminGetQuest>>, TError, TData>
@@ -674,17 +681,21 @@ export type adminUpdateQuestResponseError = (
 export type adminUpdateQuestResponse =
   adminUpdateQuestResponseSuccess | adminUpdateQuestResponseError;
 
-export const getAdminUpdateQuestUrl = (questId: number) => {
+export const getAdminUpdateQuestUrl = (questId: string) => {
   return `/api/admin/quests/${questId}`;
 };
 
 /**
- * Edit a quest. A published quest must stay publishable.
+ * Change only the fields you send.
+ *
+ * `status` publishes, unpublishes (draft), retires, or rejects a player
+ * submission (only from pending_review; `review_note` is shown to the
+ * author). A published quest must stay publishable.
  * @summary Admin Update Quest
  */
 export const adminUpdateQuest = async (
-  questId: number,
-  adminQuestIn: AdminQuestIn,
+  questId: string,
+  adminQuestPatch: AdminQuestPatch,
   options?: RequestInit,
 ): Promise<adminUpdateQuestResponse> => {
   const getHeaders = (
@@ -710,12 +721,12 @@ export const adminUpdateQuest = async (
   };
   const res = await fetch(getAdminUpdateQuestUrl(questId), {
     ...options,
-    method: "PUT",
+    method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       ...getHeaders(options?.headers),
     },
-    body: JSON.stringify(adminQuestIn),
+    body: JSON.stringify(adminQuestPatch),
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
@@ -772,11 +783,11 @@ export const getAdminUpdateQuestMutationOptions = <
 export type AdminUpdateQuestMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminUpdateQuest>>
 >;
-export type AdminUpdateQuestMutationBody = AdminQuestIn;
+export type AdminUpdateQuestMutationBody = AdminQuestPatch;
 export type AdminUpdateQuestMutationError = ErrorResponse | HTTPValidationError;
 export type AdminUpdateQuestMutationVariables = {
-  questId: number;
-  data: AdminQuestIn;
+  questId: string;
+  data: AdminQuestPatch;
 };
 
 /**
@@ -803,189 +814,6 @@ export const useAdminUpdateQuest = <
   TContext
 > => {
   return useMutation(getAdminUpdateQuestMutationOptions(options), queryClient);
-};
-export type adminSetQuestStatusResponse200 = {
-  data: AdminQuestOut;
-  status: 200;
-};
-
-export type adminSetQuestStatusResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type adminSetQuestStatusResponse403 = {
-  data: ErrorResponse;
-  status: 403;
-};
-
-export type adminSetQuestStatusResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type adminSetQuestStatusResponse409 = {
-  data: ErrorResponse;
-  status: 409;
-};
-
-export type adminSetQuestStatusResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type adminSetQuestStatusResponseSuccess =
-  adminSetQuestStatusResponse200 & {
-    headers: Headers;
-  };
-export type adminSetQuestStatusResponseError = (
-  | adminSetQuestStatusResponse401
-  | adminSetQuestStatusResponse403
-  | adminSetQuestStatusResponse404
-  | adminSetQuestStatusResponse409
-  | adminSetQuestStatusResponse422
-) & {
-  headers: Headers;
-};
-
-export type adminSetQuestStatusResponse =
-  adminSetQuestStatusResponseSuccess | adminSetQuestStatusResponseError;
-
-export const getAdminSetQuestStatusUrl = (questId: number) => {
-  return `/api/admin/quests/${questId}/status`;
-};
-
-/**
- * Publish, unpublish (draft), retire, or reject a player submission.
- * @summary Admin Set Quest Status
- */
-export const adminSetQuestStatus = async (
-  questId: number,
-  statusChange: StatusChange,
-  options?: RequestInit,
-): Promise<adminSetQuestStatusResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  const res = await fetch(getAdminSetQuestStatusUrl(questId), {
-    ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(statusChange),
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: adminSetQuestStatusResponse["data"] = body
-    ? JSON.parse(body)
-    : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as adminSetQuestStatusResponse;
-};
-
-export const getAdminSetQuestStatusMutationKey = () =>
-  ["adminSetQuestStatus"] as const;
-
-export const getAdminSetQuestStatusMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof adminSetQuestStatus>>,
-    TError,
-    AdminSetQuestStatusMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof adminSetQuestStatus>>,
-  TError,
-  AdminSetQuestStatusMutationVariables,
-  TContext
-> => {
-  const mutationKey = getAdminSetQuestStatusMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof adminSetQuestStatus>>,
-    AdminSetQuestStatusMutationVariables
-  > = (props) => {
-    const { questId, data } = props ?? {};
-
-    return adminSetQuestStatus(questId, data, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type AdminSetQuestStatusMutationResult = NonNullable<
-  Awaited<ReturnType<typeof adminSetQuestStatus>>
->;
-export type AdminSetQuestStatusMutationBody = StatusChange;
-export type AdminSetQuestStatusMutationError =
-  ErrorResponse | HTTPValidationError;
-export type AdminSetQuestStatusMutationVariables = {
-  questId: number;
-  data: StatusChange;
-};
-
-/**
- * @summary Admin Set Quest Status
- */
-export const useAdminSetQuestStatus = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof adminSetQuestStatus>>,
-      TError,
-      AdminSetQuestStatusMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof adminSetQuestStatus>>,
-  TError,
-  AdminSetQuestStatusMutationVariables,
-  TContext
-> => {
-  return useMutation(
-    getAdminSetQuestStatusMutationOptions(options),
-    queryClient,
-  );
 };
 export type adminListCompletionsResponse200 = {
   data: AdminCompletionOut[];
@@ -1262,7 +1090,7 @@ export type adminReviewCompletionResponseError = (
 export type adminReviewCompletionResponse =
   adminReviewCompletionResponseSuccess | adminReviewCompletionResponseError;
 
-export const getAdminReviewCompletionUrl = (completionId: number) => {
+export const getAdminReviewCompletionUrl = (completionId: string) => {
   return `/api/admin/completions/${completionId}/review`;
 };
 
@@ -1274,7 +1102,7 @@ export const getAdminReviewCompletionUrl = (completionId: number) => {
  * @summary Admin Review Completion
  */
 export const adminReviewCompletion = async (
-  completionId: number,
+  completionId: string,
   completionReview: CompletionReview,
   options?: RequestInit,
 ): Promise<adminReviewCompletionResponse> => {
@@ -1369,7 +1197,7 @@ export type AdminReviewCompletionMutationBody = CompletionReview;
 export type AdminReviewCompletionMutationError =
   ErrorResponse | HTTPValidationError;
 export type AdminReviewCompletionMutationVariables = {
-  completionId: number;
+  completionId: string;
   data: CompletionReview;
 };
 
@@ -1630,7 +1458,7 @@ export type adminResolveReportResponseError = (
 export type adminResolveReportResponse =
   adminResolveReportResponseSuccess | adminResolveReportResponseError;
 
-export const getAdminResolveReportUrl = (reportId: number) => {
+export const getAdminResolveReportUrl = (reportId: string) => {
   return `/api/admin/reports/${reportId}/resolve`;
 };
 
@@ -1639,7 +1467,7 @@ export const getAdminResolveReportUrl = (reportId: number) => {
  * @summary Admin Resolve Report
  */
 export const adminResolveReport = async (
-  reportId: number,
+  reportId: string,
   reportResolution: ReportResolution,
   options?: RequestInit,
 ): Promise<adminResolveReportResponse> => {
@@ -1732,7 +1560,7 @@ export type AdminResolveReportMutationBody = ReportResolution;
 export type AdminResolveReportMutationError =
   ErrorResponse | HTTPValidationError;
 export type AdminResolveReportMutationVariables = {
-  reportId: number;
+  reportId: string;
   data: ReportResolution;
 };
 

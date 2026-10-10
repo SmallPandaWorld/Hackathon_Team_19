@@ -11,19 +11,13 @@ import { BadgeIcon } from "@/src/components/icons";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
+import type { Badge, Me } from "@/src/lib/api/hackathon.schemas";
 import {
   useDismissSuggestion,
-  useListSuggestions,
-} from "@/src/lib/api/connections";
-import type { Badge, Player } from "@/src/lib/api/hackathon.schemas";
-import { useStartPairSession } from "@/src/lib/api/pair";
-import {
   useGetMe,
-  useListBadges,
-  useListHobbies,
-  useUpdateProfile,
+  useUpdateMe,
 } from "@/src/lib/api/players";
-import { useListMySubmissions, useListQuests } from "@/src/lib/api/quests";
+import { useActOnQuest, useListQuests } from "@/src/lib/api/quests";
 import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import { Check, ChevronDown, Send, Users } from "lucide-react";
@@ -47,10 +41,8 @@ function nextBadgeHint(badge: Badge): string {
   return `${badge.description.replace(/\.$/, "")} to earn “${badge.title}”`;
 }
 
-function Achievements({ player }: { player: Player }) {
-  const { data, isLoading } = useListBadges();
-  const badges = data?.status === 200 ? data.data : [];
-  if (isLoading) return <LoadingState label="Loading badges..." />;
+function Achievements({ player }: { player: Me }) {
+  const badges = player.badges;
   const earned = badges.filter((badge) => badge.earned);
   const next = nextBadge(badges);
 
@@ -165,14 +157,13 @@ function Achievements({ player }: { player: Player }) {
   );
 }
 
-function HobbyEditor({ player }: { player: Player }) {
-  const hobbies = useListHobbies();
-  const updateProfile = useUpdateProfile();
+function HobbyEditor({ player }: { player: Me }) {
+  const updateMe = useUpdateMe();
   const { error, run, refreshAll } = useAction();
   const [selected, setSelected] = useState<string[]>(player.hobbies);
   const [discoverable, setDiscoverable] = useState(player.discoverable);
   const [saved, setSaved] = useState(false);
-  const options = hobbies.data?.status === 200 ? hobbies.data.data : [];
+  const options = player.hobby_options;
   const changed =
     discoverable !== player.discoverable ||
     selected.length !== player.hobbies.length ||
@@ -190,7 +181,7 @@ function HobbyEditor({ player }: { player: Player }) {
   async function save() {
     if (
       await run(() =>
-        updateProfile.mutateAsync({
+        updateMe.mutateAsync({
           data: { hobbies: selected, discoverable },
         }),
       )
@@ -250,11 +241,11 @@ function HobbyEditor({ player }: { player: Player }) {
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           className={`${buttonStyles.primary} py-2`}
-          disabled={!changed || updateProfile.isPending}
+          disabled={!changed || updateMe.isPending}
           onClick={save}
           type="button"
         >
-          {updateProfile.isPending ? "Saving..." : "Save"}
+          {updateMe.isPending ? "Saving..." : "Save"}
         </button>
         {selected.length > 0 && (
           <button
@@ -279,14 +270,13 @@ function HobbyEditor({ player }: { player: Player }) {
   );
 }
 
-function SuggestionsList() {
-  const { data, isLoading } = useListSuggestions();
+function SuggestionsList({ player }: { player: Me }) {
   const quests = useListQuests();
   const dismiss = useDismissSuggestion();
-  const startSession = useStartPairSession();
+  const startSession = useActOnQuest();
   const router = useRouter();
   const { error, run, refreshAll } = useAction();
-  const result = data?.status === 200 ? data.data : undefined;
+  const result = player.suggestions;
   // A partner quest to play with a suggestion: one the player hasn't done
   // yet if possible, otherwise any (then only the invitee earns points).
   const pairQuests =
@@ -295,18 +285,16 @@ function SuggestionsList() {
       : [];
   const pairQuest = pairQuests.find((q) => !q.completed) ?? pairQuests[0];
 
-  async function invite(playerId: number) {
+  async function invite(username: string) {
     if (!pairQuest) return;
     const response = await run(() =>
       startSession.mutateAsync({
         questId: pairQuest.id,
-        data: { invite_player_id: playerId },
+        data: { type: "pair_start", invite_username: username },
       }),
     );
     if (response) router.push(`/quests/${pairQuest.id}`);
   }
-
-  if (isLoading || !result) return null;
 
   return (
     <Card>
@@ -335,7 +323,7 @@ function SuggestionsList() {
             {result.suggestions.map((suggestion) => (
               <li
                 className="flex items-center gap-3 rounded-md bg-surface-variant p-3"
-                key={suggestion.player_id}
+                key={suggestion.username}
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
                   {suggestion.display_name.charAt(0).toUpperCase()}
@@ -352,7 +340,7 @@ function SuggestionsList() {
                   <button
                     className={`${buttonStyles.primary} flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm`}
                     disabled={startSession.isPending}
-                    onClick={() => invite(suggestion.player_id)}
+                    onClick={() => invite(suggestion.username)}
                     type="button"
                   >
                     <Send aria-hidden className="h-4 w-4" /> Invite
@@ -365,7 +353,7 @@ function SuggestionsList() {
                   onClick={async () => {
                     if (
                       await run(() =>
-                        dismiss.mutateAsync({ playerId: suggestion.player_id }),
+                        dismiss.mutateAsync({ username: suggestion.username }),
                       )
                     )
                       await refreshAll();
@@ -384,9 +372,8 @@ function SuggestionsList() {
   );
 }
 
-function MySubmissions() {
-  const { data } = useListMySubmissions();
-  const submissions = data?.status === 200 ? data.data : [];
+function MySubmissions({ player }: { player: Me }) {
+  const submissions = player.submissions;
 
   return (
     <Card>
@@ -457,10 +444,10 @@ export default function ProfilePage() {
       ) : (
         <>
           <Achievements player={player} />
-          <SuggestionsList />
+          <SuggestionsList player={player} />
           {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
           <HobbyEditor player={player} />
-          <MySubmissions />
+          <MySubmissions player={player} />
           <ShareButton
             className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
             label={

@@ -5,7 +5,7 @@ import { Page, PageTitle } from "@/src/components/page";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type { LeaderboardEntry } from "@/src/lib/api/hackathon.schemas";
-import { useGetLeaderboard } from "@/src/lib/api/leaderboard";
+import { useGetLeaderboard } from "@/src/lib/api/players";
 import { Crown } from "lucide-react";
 
 // Modest distinction for the top three: coloured rank markers, no podium.
@@ -97,7 +97,10 @@ export default function LeaderboardPage() {
           ) : (
             <ol className="divide-y divide-outline-variant overflow-hidden rounded-lg border border-outline-variant bg-surface dark:bg-surface-variant">
               {board.entries.map((entry) => (
-                <EntryRow entry={entry} key={entry.player_id} />
+                <EntryRow
+                  entry={entry}
+                  key={`${entry.rank}-${entry.display_name}`}
+                />
               ))}
             </ol>
           )}

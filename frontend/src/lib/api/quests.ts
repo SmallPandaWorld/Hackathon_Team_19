@@ -21,17 +21,18 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
-  CompleteRequest,
-  CompletionResult,
+  CompleteAction,
   ErrorResponse,
   HTTPValidationError,
+  PairCancelAction,
+  PairStartAction,
+  QuestActionResult,
   QuestOut,
   QuestSubmission,
-  QuizResult,
-  QuizSubmission,
-  ReportRequest,
-  RsvpResult,
-  StepResult,
+  QuizAction,
+  ReportAction,
+  RsvpAction,
+  StepAction,
   SubmissionOut,
 } from "./hackathon.schemas";
 
@@ -218,1143 +219,6 @@ export function useListQuests<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export type getQuestResponse200 = {
-  data: QuestOut;
-  status: 200;
-};
-
-export type getQuestResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type getQuestResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type getQuestResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type getQuestResponseSuccess = getQuestResponse200 & {
-  headers: Headers;
-};
-export type getQuestResponseError = (
-  getQuestResponse401 | getQuestResponse404 | getQuestResponse422
-) & {
-  headers: Headers;
-};
-
-export type getQuestResponse = getQuestResponseSuccess | getQuestResponseError;
-
-export const getGetQuestUrl = (questId: number) => {
-  return `/api/quests/${questId}`;
-};
-
-/**
- * One quest with full instructions and the current player's progress.
- *
- * Also returns retired quests the player completed and their own submissions.
- * @summary Get Quest
- */
-export const getQuest = async (
-  questId: number,
-  options?: RequestInit,
-): Promise<getQuestResponse> => {
-  const res = await fetch(getGetQuestUrl(questId), {
-    ...options,
-    method: "GET",
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getQuestResponse["data"] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as getQuestResponse;
-};
-
-export const getGetQuestQueryKey = (questId: number) => {
-  return [`/api/quests/${questId}`] as const;
-};
-
-export const getGetQuestQueryOptions = <
-  TData = Awaited<ReturnType<typeof getQuest>>,
-  TError = ErrorResponse | HTTPValidationError,
->(
-  questId: number,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
-    >;
-    fetch?: RequestInit;
-  },
-) => {
-  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetQuestQueryKey(questId);
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuest>>> = ({
-    signal,
-  }) => getQuest(questId, { signal, ...fetchOptions });
-
-  return {
-    queryKey,
-    queryFn,
-    enabled: questId !== null && questId !== undefined,
-    ...queryOptions,
-  } as UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-  };
-};
-
-export type GetQuestQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getQuest>>
->;
-export type GetQuestQueryError = ErrorResponse | HTTPValidationError;
-
-export function useGetQuest<
-  TData = Awaited<ReturnType<typeof getQuest>>,
-  TError = ErrorResponse | HTTPValidationError,
->(
-  questId: number,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getQuest>>,
-          TError,
-          Awaited<ReturnType<typeof getQuest>>
-        >,
-        "initialData"
-      >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetQuest<
-  TData = Awaited<ReturnType<typeof getQuest>>,
-  TError = ErrorResponse | HTTPValidationError,
->(
-  questId: number,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getQuest>>,
-          TError,
-          Awaited<ReturnType<typeof getQuest>>
-        >,
-        "initialData"
-      >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetQuest<
-  TData = Awaited<ReturnType<typeof getQuest>>,
-  TError = ErrorResponse | HTTPValidationError,
->(
-  questId: number,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-/**
- * @summary Get Quest
- */
-
-export function useGetQuest<
-  TData = Awaited<ReturnType<typeof getQuest>>,
-  TError = ErrorResponse | HTTPValidationError,
->(
-  questId: number,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-} {
-  const queryOptions = getGetQuestQueryOptions(questId, options);
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-export type completeQuestResponse200 = {
-  data: CompletionResult;
-  status: 200;
-};
-
-export type completeQuestResponse400 = {
-  data: ErrorResponse;
-  status: 400;
-};
-
-export type completeQuestResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type completeQuestResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type completeQuestResponse409 = {
-  data: ErrorResponse;
-  status: 409;
-};
-
-export type completeQuestResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type completeQuestResponseSuccess = completeQuestResponse200 & {
-  headers: Headers;
-};
-export type completeQuestResponseError = (
-  | completeQuestResponse400
-  | completeQuestResponse401
-  | completeQuestResponse404
-  | completeQuestResponse409
-  | completeQuestResponse422
-) & {
-  headers: Headers;
-};
-
-export type completeQuestResponse =
-  completeQuestResponseSuccess | completeQuestResponseError;
-
-export const getCompleteQuestUrl = (questId: number) => {
-  return `/api/quests/${questId}/complete`;
-};
-
-/**
- * Complete a solo quest, or check in at a live meetup.
- *
- * Idempotent: completing again returns the existing completion with
- * `already_completed: true` and `points_awarded: 0`. Quests with
- * `requires_approval` create a pending completion that awards points
- * only once a maintainer approves it.
- * @summary Complete Quest
- */
-export const completeQuest = async (
-  questId: number,
-  completeRequestNull?: CompleteRequest | null,
-  options?: RequestInit,
-): Promise<completeQuestResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  const res = await fetch(getCompleteQuestUrl(questId), {
-    ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(completeRequestNull),
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: completeQuestResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as completeQuestResponse;
-};
-
-export const getCompleteQuestMutationKey = () => ["completeQuest"] as const;
-
-export const getCompleteQuestMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof completeQuest>>,
-    TError,
-    CompleteQuestMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof completeQuest>>,
-  TError,
-  CompleteQuestMutationVariables,
-  TContext
-> => {
-  const mutationKey = getCompleteQuestMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof completeQuest>>,
-    CompleteQuestMutationVariables
-  > = (props) => {
-    const { questId, data } = props ?? {};
-
-    return completeQuest(questId, data, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CompleteQuestMutationResult = NonNullable<
-  Awaited<ReturnType<typeof completeQuest>>
->;
-export type CompleteQuestMutationBody = CompleteRequest | null | undefined;
-export type CompleteQuestMutationError = ErrorResponse | HTTPValidationError;
-export type CompleteQuestMutationVariables = {
-  questId: number;
-  data?: CompleteRequest | null;
-};
-
-/**
- * @summary Complete Quest
- */
-export const useCompleteQuest = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof completeQuest>>,
-      TError,
-      CompleteQuestMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof completeQuest>>,
-  TError,
-  CompleteQuestMutationVariables,
-  TContext
-> => {
-  return useMutation(getCompleteQuestMutationOptions(options), queryClient);
-};
-export type submitQuizResponse200 = {
-  data: QuizResult;
-  status: 200;
-};
-
-export type submitQuizResponse400 = {
-  data: ErrorResponse;
-  status: 400;
-};
-
-export type submitQuizResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type submitQuizResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type submitQuizResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type submitQuizResponseSuccess = submitQuizResponse200 & {
-  headers: Headers;
-};
-export type submitQuizResponseError = (
-  | submitQuizResponse400
-  | submitQuizResponse401
-  | submitQuizResponse404
-  | submitQuizResponse422
-) & {
-  headers: Headers;
-};
-
-export type submitQuizResponse =
-  submitQuizResponseSuccess | submitQuizResponseError;
-
-export const getSubmitQuizUrl = (questId: number) => {
-  return `/api/quests/${questId}/quiz`;
-};
-
-/**
- * Check quiz answers. All must be right to pass; retries are unlimited
- * and the reward is granted only once.
- * @summary Submit Quiz
- */
-export const submitQuiz = async (
-  questId: number,
-  quizSubmission: QuizSubmission,
-  options?: RequestInit,
-): Promise<submitQuizResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  const res = await fetch(getSubmitQuizUrl(questId), {
-    ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(quizSubmission),
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: submitQuizResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as submitQuizResponse;
-};
-
-export const getSubmitQuizMutationKey = () => ["submitQuiz"] as const;
-
-export const getSubmitQuizMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof submitQuiz>>,
-    TError,
-    SubmitQuizMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof submitQuiz>>,
-  TError,
-  SubmitQuizMutationVariables,
-  TContext
-> => {
-  const mutationKey = getSubmitQuizMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof submitQuiz>>,
-    SubmitQuizMutationVariables
-  > = (props) => {
-    const { questId, data } = props ?? {};
-
-    return submitQuiz(questId, data, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type SubmitQuizMutationResult = NonNullable<
-  Awaited<ReturnType<typeof submitQuiz>>
->;
-export type SubmitQuizMutationBody = QuizSubmission;
-export type SubmitQuizMutationError = ErrorResponse | HTTPValidationError;
-export type SubmitQuizMutationVariables = {
-  questId: number;
-  data: QuizSubmission;
-};
-
-/**
- * @summary Submit Quiz
- */
-export const useSubmitQuiz = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof submitQuiz>>,
-      TError,
-      SubmitQuizMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof submitQuiz>>,
-  TError,
-  SubmitQuizMutationVariables,
-  TContext
-> => {
-  return useMutation(getSubmitQuizMutationOptions(options), queryClient);
-};
-export type completeStepResponse200 = {
-  data: StepResult;
-  status: 200;
-};
-
-export type completeStepResponse400 = {
-  data: ErrorResponse;
-  status: 400;
-};
-
-export type completeStepResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type completeStepResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type completeStepResponse409 = {
-  data: ErrorResponse;
-  status: 409;
-};
-
-export type completeStepResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type completeStepResponseSuccess = completeStepResponse200 & {
-  headers: Headers;
-};
-export type completeStepResponseError = (
-  | completeStepResponse400
-  | completeStepResponse401
-  | completeStepResponse404
-  | completeStepResponse409
-  | completeStepResponse422
-) & {
-  headers: Headers;
-};
-
-export type completeStepResponse =
-  completeStepResponseSuccess | completeStepResponseError;
-
-export const getCompleteStepUrl = (questId: number, stepId: number) => {
-  return `/api/quests/${questId}/steps/${stepId}/complete`;
-};
-
-/**
- * Mark the next step of a multi-step quest as done.
- *
- * Steps must be done in order. Finishing the last step completes the quest;
- * points are only awarded for the whole quest, not per step.
- * @summary Complete Step
- */
-export const completeStep = async (
-  questId: number,
-  stepId: number,
-  options?: RequestInit,
-): Promise<completeStepResponse> => {
-  const res = await fetch(getCompleteStepUrl(questId, stepId), {
-    ...options,
-    method: "POST",
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: completeStepResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as completeStepResponse;
-};
-
-export const getCompleteStepMutationKey = () => ["completeStep"] as const;
-
-export const getCompleteStepMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof completeStep>>,
-    TError,
-    CompleteStepMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof completeStep>>,
-  TError,
-  CompleteStepMutationVariables,
-  TContext
-> => {
-  const mutationKey = getCompleteStepMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof completeStep>>,
-    CompleteStepMutationVariables
-  > = (props) => {
-    const { questId, stepId } = props ?? {};
-
-    return completeStep(questId, stepId, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CompleteStepMutationResult = NonNullable<
-  Awaited<ReturnType<typeof completeStep>>
->;
-
-export type CompleteStepMutationError = ErrorResponse | HTTPValidationError;
-export type CompleteStepMutationVariables = { questId: number; stepId: number };
-
-/**
- * @summary Complete Step
- */
-export const useCompleteStep = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof completeStep>>,
-      TError,
-      CompleteStepMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof completeStep>>,
-  TError,
-  CompleteStepMutationVariables,
-  TContext
-> => {
-  return useMutation(getCompleteStepMutationOptions(options), queryClient);
-};
-export type joinMeetupResponse200 = {
-  data: RsvpResult;
-  status: 200;
-};
-
-export type joinMeetupResponse400 = {
-  data: ErrorResponse;
-  status: 400;
-};
-
-export type joinMeetupResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type joinMeetupResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type joinMeetupResponse409 = {
-  data: ErrorResponse;
-  status: 409;
-};
-
-export type joinMeetupResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type joinMeetupResponseSuccess = joinMeetupResponse200 & {
-  headers: Headers;
-};
-export type joinMeetupResponseError = (
-  | joinMeetupResponse400
-  | joinMeetupResponse401
-  | joinMeetupResponse404
-  | joinMeetupResponse409
-  | joinMeetupResponse422
-) & {
-  headers: Headers;
-};
-
-export type joinMeetupResponse =
-  joinMeetupResponseSuccess | joinMeetupResponseError;
-
-export const getJoinMeetupUrl = (questId: number) => {
-  return `/api/quests/${questId}/rsvp`;
-};
-
-/**
- * Say you're coming to a meetup (optional; check-in works without it).
- * @summary Join Meetup
- */
-export const joinMeetup = async (
-  questId: number,
-  options?: RequestInit,
-): Promise<joinMeetupResponse> => {
-  const res = await fetch(getJoinMeetupUrl(questId), {
-    ...options,
-    method: "POST",
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: joinMeetupResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as joinMeetupResponse;
-};
-
-export const getJoinMeetupMutationKey = () => ["joinMeetup"] as const;
-
-export const getJoinMeetupMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof joinMeetup>>,
-    TError,
-    JoinMeetupMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof joinMeetup>>,
-  TError,
-  JoinMeetupMutationVariables,
-  TContext
-> => {
-  const mutationKey = getJoinMeetupMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof joinMeetup>>,
-    JoinMeetupMutationVariables
-  > = (props) => {
-    const { questId } = props ?? {};
-
-    return joinMeetup(questId, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type JoinMeetupMutationResult = NonNullable<
-  Awaited<ReturnType<typeof joinMeetup>>
->;
-
-export type JoinMeetupMutationError = ErrorResponse | HTTPValidationError;
-export type JoinMeetupMutationVariables = { questId: number };
-
-/**
- * @summary Join Meetup
- */
-export const useJoinMeetup = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof joinMeetup>>,
-      TError,
-      JoinMeetupMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof joinMeetup>>,
-  TError,
-  JoinMeetupMutationVariables,
-  TContext
-> => {
-  return useMutation(getJoinMeetupMutationOptions(options), queryClient);
-};
-export type leaveMeetupResponse200 = {
-  data: RsvpResult;
-  status: 200;
-};
-
-export type leaveMeetupResponse400 = {
-  data: ErrorResponse;
-  status: 400;
-};
-
-export type leaveMeetupResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type leaveMeetupResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type leaveMeetupResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type leaveMeetupResponseSuccess = leaveMeetupResponse200 & {
-  headers: Headers;
-};
-export type leaveMeetupResponseError = (
-  | leaveMeetupResponse400
-  | leaveMeetupResponse401
-  | leaveMeetupResponse404
-  | leaveMeetupResponse422
-) & {
-  headers: Headers;
-};
-
-export type leaveMeetupResponse =
-  leaveMeetupResponseSuccess | leaveMeetupResponseError;
-
-export const getLeaveMeetupUrl = (questId: number) => {
-  return `/api/quests/${questId}/rsvp`;
-};
-
-/**
- * Withdraw a meetup RSVP.
- * @summary Leave Meetup
- */
-export const leaveMeetup = async (
-  questId: number,
-  options?: RequestInit,
-): Promise<leaveMeetupResponse> => {
-  const res = await fetch(getLeaveMeetupUrl(questId), {
-    ...options,
-    method: "DELETE",
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: leaveMeetupResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as leaveMeetupResponse;
-};
-
-export const getLeaveMeetupMutationKey = () => ["leaveMeetup"] as const;
-
-export const getLeaveMeetupMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof leaveMeetup>>,
-    TError,
-    LeaveMeetupMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof leaveMeetup>>,
-  TError,
-  LeaveMeetupMutationVariables,
-  TContext
-> => {
-  const mutationKey = getLeaveMeetupMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof leaveMeetup>>,
-    LeaveMeetupMutationVariables
-  > = (props) => {
-    const { questId } = props ?? {};
-
-    return leaveMeetup(questId, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type LeaveMeetupMutationResult = NonNullable<
-  Awaited<ReturnType<typeof leaveMeetup>>
->;
-
-export type LeaveMeetupMutationError = ErrorResponse | HTTPValidationError;
-export type LeaveMeetupMutationVariables = { questId: number };
-
-/**
- * @summary Leave Meetup
- */
-export const useLeaveMeetup = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof leaveMeetup>>,
-      TError,
-      LeaveMeetupMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof leaveMeetup>>,
-  TError,
-  LeaveMeetupMutationVariables,
-  TContext
-> => {
-  return useMutation(getLeaveMeetupMutationOptions(options), queryClient);
-};
-export type reportQuestResponse204 = {
-  data: void;
-  status: 204;
-};
-
-export type reportQuestResponse401 = {
-  data: ErrorResponse;
-  status: 401;
-};
-
-export type reportQuestResponse404 = {
-  data: ErrorResponse;
-  status: 404;
-};
-
-export type reportQuestResponse409 = {
-  data: ErrorResponse;
-  status: 409;
-};
-
-export type reportQuestResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type reportQuestResponseSuccess = reportQuestResponse204 & {
-  headers: Headers;
-};
-export type reportQuestResponseError = (
-  | reportQuestResponse401
-  | reportQuestResponse404
-  | reportQuestResponse409
-  | reportQuestResponse422
-) & {
-  headers: Headers;
-};
-
-export type reportQuestResponse =
-  reportQuestResponseSuccess | reportQuestResponseError;
-
-export const getReportQuestUrl = (questId: number) => {
-  return `/api/quests/${questId}/report`;
-};
-
-/**
- * Report inappropriate quest content to the maintainers.
- * @summary Report Quest
- */
-export const reportQuest = async (
-  questId: number,
-  reportRequest: ReportRequest,
-  options?: RequestInit,
-): Promise<reportQuestResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  const res = await fetch(getReportQuestUrl(questId), {
-    ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(reportRequest),
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: reportQuestResponse["data"] = body ? JSON.parse(body) : undefined;
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as reportQuestResponse;
-};
-
-export const getReportQuestMutationKey = () => ["reportQuest"] as const;
-
-export const getReportQuestMutationOptions = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof reportQuest>>,
-    TError,
-    ReportQuestMutationVariables,
-    TContext
-  >;
-  fetch?: RequestInit;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof reportQuest>>,
-  TError,
-  ReportQuestMutationVariables,
-  TContext
-> => {
-  const mutationKey = getReportQuestMutationKey();
-  const { mutation: mutationOptions, fetch: fetchOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, fetch: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof reportQuest>>,
-    ReportQuestMutationVariables
-  > = (props) => {
-    const { questId, data } = props ?? {};
-
-    return reportQuest(questId, data, fetchOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type ReportQuestMutationResult = NonNullable<
-  Awaited<ReturnType<typeof reportQuest>>
->;
-export type ReportQuestMutationBody = ReportRequest;
-export type ReportQuestMutationError = ErrorResponse | HTTPValidationError;
-export type ReportQuestMutationVariables = {
-  questId: number;
-  data: ReportRequest;
-};
-
-/**
- * @summary Report Quest
- */
-export const useReportQuest = <
-  TError = ErrorResponse | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof reportQuest>>,
-      TError,
-      ReportQuestMutationVariables,
-      TContext
-    >;
-    fetch?: RequestInit;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof reportQuest>>,
-  TError,
-  ReportQuestMutationVariables,
-  TContext
-> => {
-  return useMutation(getReportQuestMutationOptions(options), queryClient);
-};
 export type submitQuestResponse201 = {
   data: SubmissionOut;
   status: 201;
@@ -1388,7 +252,7 @@ export type submitQuestResponse =
   submitQuestResponseSuccess | submitQuestResponseError;
 
 export const getSubmitQuestUrl = () => {
-  return `/api/submissions`;
+  return `/api/quests`;
 };
 
 /**
@@ -1512,106 +376,116 @@ export const useSubmitQuest = <
 > => {
   return useMutation(getSubmitQuestMutationOptions(options), queryClient);
 };
-export type listMySubmissionsResponse200 = {
-  data: SubmissionOut[];
+export type getQuestResponse200 = {
+  data: QuestOut;
   status: 200;
 };
 
-export type listMySubmissionsResponse401 = {
+export type getQuestResponse401 = {
   data: ErrorResponse;
   status: 401;
 };
 
-export type listMySubmissionsResponseSuccess = listMySubmissionsResponse200 & {
+export type getQuestResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type getQuestResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type getQuestResponseSuccess = getQuestResponse200 & {
   headers: Headers;
 };
-export type listMySubmissionsResponseError = listMySubmissionsResponse401 & {
+export type getQuestResponseError = (
+  getQuestResponse401 | getQuestResponse404 | getQuestResponse422
+) & {
   headers: Headers;
 };
 
-export type listMySubmissionsResponse =
-  listMySubmissionsResponseSuccess | listMySubmissionsResponseError;
+export type getQuestResponse = getQuestResponseSuccess | getQuestResponseError;
 
-export const getListMySubmissionsUrl = () => {
-  return `/api/submissions/mine`;
+export const getGetQuestUrl = (questId: string) => {
+  return `/api/quests/${questId}`;
 };
 
 /**
- * The current player's submitted quests and their review status.
- * @summary List My Submissions
+ * One quest with full instructions and the current player's progress
+ * (including their latest pair session).
+ *
+ * Also returns retired quests the player completed and their own submissions.
+ * @summary Get Quest
  */
-export const listMySubmissions = async (
+export const getQuest = async (
+  questId: string,
   options?: RequestInit,
-): Promise<listMySubmissionsResponse> => {
-  const res = await fetch(getListMySubmissionsUrl(), {
+): Promise<getQuestResponse> => {
+  const res = await fetch(getGetQuestUrl(questId), {
     ...options,
     method: "GET",
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: listMySubmissionsResponse["data"] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as listMySubmissionsResponse;
+  const data: getQuestResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getQuestResponse;
 };
 
-export const getListMySubmissionsQueryKey = () => {
-  return [`/api/submissions/mine`] as const;
+export const getGetQuestQueryKey = (questId: string) => {
+  return [`/api/quests/${questId}`] as const;
 };
 
-export const getListMySubmissionsQueryOptions = <
-  TData = Awaited<ReturnType<typeof listMySubmissions>>,
-  TError = ErrorResponse,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<
-      Awaited<ReturnType<typeof listMySubmissions>>,
-      TError,
-      TData
-    >
-  >;
-  fetch?: RequestInit;
-}) => {
+export const getGetQuestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuest>>,
+  TError = ErrorResponse | HTTPValidationError,
+>(
+  questId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
+    >;
+    fetch?: RequestInit;
+  },
+) => {
   const { query: queryOptions, fetch: fetchOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListMySubmissionsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetQuestQueryKey(questId);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listMySubmissions>>
-  > = ({ signal }) => listMySubmissions({ signal, ...fetchOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuest>>> = ({
+    signal,
+  }) => getQuest(questId, { signal, ...fetchOptions });
 
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listMySubmissions>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
+  return {
+    queryKey,
+    queryFn,
+    enabled: questId !== null && questId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
 };
 
-export type ListMySubmissionsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listMySubmissions>>
+export type GetQuestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuest>>
 >;
-export type ListMySubmissionsQueryError = ErrorResponse;
+export type GetQuestQueryError = ErrorResponse | HTTPValidationError;
 
-export function useListMySubmissions<
-  TData = Awaited<ReturnType<typeof listMySubmissions>>,
-  TError = ErrorResponse,
+export function useGetQuest<
+  TData = Awaited<ReturnType<typeof getQuest>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  questId: string,
   options: {
     query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listMySubmissions>>,
-        TError,
-        TData
-      >
+      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listMySubmissions>>,
+          Awaited<ReturnType<typeof getQuest>>,
           TError,
-          Awaited<ReturnType<typeof listMySubmissions>>
+          Awaited<ReturnType<typeof getQuest>>
         >,
         "initialData"
       >;
@@ -1621,23 +495,20 @@ export function useListMySubmissions<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useListMySubmissions<
-  TData = Awaited<ReturnType<typeof listMySubmissions>>,
-  TError = ErrorResponse,
+export function useGetQuest<
+  TData = Awaited<ReturnType<typeof getQuest>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  questId: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listMySubmissions>>,
-        TError,
-        TData
-      >
+      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listMySubmissions>>,
+          Awaited<ReturnType<typeof getQuest>>,
           TError,
-          Awaited<ReturnType<typeof listMySubmissions>>
+          Awaited<ReturnType<typeof getQuest>>
         >,
         "initialData"
       >;
@@ -1647,17 +518,14 @@ export function useListMySubmissions<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useListMySubmissions<
-  TData = Awaited<ReturnType<typeof listMySubmissions>>,
-  TError = ErrorResponse,
+export function useGetQuest<
+  TData = Awaited<ReturnType<typeof getQuest>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  questId: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listMySubmissions>>,
-        TError,
-        TData
-      >
+      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -1666,20 +534,17 @@ export function useListMySubmissions<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 /**
- * @summary List My Submissions
+ * @summary Get Quest
  */
 
-export function useListMySubmissions<
-  TData = Awaited<ReturnType<typeof listMySubmissions>>,
-  TError = ErrorResponse,
+export function useGetQuest<
+  TData = Awaited<ReturnType<typeof getQuest>>,
+  TError = ErrorResponse | HTTPValidationError,
 >(
+  questId: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listMySubmissions>>,
-        TError,
-        TData
-      >
+      UseQueryOptions<Awaited<ReturnType<typeof getQuest>>, TError, TData>
     >;
     fetch?: RequestInit;
   },
@@ -1687,7 +552,7 @@ export function useListMySubmissions<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getListMySubmissionsQueryOptions(options);
+  const queryOptions = getGetQuestQueryOptions(questId, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,
@@ -1696,3 +561,215 @@ export function useListMySubmissions<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export type actOnQuestResponse200 = {
+  data: QuestActionResult;
+  status: 200;
+};
+
+export type actOnQuestResponse400 = {
+  data: ErrorResponse;
+  status: 400;
+};
+
+export type actOnQuestResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type actOnQuestResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type actOnQuestResponse409 = {
+  data: ErrorResponse;
+  status: 409;
+};
+
+export type actOnQuestResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type actOnQuestResponseSuccess = actOnQuestResponse200 & {
+  headers: Headers;
+};
+export type actOnQuestResponseError = (
+  | actOnQuestResponse400
+  | actOnQuestResponse401
+  | actOnQuestResponse404
+  | actOnQuestResponse409
+  | actOnQuestResponse422
+) & {
+  headers: Headers;
+};
+
+export type actOnQuestResponse =
+  actOnQuestResponseSuccess | actOnQuestResponseError;
+
+export const getActOnQuestUrl = (questId: string) => {
+  return `/api/quests/${questId}/actions`;
+};
+
+/**
+ * Do something with a quest; `type` picks the action:
+ *
+ * - `complete`: complete a solo quest or check in at a live meetup
+ *   (idempotent; approval quests create a pending completion).
+ * - `quiz`: check answers; all must be right, retries are unlimited.
+ * - `step`: mark the next step of a multi-step quest done (in order).
+ * - `rsvp`: say you're coming to a meetup (`attending: false` withdraws).
+ * - `report`: report inappropriate content to the maintainers.
+ * - `pair_start`: get a code for your partner (optionally invite a
+ *   suggested player); replaces your earlier open code.
+ * - `pair_cancel`: cancel your open code (idempotent).
+ *
+ * Returns the quest as it is afterwards, plus the completion (and quiz
+ * result) when the action completed or submitted the quest.
+ * @summary Act On Quest
+ */
+export const actOnQuest = async (
+  questId: string,
+  completeActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction:
+    | CompleteAction
+    | QuizAction
+    | StepAction
+    | RsvpAction
+    | ReportAction
+    | PairStartAction
+    | PairCancelAction,
+  options?: RequestInit,
+): Promise<actOnQuestResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  const res = await fetch(getActOnQuestUrl(questId), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(
+      completeActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction,
+    ),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: actOnQuestResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as actOnQuestResponse;
+};
+
+export const getActOnQuestMutationKey = () => ["actOnQuest"] as const;
+
+export const getActOnQuestMutationOptions = <
+  TError = ErrorResponse | HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof actOnQuest>>,
+    TError,
+    ActOnQuestMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof actOnQuest>>,
+  TError,
+  ActOnQuestMutationVariables,
+  TContext
+> => {
+  const mutationKey = getActOnQuestMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof actOnQuest>>,
+    ActOnQuestMutationVariables
+  > = (props) => {
+    const { questId, data } = props ?? {};
+
+    return actOnQuest(questId, data, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ActOnQuestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof actOnQuest>>
+>;
+export type ActOnQuestMutationBody =
+  | CompleteAction
+  | QuizAction
+  | StepAction
+  | RsvpAction
+  | ReportAction
+  | PairStartAction
+  | PairCancelAction;
+export type ActOnQuestMutationError = ErrorResponse | HTTPValidationError;
+export type ActOnQuestMutationVariables = {
+  questId: string;
+  data:
+    | CompleteAction
+    | QuizAction
+    | StepAction
+    | RsvpAction
+    | ReportAction
+    | PairStartAction
+    | PairCancelAction;
+};
+
+/**
+ * @summary Act On Quest
+ */
+export const useActOnQuest = <
+  TError = ErrorResponse | HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof actOnQuest>>,
+      TError,
+      ActOnQuestMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof actOnQuest>>,
+  TError,
+  ActOnQuestMutationVariables,
+  TContext
+> => {
+  return useMutation(getActOnQuestMutationOptions(options), queryClient);
+};
