@@ -2,6 +2,7 @@
 
 import { buttonStyles, Chip, inputStyles } from "@/src/components/page";
 import { MeetupAction } from "@/src/components/quest-actions/meetup-action";
+import { CodeAction } from "@/src/components/quest-actions/code-action";
 import { PairAction } from "@/src/components/quest-actions/pair-action";
 import { QuizAction } from "@/src/components/quest-actions/quiz-action";
 import { SoloAction } from "@/src/components/quest-actions/solo-action";
@@ -37,6 +38,12 @@ function QuestAction({ quest }: { quest: QuestOut }) {
       return <StepsAction quest={quest} />;
     case "meetup":
       return <MeetupAction quest={quest} />;
+    case "solo":
+      return quest.requires_code ? (
+        <CodeAction quest={quest} />
+      ) : (
+        <SoloAction quest={quest} />
+      );
     default:
       return <SoloAction quest={quest} />;
   }

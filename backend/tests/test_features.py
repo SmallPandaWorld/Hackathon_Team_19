@@ -651,10 +651,12 @@ def test_mvp_database_is_upgraded(tmp_path, monkeypatch):
     database.upgrade_legacy_schema()
 
     columns = {c["name"] for c in inspect(mvp_engine).get_columns("quests")}
-    assert {"kind", "status", "latitude", "starts_at"} <= columns
+    assert {"kind", "status", "latitude", "starts_at", "requires_code", "verification_code"} <= columns
     with mvp_engine.connect() as connection:
         quest = connection.execute(text("SELECT kind, status FROM quests")).one()
         assert tuple(quest) == ("solo", "published")
+        code = connection.execute(text("SELECT verification_code FROM quests")).scalar()
+        assert code and len(code) == 12
         completion = connection.execute(text(
             "SELECT status, points_awarded FROM completions")).one()
         assert tuple(completion) == ("approved", 10)

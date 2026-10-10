@@ -38,11 +38,13 @@ There are five quest types:
 
 | Internal type | Player experience | Completion rule |
 | --- | --- | --- |
-| `solo` | Do an activity independently | Confirm completion; some quests require maintainer approval |
+| `solo` | Do an activity independently | Confirm completion, submit a claim for maintainer approval, or enter a printed code / scan its QR, depending on the quest |
 | `pair` | Do an activity with another player | One hosts a code; a different player joins it |
 | `quiz` | Answer multiple-choice questions | Every answer must be correct |
 | `multi_step` | Work through ordered activities | Complete the steps in order; the last step completes the quest |
 | `meetup` | Attend a scheduled campus event | Check in during the allowed time window |
+
+Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. A phone's camera app opens that link; the web app then submits the code to the backend. This is separate from the temporary codes used to join pair quests.
 
 Players can propose new solo quests and report inappropriate quest content. Maintainers can create and edit quests, publish or retire them, review ideas, approve completion claims, and resolve reports.
 
@@ -59,6 +61,7 @@ The backend owns identity, permissions, completion eligibility, and scoring. The
 | Styling | Tailwind CSS `^4`, CSS variables | Layout and reusable design tokens |
 | Icons | Lucide React `^1.54.0` | Consistent SVG icons |
 | Map | Leaflet `^1.9.4` and OpenStreetMap tiles | Campus locations and optional device location |
+| QR rendering | `qrcode.react` `^4.2.0` | Printable SVG for a quest's redemption link |
 | Backend | FastAPI and Uvicorn | HTTP API and request validation |
 | Persistence | SQLAlchemy 2 and SQLite by default | Players, quests, progress, reviews, and sessions |
 | API generation | FastAPI OpenAPI and Orval `^8.41.0` | Shared contract and frontend hooks |
@@ -137,7 +140,8 @@ Hackathon_Team_19/
 │   ├── tests/
 │   │   ├── conftest.py             Isolated test database and client
 │   │   ├── test_api.py             Identity and core scoring tests
-│   │   └── test_features.py        Expanded feature tests
+│   │   ├── test_features.py        Expanded feature tests
+│   │   └── test_code_verification.py  Stable-code and redemption tests
 │   ├── requirements.txt            Runtime dependencies and autopep8
 │   ├── requirements-dev.txt        Adds pytest and httpx
 │   ├── Dockerfile                  Python container
@@ -196,11 +200,11 @@ For SQLite, a connection event enables `PRAGMA foreign_keys=ON`. Foreign-key ref
 `create_all()` creates missing tables but does not add columns to existing tables. `ADDED_COLUMNS` records the fields introduced after earlier versions:
 
 - Player identity, hobbies, and discoverability.
-- Quest type, publishing status, coordinates, meetup details, and authorship.
+- Quest type, publishing status, coordinates, meetup details, authorship, and printed-code verification.
 - Completion approval and review details.
 - The invited player on a pair session.
 
-`upgrade_legacy_schema()` inspects each existing table and adds missing columns with `ALTER TABLE`. Defaults preserve old rows: an old quest becomes a published solo quest; an old completion becomes approved. It also ensures a unique index for external player identity.
+`upgrade_legacy_schema()` inspects each existing table and adds missing columns with `ALTER TABLE`. Defaults preserve old rows: an old quest becomes a published solo quest without code verification; an old completion becomes approved. Existing quests without a verification code receive one random code during the upgrade. Later runs leave those codes unchanged. It also ensures unique indexes for external player identity and quest verification codes.
 
 This is an additive compatibility helper, not a full migration framework. It does not provide migration versions, rollback scripts, or arbitrary schema restructuring.
 
@@ -249,7 +253,7 @@ The deployment must ensure public traffic reaches the app through that trusted p
 | Class / table | Main fields | Why it exists |
 | --- | --- | --- |
 | `User` / `users` | `id`, `name`, `viscon_user_id`, `hobbies`, `discoverable` | Player identity and matching preferences |
-| `Quest` / `quests` | Text, points, kind, status, coordinates, schedule, approval flag, author, review note | Shared quest definition |
+| `Quest` / `quests` | Text, points, kind, status, coordinates, schedule, approval/code flags, permanent verification code, author, review note | Shared quest definition |
 | `QuestStep` / `quest_steps` | Quest ID, position, title, description | Ordered multi-step content |
 | `StepProgress` / `step_progress` | Player ID, step ID, completion time | Individual completed steps |
 | `QuizQuestion` / `quiz_questions` | Quest ID, position, prompt, choices JSON, correct index | Quiz content and answer key |
@@ -286,6 +290,7 @@ The diagram summarizes multiple user references on pair sessions and dismissed s
 | Constraint | Prevents |
 | --- | --- |
 | Unique `User.viscon_user_id` | Multiple player records for one external identity |
+| Unique `Quest.verification_code` | Two quests using the same printed code |
 | Unique completion `(player_id, quest_id)` | Multiple reward records for the same player and quest |
 | Unique step progress `(player_id, step_id)` | Saving one step twice for a player |
 | Unique step/question `(quest_id, position)` | Duplicate positions inside one quest |
@@ -294,6 +299,8 @@ The diagram summarizes multiple user references on pair sessions and dismissed s
 | Unique dismissal `(player_id, dismissed_player_id)` | Duplicate hidden-suggestion records |
 
 `PairSession.code` is indexed but not declared unique. Code generation checks for a code already in use within its validity period; lookup chooses the newest matching session.
+
+`Quest.verification_code` is different: each quest gets a random 12-character code when inserted, including quests that do not currently require code verification. The alphabet omits ambiguous characters. The code stays on the quest row through edits, player visits, and restarts. Only `requires_code` decides whether players must redeem it; it does not regenerate the code. Existing rows are backfilled once as described in section 4.3.
 
 ### 6.3 Points are derived, not stored on the player
 
@@ -320,7 +327,7 @@ Database timestamps are naive UTC: UTC values stored without timezone metadata, 
 | Errors | `ErrorResponse` | A readable `detail` message |
 | Profile | `Player`, `ProfileUpdate`, `HobbyOption`, `Badge` | Player summary, preferences, catalog, and achievement progress |
 | Quest view | `QuestOut`, `StepOut`, `QuizQuestionOut` | Shared content plus the requesting player's progress |
-| Playing | `CompleteRequest`, `CompletionResult`, `QuizSubmission`, `QuizResult`, `StepResult`, `RsvpResult`, `ReportRequest` | Player actions and results |
+| Playing | `CompleteRequest`, `CodeRedemption`, `CompletionResult`, `QuizSubmission`, `QuizResult`, `StepResult`, `RsvpResult`, `ReportRequest` | Player actions and results |
 | Pairing | `PairSessionOut`, `PairStartRequest`, `PairJoinResult` | Code/session preview, optional invitee, and join result |
 | Ideas | `QuestSubmission`, `SubmissionOut` | New idea and its review status |
 | Matching | `Suggestion`, `Suggestions` | Whether matching is enabled and the shared interests |
@@ -328,7 +335,7 @@ Database timestamps are naive UTC: UTC values stored without timezone metadata, 
 | Admin content | `StepIn`, `QuizQuestionIn`, `AdminQuestIn`, `AdminQuizQuestionOut`, `AdminQuestOut`, `StatusChange` | Quest editing and publication |
 | Admin review | `AdminCompletionOut`, `CompletionReview`, `AdminReportOut`, `ReportResolution` | Claim decisions and report handling |
 
-`QuestOut` is personalized. The same quest can have `completed=true` for one player and `completed=false` for another. It includes step flags, approval state, meetup state, RSVP count, current player's RSVP, and whether that player reported it.
+`QuestOut` is personalized. The same quest can have `completed=true` for one player and `completed=false` for another. It includes step flags, approval state, the `requires_code` flag, meetup state, RSVP count, current player's RSVP, and whether that player reported it. It never includes `verification_code`. Maintainer-only `AdminQuestOut` includes both the flag and the code so a sign can be printed.
 
 Player quiz responses contain choices but omit `correct_index`. Admin quiz responses include the answer key. Database records and player-facing API objects are deliberately different.
 
@@ -336,6 +343,7 @@ Some important validation limits:
 
 - Player idea: title 3–120 characters; instructions 10–2000; optional location up to 255.
 - Completion note: up to 500 characters; optional.
+- Code redemption input: 1–40 characters before the router trims and uppercases it. Admin input allows code verification only for solo quests and does not combine it with maintainer approval.
 - Report reason: 5–500 characters before router trimming.
 - Admin reward: 0–1000 points; publication requires at least 1.
 - Coordinates: latitude −90 to 90; longitude −180 to 180.
@@ -364,7 +372,7 @@ For example, two taps on a 10-point solo quest yield a saved total of 10 points,
 
 `can_view()` permits a player to view a published quest, their own submission, or a quest for which they have a completion record. This lets players retain access to relevant history even after retirement. Admins use separate admin endpoints to view all content.
 
-`quest_views()` builds personalized `QuestOut` objects. Instead of querying every quest's related rows individually, it batches completions, steps, questions, progress, RSVPs, reports, and authors. It does not put quiz answer keys in the player response.
+`quest_views()` builds personalized `QuestOut` objects. Instead of querying every quest's related rows individually, it batches completions, steps, questions, progress, RSVPs, reports, and authors. It does not put quiz answer keys or printed verification codes in the player response.
 
 `ordered_steps()` and `ordered_questions()` sort content by position. `done_step_ids()` supplies a player's saved step progress.
 
@@ -425,6 +433,7 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | GET | `/quests` | `list_quests`: all published quests, ordered by ID, personalized |
 | GET | `/quests/{quest_id}` | `get_quest`: a quest the player may view |
 | POST | `/quests/{quest_id}/complete` | `complete_quest`: solo completion or meetup check-in |
+| POST | `/quests/{quest_id}/redeem` | `redeem_quest_code`: verify a printed solo-quest code and complete it |
 | POST | `/quests/{quest_id}/quiz` | `submit_quiz`: check submitted choice indexes |
 | POST | `/quests/{quest_id}/steps/{step_id}/complete` | `complete_step`: save the next ordered step |
 | POST | `/quests/{quest_id}/rsvp` | `join_meetup`: say the player plans to attend |
@@ -433,7 +442,9 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | POST | `/submissions` | `submit_quest`: create a solo idea awaiting review; returns 201 |
 | GET | `/submissions/mine` | `list_my_submissions`: the player's proposed quests, newest first |
 
-`complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
+`complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code-verified quests, so the ordinary completion endpoint cannot bypass the code. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
+
+`redeem_quest_code()` accepts `{"code": "..."}` for a published, code-verified solo quest. It trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
 
 Approval-required solo quests create pending records. Resubmitting a rejected claim reuses that row, replaces its note and submission time, clears review details, and sets it back to pending.
 
@@ -507,9 +518,9 @@ The public entries contain up to 50 players with positive points. `current_playe
 | GET | `/admin/reports` | `admin_list_reports`: unresolved reports, oldest first |
 | POST | `/admin/reports/{report_id}/resolve` | `admin_resolve_report`: dismiss a report or retire its quest |
 
-`admin_quest_out()` includes answer keys, approved-completion counts, open-report counts, authorship, and publication problems.
+`admin_quest_out()` includes answer keys, the permanent verification code, approved-completion counts, open-report counts, authorship, and publication problems. These responses are maintainer-only.
 
-`apply_quest_input()` normalizes text, coordinates, type-specific fields, steps, and questions. It disables approval on non-solo quests and removes meetup schedule/cancellation fields from non-meetups.
+`apply_quest_input()` normalizes text, coordinates, type-specific fields, steps, and questions. It disables approval and code verification on non-solo quests and removes meetup schedule/cancellation fields from non-meetups. It does not replace the quest's verification code.
 
 Editing protections:
 
@@ -611,7 +622,7 @@ These files are marked as Orval-generated. Most of their size comes from repeate
 | --- | --- |
 | `frontend/src/lib/api/hackathon.schemas.ts` | Shared TypeScript interfaces, literal unions, and enum-like constants |
 | `frontend/src/lib/api/players.ts` | Profile, preferences, badge, and hobby calls |
-| `frontend/src/lib/api/quests.ts` | Quest views, completion, quizzes, steps, RSVP, reporting, and submissions |
+| `frontend/src/lib/api/quests.ts` | Quest views, completion, printed-code redemption, quizzes, steps, RSVP, reporting, and submissions |
 | `frontend/src/lib/api/pair.ts` | Partner sessions, invitations, code previews, and joins |
 | `frontend/src/lib/api/connections.ts` | Suggestions and dismissals |
 | `frontend/src/lib/api/leaderboard.ts` | Ranking calls |
@@ -707,6 +718,7 @@ Next.js App Router turns `app/.../page.tsx` paths into URLs. A folder named `[id
 | `/admin` | `frontend/app/admin/page.tsx` | Maintainer dashboard |
 | `/admin/quests/new` | `frontend/app/admin/quests/new/page.tsx` | New draft editor |
 | `/admin/quests/[id]` | `frontend/app/admin/quests/[id]/page.tsx` | Page shell and Suspense for existing quest editing |
+| `/admin/quests/[id]/print` | `frontend/app/admin/quests/[id]/print/page.tsx` | Maintainer-only printable code and QR sign |
 
 Most interactive screens are client components, identified by `"use client"`. They use hooks, state, events, or browser APIs. Dynamic page shells can remain server components and render a client detail component inside Suspense.
 
@@ -731,7 +743,7 @@ The page renders a campus motif, compact player summary, incoming pair invitatio
 
 The detail article displays quest kind, status if unpublished, title, reward, location, author, and instructions. Coordinates enable a `/map#quest-ID` link and an external Google Maps walking-directions link. That directions URL names the destination; the component does not supply the player's device coordinates.
 
-`QuestAction()` chooses the matching action component. Unpublished/retired quests display availability information instead of playable controls.
+`QuestAction()` chooses the matching action component. Published solo quests with `requires_code` use `CodeAction`; other solo quests use `SoloAction`. Unpublished/retired quests display availability information instead of playable controls.
 
 `ReportQuest()` is a local form. It opens an inline reason field, validates a trimmed minimum length in the UI, sends the report, refreshes queries, and closes. A previously reported quest shows an acknowledgment rather than another report button.
 
@@ -857,7 +869,11 @@ For approval-required quests, it collects an optional note and sends it to the b
 
 The component asks players to confirm only after doing the activity. It has no sensor, photograph, or location enforcement.
 
-### 14.2 `frontend/src/components/quest-actions/quiz-action.tsx`
+### 14.2 `frontend/src/components/quest-actions/code-action.tsx`
+
+`CodeAction` shows a manual code field and calls `useRedeemQuestCode()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` reads that code and an effect submits it automatically when the quest loads. Scanning uses the phone's camera app, not a camera control inside the web app. A wrong code displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
+
+### 14.3 `frontend/src/components/quest-actions/quiz-action.tsx`
 
 `QuizAction` initializes one nullable selected answer per question. Radio controls update indexes in that array. The submit button remains disabled until every question is answered.
 
@@ -865,19 +881,19 @@ After checking, questions are disabled and each gets a correct/incorrect result.
 
 Answer validation is performed by the backend, not by an answer key embedded in the player UI.
 
-### 14.3 `frontend/src/components/quest-actions/steps-action.tsx`
+### 14.4 `frontend/src/components/quest-actions/steps-action.tsx`
 
 `StepsAction` finds the first unfinished step and renders its action button. Done steps use success styling; later steps are visually muted. A progress bar shows the done fraction.
 
 Completing a step refreshes quest data. If the response includes a whole-quest completion, it saves that result and displays the reward banner. The backend independently checks ordering, so hiding later buttons is not the only protection.
 
-### 14.4 `frontend/src/components/quest-actions/meetup-action.tsx`
+### 14.5 `frontend/src/components/quest-actions/meetup-action.tsx`
 
 `MeetupAction` shows the Zurich schedule, state, attendee count, and the player's RSVP. RSVP controls are available for upcoming/live events that the player has not completed.
 
 The actual check-in button appears only for a live, unfinished event. Upcoming, past, or cancelled states show an explanation. RSVP toggles and successful check-ins refresh shared queries. A saved or just-completed quest displays the appropriate completion component.
 
-### 14.5 `frontend/src/components/quest-actions/pair-action.tsx`
+### 14.6 `frontend/src/components/quest-actions/pair-action.tsx`
 
 `PairAction` reads the latest session for the quest. While its state is waiting, it polls every three seconds; otherwise session polling stops.
 
@@ -887,7 +903,7 @@ The component detects a transition from waiting to completed with `previousState
 
 If there is no waiting hosted session, the component offers starting a new one or entering another player's code. Previously completed players also receive a replay/help action, while their old points remain unchanged.
 
-### 14.6 `frontend/src/components/quest-actions/result-banner.tsx`
+### 14.7 `frontend/src/components/quest-actions/result-banner.tsx`
 
 `ResultBanner` distinguishes:
 
@@ -921,12 +937,13 @@ The dashboard has four tabs with local component state:
 - `frontend/app/admin/quests/new/page.tsx` renders a permission-gated empty `QuestEditor`.
 - `frontend/app/admin/quests/[id]/page.tsx` provides the shell and Suspense boundary.
 - `frontend/app/admin/quests/[id]/edit-quest.tsx` validates the route ID, fetches admin content, and supplies it to `QuestEditor`.
+- `frontend/app/admin/quests/[id]/print/page.tsx` and `print-sign.tsx` fetch the admin quest behind the maintainer gate and render its printable sign.
 
 An existing editor is keyed by quest ID and status. A status change remounts the form, but ordinary saves preserve typed local state and the saved acknowledgment.
 
 ### 15.4 `frontend/src/components/admin/quest-editor.tsx`
 
-The editor owns local state for text, reward, kind, approval, pin, schedule, cancellation, steps, and questions. Without existing content it initializes a solo quest worth 10 points, two empty steps, and one empty question with two choices.
+The editor owns local state for text, reward, kind, completion method, pin, schedule, cancellation, steps, and questions. Without existing content it initializes a solo quest worth 10 points, two empty steps, and one empty question with two choices.
 
 `edited(setter)` wraps local edits so they clear the previous saved acknowledgment. `buildInput()` trims text, converts empty location to `null`, converts points to a number, includes only content relevant to the selected type, and serializes coordinates and dates.
 
@@ -934,11 +951,13 @@ The editor owns local state for text, reward, kind, approval, pin, schedule, can
 
 Type-specific editing:
 
-- Solo: optional maintainer approval.
+- Solo: choose player confirmation, printed code/QR, or maintainer approval. The latter two methods cannot be combined.
 - Meetup: start/end local datetime inputs, cancellation, and Zurich-time preview.
 - Multi-step: ordered titles/details, add/remove controls, minimum two visible steps, maximum 20.
 - Quiz: questions, choice strings, one correct answer per question, minimum two choices, maximum eight choices and 20 questions. Removing a choice adjusts the correct index.
 - Any type: optional map pin selected by tapping the shared map; removing it sends null coordinates.
+
+Once a code-verified quest is saved, the editor shows its unchanged code and links to the printable sign. `print-sign.tsx` renders the title, location, code, and a `QRCodeSVG` for an absolute redemption URL built from `window.location.origin`. The QR therefore points to the origin where the maintainer opens the print page; print from the public site that players can reach on their phones. Print CSS hides navigation and controls. The code stays unchanged on ordinary edits, but changing the site's public origin would change the URL embedded in a newly printed QR.
 
 `toLocalInput()` converts an ISO timestamp into the browser's local `datetime-local` value. `fromLocalInput()` converts it back to an ISO timestamp. The editing timezone follows the maintainer's browser, while the preview and player displays explicitly show Zurich time.
 
@@ -1050,7 +1069,26 @@ Quest detail → SoloAction.handleComplete()
 
 If that player repeats the action, the existing completion is reused and the response awards zero additional points. If approval is required, the same flow initially records pending status and zero points. A later maintainer review changes that record to approved or rejected.
 
-### 18.2 Two players complete a partner quest
+Code-verified solo quests use the separate flow below; `/complete` rejects them.
+
+### 18.2 A printed code or QR completes a solo quest
+
+```text
+Maintainer selects Printed code or QR, saves the quest, and opens its print page
+    → admin response supplies the quest's saved verification_code
+    → sign shows that code and a QR for /quests/{id}?code={code}
+
+Player types the code or scans the QR with a phone camera
+    → QR opens the quest detail and CodeAction submits its URL code automatically
+    → POST /api/quests/{id}/redeem with {"code": "..."}
+    → backend checks publication, quest type, and the saved code
+    → record_completion() grants the reward once to that player
+    → ResultBanner shows the result and shared queries refresh
+```
+
+Wrong or another quest's code returns an error and no points. The same sign can be used by other players; a repeat redemption by one player grants zero additional points. `QuestOut` tells the player that a code is required but never includes the code itself.
+
+### 18.3 Two players complete a partner quest
 
 ```text
 Host opens pair quest → starts a session
@@ -1071,7 +1109,7 @@ Partner enters code or opens invite link
 
 Session claiming and each completion save use separate commits. The operation is not one all-or-nothing database transaction covering the session and both rewards. The same-partner retry path helps finish completion recording after a partial interruption.
 
-### 18.3 A suggestion becomes an invitation
+### 18.4 A suggestion becomes an invitation
 
 1. Both players save hobbies with discoverability enabled.
 2. `/suggestions` finds shared interests and returns names/shared labels.
@@ -1083,7 +1121,7 @@ Session claiming and each completion save use separate commits. The operation is
 
 This creates a quest invitation, not a persistent friendship, conversation, or contact exchange.
 
-### 18.4 A proposed quest reaches the public list
+### 18.5 A proposed quest reaches the public list
 
 ```text
 Player submits title/instructions/location
@@ -1100,7 +1138,7 @@ Maintainer opens Ideas
 
 Rejection records an optional note visible to the author. A rejected idea can be moved to drafts in the editor and subsequently revised/published by a maintainer.
 
-### 18.5 A reported quest is removed from play
+### 18.6 A reported quest is removed from play
 
 1. A player reports a published quest.
 2. A `QuestReport` row is saved; it does not automatically hide the quest.
@@ -1109,7 +1147,7 @@ Rejection records an optional note visible to the author. A rejected idea can be
 5. Remove quest retires the quest and closes all its reports.
 6. Public quest lists stop returning it; saved completions and points remain.
 
-### 18.6 A meetup and its time window
+### 18.7 A meetup and its time window
 
 A schedule is saved as UTC. Each quest view derives its current meetup state from backend time. Players see that schedule in Zurich time and may RSVP independently. Check-in succeeds only while live, beginning 15 minutes before the start, and grants the reward once.
 
@@ -1276,11 +1314,16 @@ Expanded coverage includes:
 - Quiz checking and retries.
 - Badge rules/progress and exclusion of pending points from badges/ranking.
 - Older MVP database compatibility.
+- Backfilling a permanent code for an older quest.
 - Addressed invitations, consent requirements, and expiry/cancellation filtering.
+
+### 20.4 `backend/tests/test_code_verification.py`
+
+Code verification coverage includes maintainer-only access to the saved code, omission of that code from player quest responses, blocking `/complete` bypasses, wrong-code errors without points, reuse by different players, zero extra points on repeats, and preservation of the code after ordinary edits and a repeat schema upgrade. It also checks that another quest's code cannot redeem this quest.
 
 This guide records test responsibilities, not a new test execution result. No test suite was run solely to create this documentation.
 
-### 20.4 Running checks
+### 20.5 Running checks
 
 Backend, with its development dependencies installed:
 
@@ -1298,7 +1341,7 @@ npm run build
 npm run lint
 ```
 
-API tests do not replace browser checks. Particularly useful browser cases are returning to a cached map, phone-width forms and navigation, native sharing fallback, expired-code retries, and opening/closing meetup windows. The repository does not currently contain an automated frontend browser-test suite.
+API tests do not replace browser checks. Particularly useful browser cases are scanning a printed QR with a phone camera, opening its link after login, returning to a cached map, phone-width forms and navigation, native sharing fallback, expired pair-code retries, and opening/closing meetup windows. The repository does not currently contain an automated frontend browser-test suite.
 
 ## 21. Where to make changes
 
@@ -1317,6 +1360,7 @@ API tests do not replace browser checks. Particularly useful browser cases are r
 | Map behavior and pins | `frontend/src/components/campus-map.tsx` | `frontend/app/map/page.tsx`, map CSS |
 | Map selection sheet | `frontend/app/map/page.tsx` | Bottom navigation dimensions |
 | Code entry / error recovery | `frontend/src/components/join-code-form.tsx`, `frontend/app/join/[code]/join-view.tsx` | Pair code rules |
+| Printed solo-quest verification | `frontend/src/components/quest-actions/code-action.tsx`, `frontend/app/admin/quests/[id]/print/print-sign.tsx` | `backend/routers/quests.py`, `backend/models.py`, schema upgrade, and code tests |
 | Sharing feedback | `frontend/src/components/share-button.tsx` | Real-device native sharing support |
 | Incoming invitations | `frontend/src/components/pair-invites.tsx` | `backend/routers/pair.py` and pair client |
 | Profile and next-badge UI | `frontend/app/profile/page.tsx` | Badge progress API |
@@ -1327,7 +1371,8 @@ API tests do not replace browser checks. Particularly useful browser cases are r
 | Existing quest content | Maintainer editor / `backend/routers/admin.py` | Published validity and saved-progress restrictions |
 | Scoring and completion uniqueness | `backend/game.py`, `backend/models.py` | Quest/pair routers and concurrency tests |
 | Check-in timing | `backend/game.py` | Quest router and meetup component |
-| Code length, alphabet, lifetime | `backend/routers/pair.py` | Inputs, countdown, invitation copy, tests |
+| Temporary pair-code length, alphabet, lifetime | `backend/routers/pair.py` | Inputs, countdown, invitation copy, tests |
+| Permanent quest-code generation and stability | `backend/models.py`, `backend/database.py` | Redemption endpoint, admin sign, privacy, and tests |
 | Idea submission limits/default points | `backend/routers/quests.py` | Submit UI and schema limits |
 | Reviewer or report behavior | `backend/routers/admin.py` | Admin dashboard and approval UI |
 | Ranking rules/list size | `backend/routers/leaderboard.py` | Leaderboard response and screen |
@@ -1347,7 +1392,7 @@ For a new database field, changing the ORM model alone does not upgrade an exist
 
 These details matter when reading or extending the code:
 
-1. **Physical activity is largely self-reported.** Solo and step buttons do not prove campus presence. Pair joining proves two app identities participated in a code flow, not that a physical game happened. Meetup check-in checks time, not GPS proximity.
+1. **Physical activity is largely self-reported.** Solo and step buttons do not prove campus presence. A printed code proves possession of a shareable code, not where the player was. Pair joining proves two app identities participated in a code flow, not that a physical game happened. Meetup check-in checks time, not GPS proximity.
 2. **Invitation eligibility is narrower than the API's wording suggests.** The backend checks that both players are discoverable, the invitee exists, and it is not a self-invite. It does not separately require shared hobbies or confirm that the invitee is in the host's current suggestion list. The normal UI chooses from suggestions.
 3. **A code is shareable beyond the addressed invitee.** The invitee field controls who sees the in-app invitation; it does not restrict joining to that person.
 4. **No friend graph or chat is stored.** Suggestions, dismissals, invitations, and native link sharing are the implemented social mechanisms.
@@ -1356,11 +1401,12 @@ These details matter when reading or extending the code:
 7. **Time-sensitive UI needs fresh data.** Pair waits and incoming invites explicitly poll. Meetup state is recalculated when the server builds quest views, but no dedicated meetup polling timer is added in its action component.
 8. **Some input limits run before trimming.** Schemas validate string length and routers then strip whitespace. Publication validates trimmed content again. Frontend forms also perform trimmed checks for ideas/reports. Direct API callers should not assume every field gets the same post-trim minimum check.
 9. **Retirement keeps history.** The code has no permanent quest-deletion endpoint and no completion-reset endpoint.
-10. **Legacy migration is limited.** It adds known columns and an identity index; it is not a versioned migration system for arbitrary future schema changes.
+10. **Legacy migration is limited.** It adds known columns, backfills missing quest verification codes, and creates identity/code indexes; it is not a versioned migration system for arbitrary future schema changes.
 11. **External services remain dependencies.** Login is provided externally; map tiles and Google Maps directions are external. The app has no offline map cache or installed-app/service-worker implementation in the inspected source.
 12. **Generated API files need careful regeneration.** They include the current getter-backed query wrapper; the Orval config does not specify a visible mechanism to recreate that customization.
 13. **Not every subsection shows all failures equally.** Some secondary lists use an empty-array/null fallback for unsuccessful responses, while main pages and action helpers expose explicit errors. An empty secondary list can therefore differ from an explicitly verified empty server result.
 14. **Planning documents are not current implementation inventories.** The outer MVP/backlog documents describe earlier scope and proposals. Use the source and this snapshot to understand implemented behavior.
+15. **Printed QR links depend on the public origin.** The print page embeds the origin from the maintainer's current browser URL. A sign printed from `localhost` will point a phone at its own localhost, so print from the public site players will use. The permanent quest code itself remains unchanged.
 
 ## 23. Glossary and suggested reading order
 
@@ -1371,6 +1417,7 @@ These details matter when reading or extending the code:
 | Step progress | A saved intermediate step; distinct from whole-quest completion |
 | RSVP | Intention to attend; distinct from meetup check-in |
 | Pair session | Temporary code-based attempt involving a host and optional partner |
+| Quest verification code | Permanent per-quest code shown only to maintainers for a printed sign and checked on redemption |
 | Invitee | Player addressed by a pair invitation; not an exclusive code reservation |
 | Maintainer | External identity allowed to manage content and review claims |
 | Schema | Pydantic API shape in Python; not the same thing as a SQL table |
@@ -1392,5 +1439,7 @@ For a first code-reading pass, follow a single solo quest:
 6. `backend/game.py` — how a reward is saved exactly once.
 7. `backend/models.py` — what persists and which constraints apply.
 8. `backend/tests/test_api.py` — how the core behavior is checked.
+
+For printed verification, follow `frontend/src/components/admin/quest-editor.tsx` to the print sign, then `frontend/src/components/quest-actions/code-action.tsx`, `backend/routers/quests.py`, the stored code in `backend/models.py` and its upgrade in `backend/database.py`, and finally `backend/tests/test_code_verification.py`.
 
 Then read the pair flow, maintainer workflow, and map lifecycle. The large generated API files become easier to understand once the smaller handwritten route and component logic is clear.

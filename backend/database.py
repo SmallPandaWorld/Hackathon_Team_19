@@ -4,6 +4,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+from models import new_verification_code
 
 BACKEND_DIR = Path(__file__).resolve().parent
 DEFAULT_DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'users.db'}"
@@ -51,6 +52,8 @@ ADDED_COLUMNS = {
         "kind": "VARCHAR(20) NOT NULL DEFAULT 'solo'",
         "status": "VARCHAR(20) NOT NULL DEFAULT 'published'",
         "requires_approval": "BOOLEAN NOT NULL DEFAULT 0",
+        "requires_code": "BOOLEAN NOT NULL DEFAULT 0",
+        "verification_code": "VARCHAR(12)",
         "latitude": "FLOAT",
         "longitude": "FLOAT",
         "starts_at": "DATETIME",
@@ -93,3 +96,20 @@ def upgrade_legacy_schema():
             connection.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_viscon_user_id "
                 "ON users (viscon_user_id)"))
+        if "quests" in tables:
+            rows = connection.execute(text(
+                "SELECT id, verification_code FROM quests")).all()
+            used = {code for _, code in rows if code}
+            for quest_id, code in rows:
+                if code:
+                    continue
+                fresh = new_verification_code()
+                while fresh in used:
+                    fresh = new_verification_code()
+                used.add(fresh)
+                connection.execute(text(
+                    "UPDATE quests SET verification_code = :code WHERE id = :id"),
+                    {"code": fresh, "id": quest_id})
+            connection.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_quests_verification_code "
+                "ON quests (verification_code)"))

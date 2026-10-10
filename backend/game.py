@@ -237,6 +237,7 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             kind=quest.kind,
             status=quest.status,
             requires_approval=quest.requires_approval,
+            requires_code=quest.requires_code,
             latitude=quest.latitude,
             longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),

@@ -1,4 +1,5 @@
 from typing import List, Optional
+import hmac
 
 from fastapi import APIRouter, Body, Depends, Response, status
 from sqlalchemy import func, select
@@ -44,6 +45,7 @@ from models import (
 )
 from schemas import (
     CompleteRequest,
+    CodeRedemption,
     CompletionResult,
     QuestOut,
     QuestSubmission,
@@ -120,6 +122,8 @@ def complete_quest(
     quest = get_playable_quest(db, quest_id)
     if quest.kind in WRONG_ENDPOINT:
         raise bad_request(WRONG_ENDPOINT[quest.kind])
+    if quest.requires_code:
+        raise bad_request("Enter this quest's printed code or scan its QR code to complete it.")
 
     existing = find_completion(db, player.id, quest.id)
     if quest.kind == MEETUP and existing is None:
@@ -144,6 +148,28 @@ def complete_quest(
         completion, created = record_completion(db, player.id, quest, PENDING, note)
     else:
         completion, created = record_completion(db, player.id, quest, APPROVED)
+    return completion_result(db, player.id, completion, created)
+
+
+@router.post(
+    "/quests/{quest_id}/redeem",
+    response_model=CompletionResult,
+    responses=error_responses(400, 404),
+)
+def redeem_quest_code(
+    quest_id: int,
+    request: CodeRedemption,
+    player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
+):
+    """Redeem a printed code, once per player, for a code-verified solo quest."""
+    quest = get_playable_quest(db, quest_id, SOLO)
+    if not quest.requires_code:
+        raise bad_request("This quest does not use code verification.")
+    code = request.code.strip().upper()
+    if not code.isascii() or not quest.verification_code or not hmac.compare_digest(code, quest.verification_code):
+        raise bad_request("That code is not valid for this quest. Check the printed code and try again.")
+    completion, created = record_completion(db, player.id, quest, APPROVED)
     return completion_result(db, player.id, completion, created)
 
 

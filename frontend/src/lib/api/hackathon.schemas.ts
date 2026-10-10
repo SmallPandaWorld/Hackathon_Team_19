@@ -79,6 +79,7 @@ export interface AdminQuestIn {
   points: number;
   kind?: AdminQuestInKind;
   requires_approval?: boolean;
+  requires_code?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -137,6 +138,9 @@ export interface AdminQuestOut {
   kind: AdminQuestOutKind;
   status: AdminQuestOutStatus;
   requires_approval: boolean;
+  requires_code: boolean;
+  /** Stable code for the printable QR; maintainers only */
+  verification_code: string;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -183,6 +187,14 @@ export interface Badge {
   progress: number;
   /** Progress needed, e.g. 5 quests or 100 points */
   target: number;
+}
+
+export interface CodeRedemption {
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  code: string;
 }
 
 export interface CompleteRequest {
@@ -374,6 +386,8 @@ export interface QuestOut {
   kind: QuestOutKind;
   status: QuestOutStatus;
   requires_approval: boolean;
+  /** Enter the printed code or scan its QR to complete */
+  requires_code: boolean;
   /** Map pin (WGS84) */
   latitude?: number | null;
   /** Map pin (WGS84) */

@@ -1,4 +1,5 @@
 from datetime import datetime
+import secrets
 from typing import Optional
 
 from sqlalchemy import (
@@ -33,6 +34,13 @@ PUBLISHED = "published"
 REJECTED = "rejected"
 RETIRED = "retired"
 QUEST_STATUSES = (DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED, RETIRED)
+
+VERIFICATION_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_verification_code() -> str:
+    """A printable, hard-to-guess code; never derived from quest data."""
+    return "".join(secrets.choice(VERIFICATION_ALPHABET) for _ in range(12))
 
 # Completion statuses. Only approved completions count for points.
 APPROVED = "approved"
@@ -76,6 +84,13 @@ class Quest(Base):
     # Solo quests only: completions wait for a maintainer.
     requires_approval: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0"))
+    # The code exists for every quest, but only code-verified solo quests use it.
+    # Editing a quest never changes its printed code.
+    requires_code: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0"))
+    verification_code: Mapped[Optional[str]] = mapped_column(
+        String(12), nullable=True, unique=True, index=True,
+        default=new_verification_code)
     # Pin on the campus map (WGS84, as on OpenStreetMap).
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

@@ -73,6 +73,7 @@ class QuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
+    requires_code: bool = Field(description="Enter the printed code or scan its QR to complete")
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
@@ -96,6 +97,10 @@ class CompleteRequest(BaseModel):
     note: Optional[str] = Field(
         default=None, max_length=500,
         description="What the player did (shown to reviewers on approval quests)")
+
+
+class CodeRedemption(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
 
 
 class CompletionResult(BaseModel):
@@ -240,6 +245,7 @@ class AdminQuestIn(BaseModel):
     points: int = Field(ge=0, le=1000)
     kind: QuestKind = "solo"
     requires_approval: bool = False
+    requires_code: bool = False
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -247,6 +253,14 @@ class AdminQuestIn(BaseModel):
     cancelled: bool = False
     steps: List[StepIn] = Field(default=[], max_length=20)
     questions: List[QuizQuestionIn] = Field(default=[], max_length=20)
+
+    @model_validator(mode="after")
+    def valid_verification(self):
+        if self.requires_code and self.kind != "solo":
+            raise ValueError("Code verification is available for solo quests only")
+        if self.requires_code and self.requires_approval:
+            raise ValueError("Choose code verification or maintainer approval")
+        return self
 
 
 class AdminQuizQuestionOut(QuizQuestionIn):
@@ -262,6 +276,8 @@ class AdminQuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
+    requires_code: bool
+    verification_code: str = Field(description="Stable code for the printable QR; maintainers only")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     starts_at: Optional[datetime] = None
