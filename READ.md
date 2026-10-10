@@ -18,6 +18,24 @@ uvicorn main:app --reload
 http://127.0.0.1:8000/docs#/
 (optionally change ip)
 
+### User API
+The backend reads the logged-in identity from the `X-User-Id` and
+`X-User-Name` request headers. `X-User-Id` is used as the user's `username`
+and primary key. The `GET /me` endpoint creates the profile on first access,
+then returns the saved profile and score:
+
+```json
+{
+  "username": "alice",
+  "name": "Alice Example",
+  "score": 0
+}
+```
+
+Profiles are created automatically on the first `GET /me` request and start
+with a score of zero. The endpoint takes no body, query parameters, or explicit
+identity parameters; it reads the two identity headers from the request.
+
 # Frontend
 1. install Node.js (v22.20.0)
     https://nodesource.com/products/distributions

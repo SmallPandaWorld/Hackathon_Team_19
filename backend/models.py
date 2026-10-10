@@ -7,8 +7,9 @@ from database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(255), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    score: Mapped[int] = mapped_column(default=0, nullable=False)
 
 
 

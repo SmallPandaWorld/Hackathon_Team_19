@@ -19,10 +19,18 @@ export interface HTTPValidationError {
 }
 
 export interface LoginInfo {
-  id: string | null;
-  name: string | null;
+  username: string;
+  name: string;
+  score: number;
 }
 
 export interface UserCreate {
+  username: string;
   name: string;
+}
+
+export interface UserRead {
+  username: string;
+  name: string;
+  score: number;
 }
