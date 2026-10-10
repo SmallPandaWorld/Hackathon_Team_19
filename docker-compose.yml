@@ -10,6 +10,8 @@ services:
       # Comma-separated VISCON user IDs (X-User-Id) of quest maintainers.
       # Set it on the server, e.g. in a .env file next to this file.
       MAINTAINER_IDS: ${MAINTAINER_IDS:-}
+    env_file:
+      - .env
     volumes:
       # Survives `docker compose down` / rebuilds. Never use `down -v`.
       - backend-data:/data
