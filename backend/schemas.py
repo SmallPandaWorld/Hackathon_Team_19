@@ -208,6 +208,11 @@ class Suggestion(BaseModel):
     shared_hobbies: List[str] = Field(description="Labels of hobbies you share")
 
 
+class PlayerSearchResult(BaseModel):
+    player_id: int
+    display_name: str
+
+
 class Suggestions(BaseModel):
     enabled: bool = Field(description="False until the player opts in")
     suggestions: List[Suggestion]

@@ -409,6 +409,11 @@ export interface PairStartAction {
   invite_username?: string | null;
 }
 
+export interface PlayerSearchResult {
+  player_id: number;
+  display_name: string;
+}
+
 export interface ProfileUpdate {
   /** @maxItems 20 */
   hobbies: string[];
@@ -586,6 +591,44 @@ export const AdminListQuestsStatus = {
   retired: "retired",
 } as const;
 
+<<<<<<< HEAD
+=======
+export interface SubmissionOut {
+  id: number;
+  title: string;
+  description: string;
+  location?: string | null;
+  status: SubmissionOutStatus;
+  review_note?: string | null;
+}
+
+export interface Suggestion {
+  player_id: number;
+  display_name: string;
+  /** Labels of hobbies you share */
+  shared_hobbies: string[];
+}
+
+export interface Suggestions {
+  /** False until the player opts in */
+  enabled: boolean;
+  suggestions: Suggestion[];
+}
+
+export type SearchPlayersParams = {
+  /**
+   * Part of a display name
+   * @minLength 2
+   * @maxLength 100
+   */
+  q: string;
+};
+
+export type AdminListQuestsParams = {
+  status_filter?: string | null;
+};
+
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5
 export type AdminListCompletionsParams = {
   status?: AdminListCompletionsStatus;
 };

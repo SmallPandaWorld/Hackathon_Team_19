@@ -758,9 +758,72 @@ def test_badge_progress(client):
     assert (progress["century"]["progress"], progress["century"]["target"]) == (0, 100)
     assert (progress["meetup"]["progress"], progress["meetup"]["target"]) == (0, 1)
 
+<<<<<<< HEAD
     act(client, ALICE, SOLO_ID, "complete")           # 10 points
     act(client, ALICE, SECOND_QUEST_ID, "complete")   # 20 points
     progress = badges(client, ALICE)
     assert progress["explorer"]["progress"] == 2
     assert progress["century"]["progress"] == 30
     assert progress["first_quest"]["progress"] == progress["first_quest"]["target"] == 1
+=======
+    client.post(f"/quests/{SOLO_ID}/complete", headers=ALICE)        # 10 points
+    client.post(f"/quests/2/complete", headers=ALICE)                # 20 points
+    badges = {b["key"]: b for b in client.get("/me/badges", headers=ALICE).json()}
+    assert badges["explorer"]["progress"] == 2
+    assert badges["century"]["progress"] == 30
+    assert badges["first_quest"]["progress"] == badges["first_quest"]["target"] == 1
+
+
+def test_player_profile_of_self(client):
+    me = client.get("/me", headers=ALICE).json()
+    assert client.get(f"/players/{me['id']}", headers=ALICE).json() == me
+
+
+def test_player_profile_requires_opt_in(client):
+    bob = client.get("/me", headers=BOB).json()
+
+    # Bob has not opted in, so he is hidden from others.
+    assert client.get(f"/players/{bob['id']}", headers=ALICE).status_code == 404
+
+    client.put("/me/profile", headers=BOB, json={"hobbies": ["chess"], "discoverable": True})
+    seen = client.get(f"/players/{bob['id']}", headers=ALICE).json()
+    assert seen["display_name"] == "Bob"
+    assert seen["hobbies"] == ["chess"]
+    assert seen["is_maintainer"] is False
+
+
+def test_player_profile_hides_maintainer_flag(client):
+    admin = client.get("/me", headers=ADMIN).json()
+    assert admin["is_maintainer"] is True
+    client.put("/me/profile", headers=ADMIN, json={"hobbies": [], "discoverable": True})
+    seen = client.get(f"/players/{admin['id']}", headers=ALICE).json()
+    assert seen["is_maintainer"] is False
+
+
+def test_player_profile_unknown_player_and_missing_identity(client):
+    assert client.get("/players/99999", headers=ALICE).status_code == 404
+    assert client.get("/players/abc", headers=ALICE).status_code == 422
+    assert client.get("/players/1").status_code == 401
+
+
+def test_player_search_finds_only_opted_in_players(client):
+    client.get("/me", headers=ALICE)
+    set_profile(client, BOB, [], discoverable=True)
+    set_profile(client, CAROL, [], discoverable=False)  # hidden
+
+    found = client.get("/players/search", params={"q": "bo"}, headers=ALICE).json()
+    assert [r["display_name"] for r in found] == ["Bob"]
+    assert client.get("/players/search", params={"q": "car"}, headers=ALICE).json() == []
+    # Case-insensitive, and never returns the searcher.
+    set_profile(client, ALICE, [], discoverable=True)
+    assert client.get("/players/search", params={"q": "ALI"}, headers=ALICE).json() == []
+
+
+def test_player_search_validates_query_and_treats_wildcards_literally(client):
+    set_profile(client, BOB, [], discoverable=True)
+    assert client.get("/players/search", params={"q": "b"}, headers=ALICE).status_code == 422
+    assert client.get("/players/search", headers=ALICE).status_code == 422
+    assert client.get("/players/search", params={"q": "bo"}).status_code == 401
+    assert client.get("/players/search", params={"q": "%%"}, headers=ALICE).json() == []
+    assert client.get("/players/search", params={"q": "__"}, headers=ALICE).json() == []
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5

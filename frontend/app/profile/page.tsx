@@ -5,25 +5,39 @@ import {
   Card,
   Chip,
   Page,
+  inputStyles,
   PageTitle,
 } from "@/src/components/page";
 import { BadgeIcon } from "@/src/components/icons";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
+<<<<<<< HEAD
 import type { Badge, Me } from "@/src/lib/api/hackathon.schemas";
+=======
+import { keepPreviousData } from "@tanstack/react-query";
+import { useSearchPlayers } from "@/src/lib/api/players";
+import { ChevronRight, Search } from "lucide-react";
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5
 import {
   useDismissSuggestion,
   useGetMe,
+<<<<<<< HEAD
   useUpdateMe,
+=======
+  useGetPlayer,
+  useListBadges,
+  useListHobbies,
+  useUpdateProfile,
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5
 } from "@/src/lib/api/players";
 import { useActOnQuest, useListQuests } from "@/src/lib/api/quests";
 import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import { Check, ChevronDown, Send, Users } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect} from "react";
 
 function nextBadge(badges: Badge[]): Badge | undefined {
   // The unearned badge the player is closest to.
@@ -41,8 +55,24 @@ function nextBadgeHint(badge: Badge): string {
   return `${badge.description.replace(/\.$/, "")} to earn “${badge.title}”`;
 }
 
+<<<<<<< HEAD
 function Achievements({ player }: { player: Me }) {
   const badges = player.badges;
+=======
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function Achievements({ player }: { player: Player }) {
+  const { data, isLoading } = useListBadges();
+  const badges = data?.status === 200 ? data.data : [];
+  if (isLoading) return <LoadingState label="Loading badges..." />;
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5
   const earned = badges.filter((badge) => badge.earned);
   const next = nextBadge(badges);
 
@@ -325,13 +355,17 @@ function SuggestionsList({ player }: { player: Me }) {
                 className="flex items-center gap-3 rounded-md bg-surface-variant p-3"
                 key={suggestion.username}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
+                <Link
+                  aria-label={suggestion.display_name}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary"
+                  href={`/profile?player_id=${suggestion.player_id}`}
+                >
                   {suggestion.display_name.charAt(0).toUpperCase()}
-                </span>
+                </Link>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">
+                  <Link className="truncate font-semibold" href={`/profile?player_id=${suggestion.player_id}`}>
                     {suggestion.display_name}
-                  </p>
+                  </Link>
                   <p className="text-xs text-muted">
                     You both like {suggestion.shared_hobbies.join(", ")}
                   </p>
@@ -372,8 +406,120 @@ function SuggestionsList({ player }: { player: Me }) {
   );
 }
 
+<<<<<<< HEAD
 function MySubmissions({ player }: { player: Me }) {
   const submissions = player.submissions;
+=======
+// SEARCH RELATED
+const SEARCH_DELAY_MS = 400;
+const MIN_QUERY_LENGTH = 2;
+const CACHE_MS = 60_000;
+
+function SearchResults({ query }: { query: string }) {
+  const { data, isLoading, isError, isFetching, refetch } = useSearchPlayers(
+    { q: query },
+    {
+      query: {
+        placeholderData: keepPreviousData,
+        staleTime: CACHE_MS,
+        refetchOnWindowFocus: false,
+        retry: false,
+      },
+    },
+  );
+  const results = data?.status === 200 ? data.data : undefined;
+  const error = isError
+    ? "Could not search players."
+    : apiErrorMessage(data);
+
+  if (isLoading) return <LoadingState label="Searching..." />;
+  if (error || !results)
+    return (
+      <ErrorState
+        message={error ?? "Could not search players."}
+        onRetry={() => refetch()}
+      />
+    );
+  if (results.length === 0)
+    return (
+      <p className="text-sm text-muted">
+        No players found. Only players who turned on suggestions can be found.
+      </p>
+    );
+
+  return (
+    <ul
+      aria-busy={isFetching}
+      className={`flex flex-col gap-2 transition ${isFetching ? "opacity-60" : ""}`}
+    >
+      {results.map((result) => (
+        <li key={result.player_id}>
+          <Link
+            className="flex items-center gap-3 rounded-md bg-surface-variant p-3 hover:ring-2 hover:ring-primary"
+            href={`/profile?player_id=${result.player_id}`}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
+              {result.display_name.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              {result.display_name}
+            </span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted" />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SearchPlayers() {
+    const [text, setText] = useState("");
+    const query = useDebouncedValue(text.trim(), SEARCH_DELAY_MS);
+    const typing = text.trim() !== query;
+    const ready = query.length >= MIN_QUERY_LENGTH;
+    
+    return (
+      <Card className="flex flex-col gap-3">
+      <label className="text-sm font-semibold" htmlFor="player-search">
+        Find a player by name
+      </label>
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+        />
+        <input
+          autoComplete="off"
+          autoFocus
+          className={`${inputStyles} mt-0 pl-9`}
+          id="player-search"
+          maxLength={100}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Start typing a name..."
+          type="search"
+          value={text}
+        />
+      </div>
+      {text.trim().length < MIN_QUERY_LENGTH ? (
+        <p className="text-sm text-muted">
+          Type at least {MIN_QUERY_LENGTH} letters. Only players who turned on
+          suggestions can be found.
+        </p>
+      ) : ready ? (
+        <div aria-live="polite">
+          <SearchResults query={query} />
+        </div>
+      ) : typing ? (
+        <LoadingState label="Searching..." />
+      ) : null}
+      </Card>
+    );
+  }
+
+function MySubmissions() {
+  const { data } = useListMySubmissions();
+  const submissions = data?.status === 200 ? data.data : [];
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5
 
   return (
     <Card>
@@ -424,27 +570,92 @@ function MySubmissions({ player }: { player: Me }) {
   );
 }
 
-export default function ProfilePage() {
-  const { data, isLoading, isError, refetch } = useGetMe();
+function OtherProfile({ player }: { player: Player }) {
+  const hobbies = useListHobbies();
+  const options = hobbies.data?.status === 200 ? hobbies.data.data : [];
+  const labels = player.hobbies.map(
+    (key) => options.find((option) => option.key === key)?.label ?? key,
+  );
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-on-primary">
+          {player.display_name.charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <p className="text-3xl font-bold">{player.total_points}</p>
+          <p className="text-sm text-muted">points</p>
+        </div>
+      </div>
+      {labels.length > 0 && (
+        <div>
+          <h2 className="font-semibold">Hobbies</h2>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {labels.map((label) => (
+              <li
+                className="rounded-full bg-surface-variant px-3 py-1.5 text-sm font-medium text-on-surface-variant"
+                key={label}
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ProfileContent() {
+  // `?player_id=` shows another player; without it the page is your own.
+  const rawId = useSearchParams().get("player_id");
+  const requestedId = rawId === null ? undefined : Number(rawId);
+  const invalidId =
+    requestedId !== undefined &&
+    (!Number.isInteger(requestedId) || requestedId < 1);
+
+  const me = useGetMe();
+  const myId = me.data?.status === 200 ? me.data.data.id : undefined;
+  // Your own ID in the URL shows your full profile, so skip fetching it twice.
+  const isOwn = requestedId === undefined || requestedId === myId;
+  const other = useGetPlayer(requestedId ?? 0, {
+    query: { enabled: !invalidId && !isOwn && myId !== undefined },
+  });
+
+  const { data, isLoading, isError, refetch } = isOwn ? me : other;
   const player = data?.status === 200 ? data.data : undefined;
-  const error = isError
-    ? "Could not load your profile."
-    : apiErrorMessage(data);
+  const error = invalidId
+    ? "That is not a valid player."
+    : isError
+      ? "Could not load this profile."
+      : apiErrorMessage(data);
+  // The other player's query stays idle until `me` has loaded.
+  const waiting = !isOwn && me.isLoading;
 
   return (
     <Page>
-      <PageTitle eyebrow="Profile">{player?.display_name ?? "You"}</PageTitle>
-      {isLoading ? (
+      <PageTitle eyebrow="Profile">
+        {player?.display_name ?? (isOwn ? "You" : "Player")}
+      </PageTitle>
+      {!invalidId && (isLoading || waiting) ? (
         <LoadingState label="Loading profile..." />
       ) : error || !player ? (
         <ErrorState
-          message={error ?? "Could not load your profile."}
-          onRetry={() => refetch()}
+          message={error ?? "Could not load this profile."}
+          onRetry={invalidId ? undefined : () => refetch()}
         />
+      ) : !isOwn ? (
+        <OtherProfile player={player} />
       ) : (
         <>
           <Achievements player={player} />
+<<<<<<< HEAD
           <SuggestionsList player={player} />
+=======
+          <SuggestionsList />
+          <SearchPlayers />
+>>>>>>> c29d76759120a245ef4eafc66eca2802f1120de5
           {/* Not keyed on the saved values: a remount after saving would hide "Saved". */}
           <HobbyEditor player={player} />
           <MySubmissions player={player} />
@@ -463,5 +674,20 @@ export default function ProfilePage() {
         </>
       )}
     </Page>
+  );
+}
+
+export default function ProfilePage() {
+  // useSearchParams() needs a Suspense boundary when cacheComponents is enabled.
+  return (
+    <Suspense
+      fallback={
+        <Page>
+          <LoadingState label="Loading profile..." />
+        </Page>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 }
