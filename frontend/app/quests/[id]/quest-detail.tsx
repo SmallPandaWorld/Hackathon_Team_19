@@ -237,12 +237,16 @@ export function QuestDetail() {
             Created by {quest.author_name}
           </p>
         )}
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
-          Instructions
-        </h2>
-        <p className="mt-2 whitespace-pre-line leading-relaxed text-on-surface-variant">
-          {quest.description}
-        </p>
+        {quest.description && (
+          <>
+            <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
+              Instructions
+            </h2>
+            <p className="mt-2 whitespace-pre-line leading-relaxed text-on-surface-variant">
+              {quest.description}
+            </p>
+          </>
+        )}
       </article>
 
       <QuestAction quest={quest} />

@@ -70,15 +70,12 @@ export interface QuizQuestionIn {
 
 export interface AdminQuestIn {
   /**
-   * @minLength 1
+   * @minLength 2
    * @maxLength 120
    */
   title: string;
-  /**
-   * @minLength 1
-   * @maxLength 2000
-   */
-  description: string;
+  /** @maxLength 2000 */
+  description?: string;
   location?: string | null;
   /**
    * @minimum 0
@@ -442,6 +439,13 @@ export interface Me {
   created_quests: CreatedQuestOut[];
 }
 
+export interface MeetupPhotoOut {
+  id: string;
+  quest_id: string;
+  quest_title: string;
+  uploaded_at: string;
+}
+
 export const PairCancelActionValue = {
   type: "pair_cancel",
 } as const;
@@ -473,15 +477,12 @@ export const PlayerQuestInKind = {
 
 export interface PlayerQuestIn {
   /**
-   * @minLength 3
+   * @minLength 2
    * @maxLength 120
    */
   title: string;
-  /**
-   * @minLength 10
-   * @maxLength 2000
-   */
-  description: string;
+  /** @maxLength 2000 */
+  description?: string;
   location?: string | null;
   kind?: PlayerQuestInKind;
   password?: string | null;
@@ -642,6 +643,16 @@ export interface QuestActionResult {
   completion?: CompletionResult | null;
   /** Set for type=quiz */
   quiz?: QuizResult | null;
+}
+
+export interface QuestPhotoOut {
+  id: string;
+  quest_id: string;
+  quest_title: string;
+  uploaded_at: string;
+  is_mine: boolean;
+  uploader_username?: string | null;
+  uploader_display_name?: string | null;
 }
 
 export interface QuizAction {

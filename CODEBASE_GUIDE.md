@@ -346,7 +346,7 @@ Player quiz responses contain choices but omit `correct_index`. Admin quiz respo
 
 Some important validation limits:
 
-- Player-created quest: title 3–120 characters; instructions 10–2000; optional location up to 255; fixed 10-point reward. Only solo, pair, quiz, and multi-step kinds are accepted; solo requires a nonblank password.
+- Player-created quest: trimmed title 2–120 characters; optional instructions up to 2000; optional location up to 255; fixed 10-point reward. Only solo, pair, quiz, and multi-step kinds are accepted; solo requires a nonblank password.
 - Completion note: up to 500 characters; optional.
 - Code or password redemption input: 1–40 characters. Printed codes are trimmed and uppercased; passwords are trimmed and case-sensitive. Admin input allows either method only for solo quests, one completion method at a time.
 - Report reason: 5–500 characters before router trimming.
@@ -398,8 +398,7 @@ The backend clock decides eligibility. The frontend displays the returned state 
 
 `publish_problems()` returns reasons a quest cannot be published:
 
-- Trimmed title must have at least 3 characters.
-- Trimmed instructions must have at least 10 characters.
+- Trimmed title must have at least 2 characters. Instructions may be empty.
 - Reward must be at least 1 point.
 - A map pin needs both coordinates or neither.
 - A quiz needs at least one question, at least two non-empty choices per question, and a valid answer index.
@@ -767,7 +766,7 @@ The page renders a campus motif, compact player summary, incoming pair invitatio
 
 `QuestDetail()` reads the UUID through `useParams()` and enables the query only for a valid ID. It handles loading, missing resources, API errors, and retry where appropriate.
 
-The detail article displays quest kind, status if unpublished, title, reward, location, author, and instructions. Coordinates enable a `/map#quest-ID` link and an external Google Maps walking-directions link. That directions URL names the destination; the component does not supply the player's device coordinates.
+The detail article displays quest kind, status if unpublished, title, reward, location, author, and instructions when provided. Coordinates enable a `/map#quest-ID` link and an external Google Maps walking-directions link. That directions URL names the destination; the component does not supply the player's device coordinates.
 
 `QuestAction()` chooses the matching action component. Published solo quests with `requires_code` or `requires_password` use `CodeAction`; other solo quests use `SoloAction`. Unpublished/retired quests display availability information instead of playable controls.
 

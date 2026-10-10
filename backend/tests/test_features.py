@@ -136,6 +136,19 @@ def test_create_as_published(client):
                        json=quest_input(status="retired")).status_code == 422
 
 
+def test_admin_quest_can_publish_with_two_character_title_and_no_instructions(client):
+    payload = quest_input(title="Go", status="published")
+    del payload["description"]
+    response = client.post("/admin/quests", headers=ADMIN, json=payload)
+    assert response.status_code == 201, response.text
+    quest = response.json()
+    assert quest["description"] == ""
+    assert quest["publish_problems"] == []
+    assert patch(client, quest["id"], description="x").json()["description"] == "x"
+    assert patch(client, quest["id"], description="").json()["description"] == ""
+    assert client.get(f"/quests/{quest['id']}", headers=ALICE).json()["description"] == ""
+
+
 def test_admin_list_newest_first_and_filter(client):
     created = client.post("/admin/quests", headers=ADMIN, json=quest_input()).json()
     quests = client.get("/admin/quests", headers=ADMIN).json()
@@ -149,8 +162,8 @@ def test_admin_list_newest_first_and_filter(client):
 
 def test_incomplete_quest_cannot_be_published(client):
     created = client.post("/admin/quests", headers=ADMIN, json=quest_input(
-        kind="quiz", description="short", points=0)).json()
-    assert len(created["publish_problems"]) == 3
+        kind="quiz", description="", points=0)).json()
+    assert len(created["publish_problems"]) == 2
     response = patch(client, created["id"], status="published")
     assert response.status_code == 409
     assert "Can't publish" in response.json()["detail"]
@@ -169,6 +182,9 @@ def test_patch_changes_only_sent_fields(client):
 
 def test_patch_validation(client):
     assert patch(client, SOLO_ID, title=None).status_code == 422
+    assert patch(client, SOLO_ID, title="X").status_code == 422
+    assert patch(client, SOLO_ID, title=" X ").status_code == 422
+    assert patch(client, SOLO_ID, description=None).status_code == 422
     assert patch(client, SOLO_ID, points=-1).status_code == 422
     assert patch(client, SOLO_ID, status="pending_review").status_code == 422
     assert patch(client, SOLO_ID, latitude=95).status_code == 422
@@ -191,6 +207,10 @@ def test_invalid_create_input_is_rejected(client):
                        json=quest_input(latitude=95, longitude=8.5)).status_code == 422
     assert client.post("/admin/quests", headers=ADMIN,
                        json=quest_input(kind="dance")).status_code == 422
+    assert client.post("/admin/quests", headers=ADMIN,
+                       json=quest_input(title="X")).status_code == 422
+    assert client.post("/admin/quests", headers=ADMIN,
+                       json=quest_input(title=" X ")).status_code == 422
 
 
 def test_editing_points_keeps_awarded_points(client):
@@ -269,6 +289,21 @@ def test_player_solo_quest_is_published_immediately(client):
     assert act(client, BOB, quest["id"], "redeem", code="concert 42").json()["completion"]["points_awarded"] == 10
 
 
+def test_player_quest_allows_two_character_title_and_optional_instructions(client):
+    for description in (None, "", "x"):
+        payload = {**PLAYER_SOLO, "title": " Go "}
+        if description is None:
+            del payload["description"]
+        else:
+            payload["description"] = description
+        response = client.post("/quests", headers=ALICE, json=payload)
+        assert response.status_code == 201, response.text
+        quest = response.json()
+        assert quest["status"] == "published"
+        assert quest["title"] == "Go"
+        assert quest["description"] == (description or "")
+
+
 def test_players_can_create_pair_quiz_and_multi_step_quests(client):
     cases = (
         {"kind": "pair"},
@@ -294,6 +329,8 @@ def test_players_can_create_pair_quiz_and_multi_step_quests(client):
 def test_player_creation_rejects_meetups_privileged_fields_and_incomplete_quests(client):
     before = len(client.get("/quests", headers=BOB).json())
     invalid = (
+        ({**PLAYER_SOLO, "title": "X"}, 422),
+        ({**PLAYER_SOLO, "title": " X "}, 422),
         ({**PLAYER_SOLO, "kind": "meetup"}, 422),
         ({**PLAYER_SOLO, "status": "draft"}, 422),
         ({**PLAYER_SOLO, "points": 1000}, 422),

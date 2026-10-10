@@ -314,10 +314,8 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
 def publish_problems(db: Session, quest: Quest) -> List[str]:
     """Everything that stops a quest from being published."""
     problems = []
-    if len(quest.title.strip()) < 3:
-        problems.append("Title needs at least 3 characters.")
-    if len(quest.description.strip()) < 10:
-        problems.append("Instructions need at least 10 characters.")
+    if len(quest.title.strip()) < 2:
+        problems.append("Title needs at least 2 characters.")
     if quest.points < 1:
         problems.append("Points must be at least 1.")
     if quest.requires_password and not quest.password_hash:

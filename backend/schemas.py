@@ -205,8 +205,8 @@ PlayerQuestKind = Literal["solo", "pair", "quiz", "multi_step"]
 class PlayerQuestIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    title: str = Field(min_length=3, max_length=120)
-    description: str = Field(min_length=10, max_length=2000)
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
     kind: PlayerQuestKind = "solo"
     password: Optional[str] = Field(default=None, min_length=1, max_length=40)
@@ -217,8 +217,8 @@ class PlayerQuestIn(BaseModel):
 
     @model_validator(mode="after")
     def valid_player_quest(self):
-        if len(self.title.strip()) < 3 or len(self.description.strip()) < 10:
-            raise ValueError("Title and instructions need meaningful text")
+        if len(self.title.strip()) < 2:
+            raise ValueError("Title needs at least 2 characters")
         if self.kind == "solo" and (not self.password or not self.password.strip()):
             raise ValueError("Solo quests need a non-empty password")
         if self.kind != "solo" and self.password is not None:
@@ -370,8 +370,8 @@ class QuizQuestionIn(BaseModel):
 
 
 class AdminQuestIn(BaseModel):
-    title: str = Field(min_length=1, max_length=120)
-    description: str = Field(min_length=1, max_length=2000)
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
     points: int = Field(ge=0, le=1000)
     kind: QuestKind = "solo"
@@ -389,7 +389,9 @@ class AdminQuestIn(BaseModel):
     status: Literal["draft", "published"] = "draft"
 
     @model_validator(mode="after")
-    def valid_verification(self):
+    def valid_quest(self):
+        if len(self.title.strip()) < 2:
+            raise ValueError("Title needs at least 2 characters")
         if self.requires_code and self.kind not in ("solo", "meetup"):
             raise ValueError("Code verification is available for solo and meetup quests only")
         if self.requires_password and self.kind != "solo":
@@ -414,8 +416,8 @@ NOT_NULL_PATCH_FIELDS = (
 
 class AdminQuestPatch(BaseModel):
     """Change only the fields you send (status changes publish or retire)."""
-    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    description: Optional[str] = Field(default=None, min_length=1, max_length=2000)
+    title: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=2000)
     location: Optional[str] = Field(default=None, max_length=255)
     points: Optional[int] = Field(default=None, ge=0, le=1000)
     kind: Optional[QuestKind] = None

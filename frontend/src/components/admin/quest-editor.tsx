@@ -325,20 +325,19 @@ export function QuestEditor({
           <input
             className={inputStyles}
             maxLength={120}
-            minLength={playerCreate ? 3 : 1}
+            minLength={2}
             onChange={(e) => edited(setTitle)(e.target.value)}
             required
             value={title}
           />
         </label>
         <label className="text-sm font-medium text-on-surface-variant">
-          Instructions
+          Instructions{" "}
+          <span className="font-normal text-muted">(optional)</span>
           <textarea
             className={inputStyles}
             maxLength={2000}
-            minLength={playerCreate ? 10 : 1}
             onChange={(e) => edited(setDescription)(e.target.value)}
-            required
             rows={5}
             value={description}
           />
