@@ -613,6 +613,11 @@ Quest badges are computed rather than stored. `player_badges()` reads approved c
 | `meetup` | Showed up | Complete a meetup check-in |
 | `century` | Century | Reach 100 approved points |
 | `first_friend` | New friend | Have a friend request accepted, as sender or addressee |
+| `first_avatar` | First profile picture | Upload a profile picture |
+| `first_quest_photo` | First quest photo | Upload a quest photo |
+| `quest_photo_master` | Quest photo master | Upload 20 quest photos |
+
+The picture badges are stored the same way: `upload_avatar()` awards `first_avatar` after the file is saved, and `upload_quest_photo()` calls `award_photo_badges()` after the row is flushed, which stores `first_quest_photo` and `quest_photo_master` once the player's photo count reaches 1 and 20. Progress for the master badge is the current photo count; a stored badge keeps it earned even after photos are deleted.
 
 `first_friend` is stored in the `earned_badges` table (one row per player and badge, unique). `accept_request()` in `friendships.py` calls `award_badge()` for both players in the same transaction as the acceptance; an existing row is left untouched, so more friends or removing and re-adding a friend never issue it again, and removing the friendship keeps it. Self, pending, declined, and cancelled requests never pass through acceptance, so they cannot unlock it. Friendships accepted before the table existed still count: the badge also takes the oldest current accepted friendship into account.
 

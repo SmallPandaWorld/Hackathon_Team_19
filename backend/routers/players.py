@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from auth import get_current_player, is_maintainer
-from badges import player_badges
+from badges import FIRST_AVATAR, award_badge, player_badges
 from database import get_db
 from friendships import accepted_friend_ids, friend_status, friendship_between
 from game import (
@@ -25,6 +25,7 @@ from game import (
     created_quest_out,
     suggestions_for,
     total_points,
+    utcnow,
 )
 from hobbies import HOBBIES, parse_hobbies, serialize_hobbies
 from models import (
@@ -138,6 +139,7 @@ def update_me(
 async def upload_avatar(
     request: Request,
     player: User = Depends(get_current_player),
+    db: Session = Depends(get_db),
 ):
     """Set the current player's profile picture (PNG, JPEG, or WebP; 2 MiB max)."""
     media_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
@@ -175,6 +177,8 @@ async def upload_avatar(
         temporary.replace(destination)
     finally:
         temporary.unlink(missing_ok=True)
+    award_badge(db, player.username, FIRST_AVATAR, utcnow())
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

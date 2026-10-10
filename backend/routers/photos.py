@@ -10,6 +10,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from auth import get_current_player, is_maintainer, require_maintainer
+from badges import award_photo_badges
 from database import get_db
 from friendships import friendship_between
 from game import can_view, not_found, utcnow
@@ -294,6 +295,8 @@ async def upload_quest_photo(
         temporary.write_bytes(image)
         temporary.replace(destination)
         db.add(photo)
+        db.flush()
+        award_photo_badges(db, player.username, photo.uploaded_at)
         db.commit()
     except Exception:
         db.rollback()

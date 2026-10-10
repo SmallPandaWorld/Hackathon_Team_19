@@ -51,6 +51,8 @@ function nextBadgeHint(badge: Badge): string {
   const left = badge.target - badge.progress;
   if (badge.key === "century")
     return `${left} more points to earn “${badge.title}”`;
+  if (badge.key === "quest_photo_master")
+    return `${left} more ${left === 1 ? "photo" : "photos"} to earn “${badge.title}”`;
   if (badge.target > 1)
     return `${left} more ${left === 1 ? "quest" : "quests"} to earn “${badge.title}”`;
   return `${badge.description.replace(/\.$/, "")} to earn “${badge.title}”`;
