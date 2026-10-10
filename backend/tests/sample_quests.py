@@ -1,8 +1,7 @@
-"""Built-in quests, created on first start.
+"""Sample quests for the tests (one of each kind).
 
-Seeding only inserts quests whose ID is missing, so edits made by
-maintainers in the app are never overwritten. To change a built-in quest
-on an existing deployment, use the quest editor.
+The app itself starts with no quests: maintainers add them in the quest
+editor. Tests seed these after startup (see conftest.py).
 
 Built-in IDs are stable UUIDs derived from their original seed numbers. Never
 change those values, because saved completions use them.

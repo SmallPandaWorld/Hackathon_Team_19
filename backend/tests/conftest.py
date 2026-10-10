@@ -14,15 +14,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from database import Base, engine  # noqa: E402
+from database import Base, SessionLocal, engine  # noqa: E402
 from main import app  # noqa: E402
+from sample_quests import seed_quests  # noqa: E402
 
 
 @pytest.fixture
-def client():
+def empty_client():
+    """A fresh app as on first start: no quests yet."""
     Base.metadata.drop_all(bind=engine)
-    with TestClient(app) as test_client:  # runs startup: tables + seed
+    with TestClient(app) as test_client:  # runs startup: creates tables
         yield test_client
+
+
+@pytest.fixture
+def client(empty_client):
+    """A fresh app with the sample quests."""
+    with SessionLocal() as db:
+        seed_quests(db)
+    yield empty_client
 
 
 def identity(user_id: str, name: str = "Test Player") -> dict:

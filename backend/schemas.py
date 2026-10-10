@@ -226,6 +226,9 @@ class PlayerSearchResult(BaseModel):
     display_name: str
 
 
+FriendStatus = Literal["none", "outgoing", "incoming", "friends"]
+
+
 class PublicPlayer(BaseModel):
     """What other players may see of a discoverable player."""
 
@@ -234,6 +237,31 @@ class PublicPlayer(BaseModel):
     total_points: int
     hobbies: List[str] = Field(description="Hobby keys, see Me.hobby_options")
     badges: List[Badge]
+    friend_status: FriendStatus = Field(
+        description="My relation to this player: none, outgoing/incoming request, or friends")
+
+
+# --- Friends ------------------------------------------------------------------
+
+class FriendOut(BaseModel):
+    username: str
+    display_name: str
+    total_points: int
+    since: datetime = Field(description="When the request was accepted")
+
+
+class FriendRequestOut(BaseModel):
+    username: str
+    display_name: str
+    created_at: datetime
+
+
+class Friends(BaseModel):
+    friends: List[FriendOut] = Field(description="Accepted friends, most points first")
+    incoming: List[FriendRequestOut] = Field(
+        description="Requests waiting for my answer, newest first")
+    outgoing: List[FriendRequestOut] = Field(
+        description="Requests I sent that are still open, newest first")
 
 
 class Suggestions(BaseModel):

@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from database import Base, SessionLocal, ensure_schema
 from models import Quest
-from quests import seed_quests
 
 
 MAINTAINER = identity("maintainer-id", "Maintainer")
@@ -78,9 +77,8 @@ def test_ordinary_edits_and_startup_keep_printed_code(client):
     assert changed.json()["verification_code"] == code
     assert changed.json()["requires_code"] is True
 
-    ensure_schema()
+    ensure_schema()  # what startup runs
     with SessionLocal() as db:
-        seed_quests(db)
         assert db.get(Quest, UUID(quest_id)).verification_code == code
     assert client.get(f"/admin/quests/{quest_id}", headers=MAINTAINER).json()["verification_code"] == code
     redeemed = act(client, ALICE, quest_id, "redeem", code=code)

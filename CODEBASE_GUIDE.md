@@ -126,14 +126,15 @@ Hackathon_Team_19/
 │   ├── models.py                   SQLAlchemy database tables
 │   ├── schemas.py                  API request and response models
 │   ├── game.py                     Shared scoring and game rules
-│   ├── quests.py                   Built-in quest seed data
 │   ├── badges.py                   Computed achievements
 │   ├── hobbies.py                  Fixed hobby catalog
+│   ├── friendships.py              Friend request rules and friends view
 │   ├── routers/
 │   │   ├── __init__.py             Empty package marker
 │   │   ├── players.py              Profile, hobbies, badges
 │   │   ├── quests.py               Quest play, RSVP, ideas, reports
 │   │   ├── pair.py                 Partner codes, invitations, joins
+│   │   ├── friends.py              Friend requests and friends list
 │   │   ├── social.py               Shared-interest suggestions
 │   │   ├── leaderboard.py          Ranking calculation
 │   │   └── admin.py                Maintainer operations
@@ -173,14 +174,14 @@ This is the backend entry point used by `uvicorn main:app`.
 
 - Importing `models` registers SQLAlchemy's table definitions with `Base.metadata`.
 - The FastAPI lifespan function calls `ensure_schema()` to create missing tables, archive pre-username tables, and backfill stable verification codes on current-schema quests.
-- It opens a database session and calls `seed_quests()`.
-- It includes the six router modules.
+- It does not insert any quests: a fresh database has none until a maintainer creates one.
+- It includes the four router modules (players, quests, pair, admin).
 - `GET /` returns `{"message": "Hello World"}` as a basic health endpoint.
 - CORS is configured broadly with all origins, methods, and headers allowed, plus credentials. The normal frontend path still uses the same-origin Next.js rewrite.
 
 `use_function_name()` gives OpenAPI operations readable names based on their Python function names. Orval can therefore generate `useListQuests` rather than a name containing the route and method.
 
-Startup seeds content but does not reset players or completions.
+Startup creates missing tables but adds no content and does not reset players or completions.
 
 ### 4.2 `backend/database.py`
 
@@ -470,6 +471,17 @@ Joining rejects the host's own code, expired/cancelled sessions, already-used co
 
 The join then ensures both host and partner have an approved completion. Each reward remains unique per player and quest. A repeat join by the same partner can return their existing completion.
 
+### 9.3b `backend/routers/friends.py`
+
+| Method | Path | Function / behavior |
+| --- | --- | --- |
+| GET | `/friends` | `list_friends`: accepted friends (most points first), incoming and outgoing open requests (newest first) |
+| POST | `/friends/{username}` | `send_friend_request`: 400 for yourself, 404 for unknown or non-discoverable players, 409 if any relation already exists |
+| POST | `/friends/{username}/accept` | `accept_friend_request`: only the addressee of an open request; 404 otherwise |
+| DELETE | `/friends/{username}` | `remove_friend`: declines an incoming request, cancels an outgoing one, or ends a friendship; 404 if nothing exists |
+
+Every endpoint returns the caller's updated `Friends` view. The rules live in `backend/friendships.py`; `GET /players/{username}` adds `friend_status` (`none`, `outgoing`, `incoming`, `friends`) so the profile page can show the right button. The frontend lives in `frontend/src/components/friends.tsx` (`FriendActions` on another player's profile, `FriendsCard` on your own).
+
 ### 9.4 `backend/routers/social.py`
 
 | Method | Path | Function / behavior |
@@ -547,9 +559,11 @@ Most explicit errors return `{"detail": "Readable explanation"}`. Validation err
 
 ## 10. Built-in quests, badges, and hobbies
 
-### 10.1 `backend/quests.py`
+### 10.1 Quests: none built in
 
-`QUESTS` contains seven built-in definitions:
+The app ships without quests. A fresh database has none, and players see an empty "Available now" section with a link to suggest a quest. Quests appear once a maintainer creates and publishes one in the quest editor (`POST /admin/quests` with `status: "published"`, or a later `PATCH /admin/quests/{id}`), or approves a player's suggestion. App-created quests get random UUIDs; older databases may still hold the former built-in quests, which maintainers can retire in the editor.
+
+`backend/tests/sample_quests.py` keeps seven sample definitions, used only by the tests (`conftest.py` seeds them for the `client` fixture; `empty_client` starts with none):
 
 | ID | Title | Type | Points |
 | --- | --- | --- | --- |
@@ -561,11 +575,11 @@ Most explicit errors return `{"detail": "Readable explanation"}`. Validation err
 | 6 | Main building tour | Multi-step | 30 |
 | 7 | VISCON group photo | Meetup | 20 |
 
-Definitions can include map coordinates, quiz questions, ordered steps, and UTC start/end times. The seeded meetup is 10 October 2026, 18:00–18:30 Zurich time.
+Definitions can include map coordinates, quiz questions, ordered steps, and UTC start/end times. The sample meetup is 10 October 2026, 18:00–18:30 Zurich time.
 
-`seed_quests()` inserts only missing IDs. It creates step and question rows for a newly inserted quest, then commits. It does not overwrite maintainer edits or reset progress on startup.
+`seed_quests()` inserts only missing IDs. It creates step and question rows for a newly inserted quest, then commits, and never overwrites a quest that already exists. The app no longer calls it on startup; only the test fixtures do.
 
-Changing a seed definition does not change the same quest already stored in an existing database. Use the editor for existing content. Never reuse an ID for a different activity, because saved history refers to it.
+Never reuse a quest ID for a different activity, because saved history refers to it.
 
 ### 10.2 `backend/badges.py`
 
@@ -1267,7 +1281,7 @@ This workflow does not run pytest, lint, or a separate type-check step before de
 
 The test setup creates a temporary SQLite directory and sets `DATABASE_URL` before importing application modules. It removes the development identity fallback and configures a test maintainer.
 
-The `client` fixture drops test tables and opens FastAPI's `TestClient` for each test, running startup to recreate tables and seed quests. Its destructive reset is scoped to the temporary test engine, not the normal `users.db` configured for development or deployment.
+The `empty_client` fixture drops test tables and opens FastAPI's `TestClient` for each test, running startup to recreate tables, so it starts with no quests like a fresh deployment. The `client` fixture builds on it and seeds the sample quests from `sample_quests.py`. The destructive reset is scoped to the temporary test engine, not the normal `users.db` configured for development or deployment.
 
 `identity()` creates test identity headers. Tests can therefore act as multiple players without depending on the external login proxy.
 
@@ -1277,7 +1291,8 @@ Core coverage includes:
 
 - Missing or blank identity rejection.
 - Player creation/reuse and decoded or updated names.
-- Seeded quests and missing quest errors.
+- A fresh app having no quests, and a maintainer-published quest showing up for a new player.
+- Seeded sample quests and missing quest errors.
 - One-time point awards and separate player progress.
 - The browser being unable to choose its own reward or player.
 - Simultaneous completion requests and simultaneous first-player requests.
@@ -1358,7 +1373,7 @@ API tests do not replace browser checks. Particularly useful browser cases are s
 | Matching rules | `backend/routers/social.py` | Hobby catalog, discoverability, profile UI |
 | Hobby options | `backend/hobbies.py` | Stored key compatibility and suggestion behavior |
 | New badge rule | `backend/badges.py` | Badge icon map and next-badge wording |
-| Built-in content on a fresh DB | `backend/quests.py` | Stable IDs and seed behavior |
+| Sample quests for tests | `backend/tests/sample_quests.py` | Tests that rely on their IDs and points |
 | Existing quest content | Maintainer editor / `backend/routers/admin.py` | Published validity and saved-progress restrictions |
 | Scoring and completion uniqueness | `backend/game.py`, `backend/models.py` | Quest/pair routers and concurrency tests |
 | Check-in timing | `backend/game.py` | Quest router and meetup component |
@@ -1370,7 +1385,7 @@ API tests do not replace browser checks. Particularly useful browser cases are s
 | Identity/permission handling | `backend/auth.py` | Proxy configuration and environment |
 | Database structure | `backend/models.py` | Schema upgrade and API models |
 | API request/response format | `backend/schemas.py`, relevant router | Regenerate clients; update components/tests |
-| Backend startup | `backend/main.py` | DB upgrade and seed functions |
+| Backend startup | `backend/main.py` | DB upgrade function |
 | Backend connection setup | `backend/database.py` | Environment/Compose and migrations |
 | API forwarding | `frontend/next.config.ts` | Backend host, proxy identity, Docker network |
 | Container/deployment behavior | Dockerfiles, Compose, deployment workflow | Persistent volume and external proxy |
@@ -1386,7 +1401,7 @@ These details matter when reading or extending the code:
 1. **Physical activity is largely self-reported.** Solo and step buttons do not prove campus presence. A printed code proves possession of a shareable code, not where the player was. Pair joining proves two app identities participated in a code flow, not that a physical game happened. Meetup check-in checks time, not GPS proximity.
 2. **Invitation eligibility is narrower than the API's wording suggests.** The backend checks that both players are discoverable, the invitee exists, and it is not a self-invite. It does not separately require shared hobbies or confirm that the invitee is in the host's current suggestion list. The normal UI chooses from suggestions.
 3. **A code is shareable beyond the addressed invitee.** The invitee field controls who sees the in-app invitation; it does not restrict joining to that person.
-4. **No friend graph or chat is stored.** Suggestions, dismissals, invitations, and native link sharing are the implemented social mechanisms.
+4. **Friendships are stored, chat is not.** `friendships` holds one row per pair of players (a pending request or an accepted friendship); suggestions, dismissals, invitations and native link sharing are the other social mechanisms. Requests can only be sent to discoverable players, but an existing request or friendship stays manageable by both players even after one opts out, and `GET /players/{username}` stays visible between them.
 5. **Pair claim and rewards are separate commits.** Conditional claiming protects against competing partners; it does not make the entire multi-player operation transactional as one unit.
 6. **Completion insertion has explicit duplicate protection; not every workflow has the same concurrency guarantees.** Claim review checks pending state before updating, while the code does not use a conditional atomic review update. Sequential-repeat tests should not be read as proof of all concurrent-review outcomes.
 7. **Time-sensitive UI needs fresh data.** Pair waits and incoming invites explicitly poll. Meetup state is recalculated when the server builds quest views, but no dedicated meetup polling timer is added in its action component.
@@ -1415,7 +1430,7 @@ These details matter when reading or extending the code:
 | Query | A read operation managed by React Query |
 | Mutation | An operation that asks the server to change state |
 | Query invalidation | Mark cached data stale so it can be fetched again |
-| Seed | Initial content inserted when its stable IDs are missing |
+| Seed | Sample content inserted when its stable IDs are missing (tests only) |
 | OpenAPI | Machine-readable description of routes and request/response models |
 | Orval | Tool converting that contract into frontend types and hooks |
 | Suspense | React boundary allowing a loading fallback while a child suspends |
