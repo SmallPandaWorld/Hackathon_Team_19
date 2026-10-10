@@ -79,6 +79,14 @@ class Participant(BaseModel):
     shared_hobbies: List[str] = Field(description="Labels of hobbies you share (may be empty)")
 
 
+class QuestVotes(BaseModel):
+    up: int
+    down: int
+    score: int = Field(description="up minus down")
+    mine: Literal[1, -1, 0] = Field(description="The current player's vote (0 = none)")
+    can_vote: bool = Field(description="False for the quest's author")
+
+
 class QuestOut(BaseModel):
     id: UUID
     title: str
@@ -116,6 +124,8 @@ class QuestOut(BaseModel):
         description="Those of them who opted in to suggestions; only set while I'm doing "
                     "the quest myself")
     reported: bool = False
+    votes: Optional["QuestVotes"] = Field(
+        default=None, description="Up/down votes; only player-created quests can be voted on")
     pair_session: Optional[PairSessionOut] = Field(
         default=None, description="My latest pair session for this quest (host or partner)")
 
@@ -185,6 +195,12 @@ class RsvpAction(BaseModel):
     attending: bool
 
 
+class VoteAction(BaseModel):
+    """Up- or downvote a player-created quest; 0 removes your vote."""
+    type: Literal["vote"]
+    value: Literal[1, -1, 0]
+
+
 class ReportAction(BaseModel):
     type: Literal["report"]
     reason: str = Field(min_length=5, max_length=500)
@@ -204,7 +220,7 @@ class PairCancelAction(BaseModel):
 
 QuestAction = Annotated[
     Union[JoinAction, LeaveAction, CompleteAction, RedeemAction, QuizAction, StepAction,
-          RsvpAction, ReportAction, PairStartAction, PairCancelAction],
+          RsvpAction, ReportAction, VoteAction, PairStartAction, PairCancelAction],
     Field(discriminator="type"),
 ]
 

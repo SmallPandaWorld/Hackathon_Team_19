@@ -3,11 +3,9 @@
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { useGetMe } from "@/src/lib/api/players";
-import { Wrench } from "lucide-react";
 import Link from "next/link";
 
-// Compact player strip: name and points, plus a small admin link for
-// maintainers.
+// Compact mobile account controls above the home logo.
 export function PlayerSummary() {
   const { data, isLoading, isError } = useGetMe();
   const player = data?.status === 200 ? data.data : undefined;
@@ -17,51 +15,30 @@ export function PlayerSummary() {
 
   if (isLoading) {
     return (
-      <div className="h-14 animate-pulse rounded-2xl bg-surface-variant" />
+      <div className="flex h-10 items-center justify-end gap-2" aria-hidden>
+        <span className="h-7 w-9 animate-pulse rounded-md bg-accent/50" />
+        <span className="h-10 w-10 animate-pulse rounded-full bg-surface-variant" />
+      </div>
     );
   }
-  if (error || !player) {
-    return (
-      <p
-        className="rounded-2xl border border-danger/40 p-3 text-sm text-danger"
-        role="alert"
-      >
-        {error ?? "Could not load your profile."}
-      </p>
-    );
-  }
+  if (error || !player) return null;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex justify-end">
       <Link
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-outline-variant bg-surface px-3 py-2.5 shadow-card hover:border-outline dark:bg-surface-variant"
+        aria-label={`Your profile, ${player.total_points} points`}
+        className="inline-flex items-center gap-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         href="/profile"
       >
+        <span className="rounded-md bg-accent px-2 py-0.5 text-sm font-bold text-on-accent">
+          {player.total_points}
+        </span>
         <ProfilePicture
           displayName={player.display_name}
-          size="small"
+          size="medium"
           username={player.username}
         />
-        <span className="min-w-0 flex-1 truncate font-semibold">
-          {player.display_name}
-        </span>
-        <span className="shrink-0 text-right leading-tight">
-          <span className="block rounded-md bg-accent px-2 py-0.5 text-sm font-bold text-on-accent">
-            {player.total_points}
-          </span>
-          <span className="mt-0.5 block text-xs text-muted">points</span>
-        </span>
       </Link>
-      {player.is_maintainer && (
-        <Link
-          aria-label="Maintainer tools"
-          className="flex h-[54px] w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-outline-variant text-[10px] font-semibold text-muted hover:border-outline hover:text-on-surface"
-          href="/admin"
-        >
-          <Wrench aria-hidden className="h-4 w-4" />
-          Admin
-        </Link>
-      )}
     </div>
   );
 }

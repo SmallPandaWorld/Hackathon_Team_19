@@ -15,8 +15,11 @@ DEV_USER_ID=dev-1 DEV_USER_NAME="Dev Player" uvicorn main:app --reload
 ```
 Environment variables:
 - `DEV_USER_ID` / `DEV_USER_NAME`: local only. Fakes the VISCON identity when
-  no `X-User-Id` header is sent; this dev player is always a maintainer.
+  no `X-User-Id` header is sent; this dev player is a maintainer by default.
   Never set it in deployment.
+- `DEV_USER_MAINTAINER=false`: local only. Makes the dev player a regular
+  player, e.g. to test the non-admin UI:
+  `DEV_USER_ID=test-player DEV_USER_NAME="Test Player" DEV_USER_MAINTAINER=false uvicorn main:app --reload`
 - `MAINTAINER_IDS`: comma-separated usernames (`X-User-Id` values) that get
   the maintainer tools at `/admin` (quest editor, completion
   reviews, reports) in production.
@@ -57,7 +60,7 @@ meetup not live), `410` expired/cancelled code.
 |---|---|
 | Player | `GET`/`PUT /me` (profile, points, badges, hobby options, connection suggestions, pair invitations, created quests), `DELETE /me/suggestions/{username}`, `GET /leaderboard?scope=global|friends`, `GET /players?q=` (search discoverable players), `GET /players/{username}` (public profile) |
 | Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (publish a quest immediately) |
-| Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `pair_start` (optional `invite_username`), `pair_cancel` |
+| Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `vote` (player-created quests: `value` 1 / -1 / 0), `pair_start` (optional `invite_username`), `pair_cancel` |
 | Partner quests | `GET`/`POST /pair/{code}` (look up / join a code) |
 | Friends | `GET /friends` (friends + incoming/outgoing requests), `POST /friends/{username}` (send request), `POST /friends/{username}/accept`, `DELETE /friends/{username}` (decline / cancel / remove); `GET /players/{username}` includes `friend_status` |
 | Maintainers | `GET`/`POST /admin/quests`, `GET`/`PATCH /admin/quests/{id}` (`status` publishes/retires), `GET /admin/completions` (+ `POST …/review`), `GET /admin/reports` (+ `POST …/resolve`) |

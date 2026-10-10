@@ -22,6 +22,7 @@ from game import (
     quest_views,
     report_quest,
     set_joined,
+    vote_quest,
     set_rsvp,
     start_pair,
     submit_quiz,
@@ -42,6 +43,7 @@ from schemas import (
     PlayerQuestIn,
     QuizAction,
     ReportAction,
+    VoteAction,
     RsvpAction,
     StepAction,
 )
@@ -61,9 +63,12 @@ def get_viewable_quest(db: Session, player: User, quest_id: UUID) -> Quest:
 
 @router.get("/quests", response_model=List[QuestOut])
 def list_quests(player: User = Depends(get_current_player), db: Session = Depends(get_db)):
-    """All published quests with the current player's progress."""
+    """All published quests with the current player's progress, newest first."""
     quests = db.scalars(
-        select(Quest).where(Quest.status == PUBLISHED).order_by(QUEST_CREATION_ORDER)).all()
+        select(Quest)
+        .where(Quest.status == PUBLISHED)
+        .order_by(QUEST_CREATION_ORDER.desc())
+    ).all()
     return quest_views(db, player, list(quests))
 
 
@@ -175,6 +180,9 @@ def act_on_quest(
         case ReportAction(reason=reason):
             quest = get_playable_quest(db, quest_id)
             report_quest(db, player, quest, reason)
+        case VoteAction(value=value):
+            quest = get_playable_quest(db, quest_id)
+            vote_quest(db, player, quest, value)
         case PairStartAction(invite_username=invite_username):
             quest = get_playable_quest(db, quest_id, PAIR)
             start_pair(db, player, quest, invite_username)

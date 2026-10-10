@@ -6,7 +6,7 @@ import {
   MEETUP_LABELS,
   formatZurich,
 } from "@/src/lib/quest-display";
-import { Check } from "lucide-react";
+import { Check, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 
 function ProgressChip({ quest }: { quest: QuestOut }) {
@@ -102,6 +102,22 @@ export function QuestCard({ quest }: { quest: QuestOut }) {
             <Chip className={meetup.className}>{meetup.label}</Chip>
           )}
           <ProgressChip quest={quest} />
+          {quest.votes && quest.votes.up + quest.votes.down > 0 && (
+            <Chip
+              className={
+                quest.votes.score > 0
+                  ? "border border-success text-success"
+                  : quest.votes.score < 0
+                    ? "border border-danger text-danger"
+                    : "border border-outline-variant text-on-surface-variant"
+              }
+            >
+              <ThumbsUp aria-hidden className="mr-1 h-3 w-3" />
+              {quest.votes.score > 0
+                ? `+${quest.votes.score}`
+                : quest.votes.score}
+            </Chip>
+          )}
         </span>
         {!done &&
           (quest.kind === "meetup" && quest.starts_at ? (

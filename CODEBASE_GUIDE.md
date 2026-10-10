@@ -443,7 +443,7 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 | --- | --- | --- |
 | GET | `/quests` | `list_quests`: all published quests, ordered by creation, personalized |
 | GET | `/quests/{quest_id}` | `get_quest`: a quest the player may view |
-| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `join`, `leave`, `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `pair_start`, or `pair_cancel` |
+| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `join`, `leave`, `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `vote`, `pair_start`, or `pair_cancel` |
 | POST | `/quests` | `create_quest`: immediately publish an allowed player quest; returns 201 |
 
 Players join a quest before doing it. `set_joined()` saves or removes a `QuestJoin` row for the `join` and `leave` actions; both are repeat-safe, and leaving keeps step progress. `require_joined()` then guards a player's first attempt: `complete`, `redeem`, `quiz`, `step`, and `pair_start` return 409 “Join this quest first.” without a join. Three cases need none: a player who already has a completion row for the quest (including a rejected claim), a pair partner entering the host's code, and meetups, where “I'm coming” plays that role and walk-in check-ins stay allowed. `join` and `leave` on a meetup return 400.
@@ -451,6 +451,8 @@ Players join a quest before doing it. `set_joined()` saves or removes a `QuestJo
 `QuestOut` reports this as `joined` (for a meetup: the RSVP), `participant_count`, and `participants`. `others_doing()` counts the other players on a quest: joined and without an approved or pending completion, or for a meetup everyone who RSVP'd. The count covers all of them. Names are sent only while the requesting player is on the quest too (joined and unfinished, or coming to a meetup that is not over), and only for players who opted in to suggestions (`discoverable`). The list has at most 20 entries, most shared hobbies first, then by name; otherwise `participants` is null.
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code- and password-verified quests, so the ordinary completion endpoint cannot bypass verification. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
+
+The `vote` action (`{"type": "vote", "value": 1 | -1 | 0}`) stores one up/down vote per player on a player-created quest (`author_id` set); `0` removes it, the author cannot vote on their own quest, and maintainer-created quests reject votes. `QuestOut.votes` carries `up`, `down`, `score`, `mine` and `can_vote` for player-created quests and is `null` otherwise.
 
 The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest or meetup (for a meetup the live check-in window still applies, except for players who already checked in). `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
 
@@ -619,6 +621,11 @@ Quest badges are computed rather than stored. `player_badges()` reads approved c
 | `meetup` | Showed up | Complete a meetup check-in |
 | `century` | Century | Reach 100 approved points |
 | `first_friend` | New friend | Have a friend request accepted, as sender or addressee |
+| `first_avatar` | First profile picture | Upload a profile picture |
+| `first_quest_photo` | First quest photo | Upload a quest photo |
+| `quest_photo_master` | Quest photo master | Upload 20 quest photos |
+
+The picture badges are stored the same way: `upload_avatar()` awards `first_avatar` after the file is saved, and `upload_quest_photo()` calls `award_photo_badges()` after the row is flushed, which stores `first_quest_photo` and `quest_photo_master` once the player's photo count reaches 1 and 20. Progress for the master badge is the current photo count; a stored badge keeps it earned even after photos are deleted.
 
 `first_friend` is stored in the `earned_badges` table (one row per player and badge, unique). `accept_request()` in `friendships.py` calls `award_badge()` for both players in the same transaction as the acceptance; an existing row is left untouched, so more friends or removing and re-adding a friend never issue it again, and removing the friendship keeps it. Self, pending, declined, and cancelled requests never pass through acceptance, so they cannot unlock it. Friendships accepted before the table existed still count: the badge also takes the oldest current accepted friendship into account.
 

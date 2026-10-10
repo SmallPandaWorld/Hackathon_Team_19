@@ -8,6 +8,7 @@ import { CodeAction } from "@/src/components/quest-actions/code-action";
 import { JoinAction } from "@/src/components/quest-actions/join-action";
 import { PairAction } from "@/src/components/quest-actions/pair-action";
 import { QuizAction } from "@/src/components/quest-actions/quiz-action";
+import { QuestVotes } from "@/src/components/quest-votes";
 import { SoloAction } from "@/src/components/quest-actions/solo-action";
 import { StepsAction } from "@/src/components/quest-actions/steps-action";
 import { QuestParticipants } from "@/src/components/quest-participants";
@@ -243,6 +244,7 @@ export function QuestDetail() {
             Created by {quest.author_name}
           </p>
         )}
+        <QuestVotes quest={quest} />
         {quest.description && (
           <>
             <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">

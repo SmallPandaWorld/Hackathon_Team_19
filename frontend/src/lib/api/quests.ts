@@ -36,6 +36,7 @@ import type {
   ReportAction,
   RsvpAction,
   StepAction,
+  VoteAction,
 } from "./hackathon.schemas";
 
 const withQueryKey = <T extends object, K>(
@@ -639,7 +640,7 @@ export const getActOnQuestUrl = (questId: string) => {
  */
 export const actOnQuest = async (
   questId: string,
-  joinActionLeaveActionCompleteActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction:
+  joinActionLeaveActionCompleteActionRedeemActionQuizActionStepActionRsvpActionReportActionVoteActionPairStartActionPairCancelAction:
     | JoinAction
     | LeaveAction
     | CompleteAction
@@ -648,6 +649,7 @@ export const actOnQuest = async (
     | StepAction
     | RsvpAction
     | ReportAction
+    | VoteAction
     | PairStartAction
     | PairCancelAction,
   options?: RequestInit,
@@ -681,7 +683,7 @@ export const actOnQuest = async (
       ...getHeaders(options?.headers),
     },
     body: JSON.stringify(
-      joinActionLeaveActionCompleteActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction,
+      joinActionLeaveActionCompleteActionRedeemActionQuizActionStepActionRsvpActionReportActionVoteActionPairStartActionPairCancelAction,
     ),
   });
 
@@ -747,6 +749,7 @@ export type ActOnQuestMutationBody =
   | StepAction
   | RsvpAction
   | ReportAction
+  | VoteAction
   | PairStartAction
   | PairCancelAction;
 export type ActOnQuestMutationError = ErrorResponse | HTTPValidationError;
@@ -761,6 +764,7 @@ export type ActOnQuestMutationVariables = {
     | StepAction
     | RsvpAction
     | ReportAction
+    | VoteAction
     | PairStartAction
     | PairCancelAction;
 };

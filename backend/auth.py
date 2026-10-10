@@ -10,8 +10,9 @@ managed proxy, so the backend port must not be publicly reachable
 
 Local development without the proxy: set DEV_USER_ID (and optionally
 DEV_USER_NAME). It is used only when no X-User-Id header is present, and
-that fallback player is always a maintainer, so the admin tools work
-locally. Never set DEV_USER_ID in deployment.
+that fallback player is a maintainer by default, so the admin tools work
+locally; set DEV_USER_MAINTAINER=false to test as a regular player. Never
+set DEV_USER_ID in deployment.
 
 In production, maintainers (quest editor, reviews, reports) are the
 usernames listed in MAINTAINER_IDS (comma separated).
@@ -32,6 +33,9 @@ from models import User
 
 DEV_USER_ID = os.getenv("DEV_USER_ID")
 DEV_USER_NAME = os.getenv("DEV_USER_NAME", "Dev Player")
+# "false" / "0" / "no" turns the dev player into a regular (non-maintainer) player.
+DEV_USER_MAINTAINER = os.getenv("DEV_USER_MAINTAINER", "true").strip().lower() not in (
+    "false", "0", "no")
 
 
 def _read_identity(request: Request) -> "tuple[Optional[str], str]":
@@ -77,9 +81,9 @@ MAINTAINER_IDS = {
 
 
 def is_maintainer(player: User) -> bool:
-    # The dev fallback identity always gets the maintainer tools.
+    # The dev fallback identity gets the maintainer tools unless opted out.
     return player.username in MAINTAINER_IDS or (
-        bool(DEV_USER_ID) and player.username == DEV_USER_ID)
+        bool(DEV_USER_ID) and DEV_USER_MAINTAINER and player.username == DEV_USER_ID)
 
 
 def require_maintainer(player: User = Depends(get_current_player)) -> User:
