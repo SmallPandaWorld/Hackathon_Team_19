@@ -46,6 +46,7 @@ from models import (
     RETIRED,
     SOLO,
     Completion,
+    MeetupPhoto,
     Quest,
     QuestReport,
     QuestStep,
@@ -126,6 +127,9 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     has_completions = db.scalar(select(func.count()).where(Completion.quest_id == quest.id))
     if quest.kind != data.kind and has_completions:
         raise conflict("Players already completed this quest, so its type can't change.")
+    has_photos = db.scalar(select(func.count()).where(MeetupPhoto.quest_id == quest.id))
+    if quest.kind != data.kind and has_photos:
+        raise conflict("This meetup has photos, so its type can't change.")
 
     quest.title = data.title.strip()
     quest.description = data.description.strip()

@@ -51,7 +51,7 @@ export function UserRail() {
 
       <div className="flex flex-col gap-2 border-t border-outline-variant pt-4">
         <p className="text-sm font-semibold text-on-surface-variant">
-          Join with partner code
+          Join a Quest via partner code
         </p>
         <JoinCodeForm id="join-code-rail" />
       </div>

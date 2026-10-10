@@ -309,6 +309,21 @@ class Leaderboard(BaseModel):
         description="Accepted friends of the current player (0 means the Friends view is empty)")
 
 
+class MeetupPhotoOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str
+    uploaded_at: datetime
+
+
+class QuestPhotoOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str
+    uploaded_at: datetime
+    is_mine: bool
+
+
 # --- Maintainers --------------------------------------------------------------
 
 class StepIn(BaseModel):
