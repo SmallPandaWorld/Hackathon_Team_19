@@ -191,3 +191,183 @@ export function useGetMeMeGet<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export type getLeaderboardLeaderboardGetResponse200 = {
+  data: UserRead[];
+  status: 200;
+};
+
+export type getLeaderboardLeaderboardGetResponseSuccess =
+  getLeaderboardLeaderboardGetResponse200 & {
+    headers: Headers;
+  };
+export type getLeaderboardLeaderboardGetResponse =
+  getLeaderboardLeaderboardGetResponseSuccess;
+
+export const getGetLeaderboardLeaderboardGetUrl = () => {
+  return `/api/leaderboard`;
+};
+
+/**
+ * List all users ordered by score, with username as a stable tiebreaker.
+ * @summary Get Leaderboard
+ */
+export const getLeaderboardLeaderboardGet = async (
+  options?: RequestInit,
+): Promise<getLeaderboardLeaderboardGetResponse> => {
+  const res = await fetch(getGetLeaderboardLeaderboardGetUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getLeaderboardLeaderboardGetResponse["data"] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getLeaderboardLeaderboardGetResponse;
+};
+
+export const getGetLeaderboardLeaderboardGetQueryKey = () => {
+  return [`/api/leaderboard`] as const;
+};
+
+export const getGetLeaderboardLeaderboardGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+      TError,
+      TData
+    >
+  >;
+  fetch?: RequestInit;
+}) => {
+  const { query: queryOptions, fetch: fetchOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetLeaderboardLeaderboardGetQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>
+  > = ({ signal }) => getLeaderboardLeaderboardGet({ signal, ...fetchOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetLeaderboardLeaderboardGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>
+>;
+export type GetLeaderboardLeaderboardGetQueryError = unknown;
+
+export function useGetLeaderboardLeaderboardGet<
+  TData = Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+          TError,
+          Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLeaderboardLeaderboardGet<
+  TData = Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+          TError,
+          Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>
+        >,
+        "initialData"
+      >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetLeaderboardLeaderboardGet<
+  TData = Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Leaderboard
+ */
+
+export function useGetLeaderboardLeaderboardGet<
+  TData = Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getLeaderboardLeaderboardGet>>,
+        TError,
+        TData
+      >
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetLeaderboardLeaderboardGetQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

@@ -55,6 +55,20 @@ def get_all_quests(db: Database) -> list[QuestInspection]:
     ]
 
 
+@router.delete("/{quest_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_quest(quest_id: UUID, db: Database) -> None:
+    """Delete a quest and its participant and solver records."""
+    quest = db.get(Quest, quest_id)
+    if quest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Quest not found.",
+        )
+
+    db.delete(quest)
+    db.commit()
+
+
 @router.get("/next", response_model=QuestRead)
 def get_next_quest(db: Database, user: CurrentUser) -> Quest:
     """Return an unsolved quest, cycling missed quests after other quests."""

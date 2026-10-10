@@ -11,7 +11,7 @@ import {
   getNextQuestQuestsNextGet,
   submitQuestAnswerQuestsQuestIdAnswerPost,
 } from "@/src/lib/api/quests";
-import { getMeMeGet } from "@/src/lib/api/users";
+import { getLeaderboardLeaderboardGet, getMeMeGet } from "@/src/lib/api/users";
 
 type ApiError = {
   detail?: string;
@@ -32,6 +32,7 @@ async function fetchNextQuest(): Promise<QuestRead | null> {
 
 export default function Home() {
   const [user, setUser] = useState<UserRead | null>(null);
+  const [leaderboard, setLeaderboard] = useState<UserRead[]>([]);
   const [quest, setQuest] = useState<QuestRead | null>(null);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<{
@@ -48,19 +49,29 @@ export default function Home() {
 
     async function loadPage() {
       try {
-        const [userResponse, nextQuest] = await Promise.all([
-          getMeMeGet(),
-          fetchNextQuest(),
-        ]);
+        const userResponse = await getMeMeGet();
         if (userResponse.status !== 200) {
           throw new Error(
             errorMessage(userResponse.data, Number(userResponse.status)),
           );
         }
         const currentUser: UserRead = userResponse.data;
+        const [nextQuest, leaderboardResponse] = await Promise.all([
+          fetchNextQuest(),
+          getLeaderboardLeaderboardGet(),
+        ]);
+        if (leaderboardResponse.status !== 200) {
+          throw new Error(
+            errorMessage(
+              leaderboardResponse.data,
+              Number(leaderboardResponse.status),
+            ),
+          );
+        }
         if (active) {
           setUser(currentUser);
           setQuest(nextQuest);
+          setLeaderboard(leaderboardResponse.data);
         }
       } catch (error) {
         if (active) {
@@ -110,6 +121,19 @@ export default function Home() {
         currentUser
           ? { ...currentUser, score: result.total_score }
           : currentUser,
+      );
+      setLeaderboard((entries) =>
+        entries
+          .map((entry) =>
+            entry.username === user?.username
+              ? { ...entry, score: result.total_score }
+              : entry,
+          )
+          .sort(
+            (first, second) =>
+              second.score - first.score ||
+              first.username.localeCompare(second.username),
+          ),
       );
       setFeedback({
         kind: "success",
@@ -237,6 +261,43 @@ export default function Home() {
             >
               {feedback.message}
             </p>
+          )}
+        </section>
+
+        <section className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+          <h2 className="text-xl font-semibold">Leaderboard</h2>
+          {loading ? (
+            <p className="mt-4 text-slate-600">Loading scores...</p>
+          ) : pageError ? (
+            <p className="mt-4 text-red-700" role="alert">
+              {pageError}
+            </p>
+          ) : leaderboard.length === 0 ? (
+            <p className="mt-4 text-slate-600">No users yet.</p>
+          ) : (
+            <ol className="mt-4 divide-y divide-slate-100">
+              {leaderboard.map((entry, index) => (
+                <li
+                  className={`flex items-center justify-between gap-4 py-3 ${
+                    entry.username === user?.username
+                      ? "font-semibold text-indigo-700"
+                      : "text-slate-700"
+                  }`}
+                  key={entry.username}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="w-7 shrink-0 text-right text-sm text-slate-400">
+                      {index + 1}.
+                    </span>
+                    <span className="truncate">
+                      {entry.name}{" "}
+                      <span className="text-slate-400">@{entry.username}</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0">{entry.score} pts</span>
+                </li>
+              ))}
+            </ol>
           )}
         </section>
       </div>

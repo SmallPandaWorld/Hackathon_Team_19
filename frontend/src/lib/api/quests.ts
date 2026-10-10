@@ -379,6 +379,136 @@ export const useCreateQuestQuestsPost = <
     queryClient,
   );
 };
+export type deleteQuestQuestsQuestIdDeleteResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deleteQuestQuestsQuestIdDeleteResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type deleteQuestQuestsQuestIdDeleteResponseSuccess =
+  deleteQuestQuestsQuestIdDeleteResponse204 & {
+    headers: Headers;
+  };
+export type deleteQuestQuestsQuestIdDeleteResponseError =
+  deleteQuestQuestsQuestIdDeleteResponse422 & {
+    headers: Headers;
+  };
+
+export type deleteQuestQuestsQuestIdDeleteResponse =
+  | deleteQuestQuestsQuestIdDeleteResponseSuccess
+  | deleteQuestQuestsQuestIdDeleteResponseError;
+
+export const getDeleteQuestQuestsQuestIdDeleteUrl = (questId: string) => {
+  return `/api/quests/${questId}`;
+};
+
+/**
+ * Delete a quest and its participant and solver records.
+ * @summary Delete Quest
+ */
+export const deleteQuestQuestsQuestIdDelete = async (
+  questId: string,
+  options?: RequestInit,
+): Promise<deleteQuestQuestsQuestIdDeleteResponse> => {
+  const res = await fetch(getDeleteQuestQuestsQuestIdDeleteUrl(questId), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deleteQuestQuestsQuestIdDeleteResponse["data"] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as deleteQuestQuestsQuestIdDeleteResponse;
+};
+
+export const getDeleteQuestQuestsQuestIdDeleteMutationKey = () =>
+  ["deleteQuestQuestsQuestIdDelete"] as const;
+
+export const getDeleteQuestQuestsQuestIdDeleteMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteQuestQuestsQuestIdDelete>>,
+    TError,
+    DeleteQuestQuestsQuestIdDeleteMutationVariables,
+    TContext
+  >;
+  fetch?: RequestInit;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteQuestQuestsQuestIdDelete>>,
+  TError,
+  DeleteQuestQuestsQuestIdDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteQuestQuestsQuestIdDeleteMutationKey();
+  const { mutation: mutationOptions, fetch: fetchOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, fetch: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteQuestQuestsQuestIdDelete>>,
+    DeleteQuestQuestsQuestIdDeleteMutationVariables
+  > = (props) => {
+    const { questId } = props ?? {};
+
+    return deleteQuestQuestsQuestIdDelete(questId, fetchOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteQuestQuestsQuestIdDeleteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteQuestQuestsQuestIdDelete>>
+>;
+
+export type DeleteQuestQuestsQuestIdDeleteMutationError = HTTPValidationError;
+export type DeleteQuestQuestsQuestIdDeleteMutationVariables = {
+  questId: string;
+};
+
+/**
+ * @summary Delete Quest
+ */
+export const useDeleteQuestQuestsQuestIdDelete = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteQuestQuestsQuestIdDelete>>,
+      TError,
+      DeleteQuestQuestsQuestIdDeleteMutationVariables,
+      TContext
+    >;
+    fetch?: RequestInit;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteQuestQuestsQuestIdDelete>>,
+  TError,
+  DeleteQuestQuestsQuestIdDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getDeleteQuestQuestsQuestIdDeleteMutationOptions(options),
+    queryClient,
+  );
+};
 export type getNextQuestQuestsNextGetResponse200 = {
   data: QuestRead;
   status: 200;
