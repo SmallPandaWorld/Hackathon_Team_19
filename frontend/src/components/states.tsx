@@ -39,7 +39,7 @@ export function ErrorState({
 export function BackLink() {
   return (
     <Link
-      className={`${buttonStyles.secondary} inline-flex min-h-11 w-fit items-center gap-2 py-2 text-sm`}
+      className="inline-flex items-center gap-1 text-sm font-semibold text-link hover:underline"
       href="/"
     >
       <ArrowLeft aria-hidden className="h-4 w-4" /> All quests

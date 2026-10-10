@@ -4,26 +4,14 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useGetMe } from "@/src/lib/api/players";
 import type { ReactNode } from "react";
-import { useSyncExternalStore } from "react";
-
-const subscribeHydration = () => () => {};
-const getClientHydrationSnapshot = () => true;
-const getServerHydrationSnapshot = () => false;
 
 // The backend enforces permissions; this only avoids showing tools that
 // would fail for regular players.
 export function MaintainerOnly({ children }: { children: ReactNode }) {
-  const hasHydrated = useSyncExternalStore(
-    subscribeHydration,
-    getClientHydrationSnapshot,
-    getServerHydrationSnapshot,
-  );
   const { data, isLoading, isError } = useGetMe();
   const player = data?.status === 200 ? data.data : undefined;
 
-  if (!hasHydrated || isLoading) {
-    return <LoadingState label="Checking permissions..." />;
-  }
+  if (isLoading) return <LoadingState label="Checking permissions..." />;
   if (isError || !player) {
     return (
       <ErrorState

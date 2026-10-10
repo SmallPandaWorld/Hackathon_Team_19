@@ -3,11 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/copy-zxing-wasm.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/copy-zxing-wasm.mjs",
     "build": "next build",
-    "prestart": "node scripts/copy-zxing-wasm.mjs",
     "start": "next start",
     "lint": "eslint"
   },
@@ -18,8 +15,7 @@
     "next": "16.4.0",
     "qrcode.react": "^4.2.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "zxing-wasm": "^3.1.5"
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4.3.3",
