@@ -1,2 +1,38 @@
+# Editors / OS
 .vscode/
+.idea/
+.DS_Store
+
+# Secrets
 .env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
+*.sqlite*
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-*.log*
+.pnpm-debug.log*
+.vercel
+
+# Tooling scratch
+.postman/
+postman/
+*.log

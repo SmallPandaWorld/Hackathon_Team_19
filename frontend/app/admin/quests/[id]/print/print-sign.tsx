@@ -8,13 +8,15 @@ import { useAdminGetQuest } from "@/src/lib/api/admin";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-function Sign({ questId }: { questId: number }) {
+const subscribeOrigin = () => () => {};
+const getOrigin = () => window.location.origin;
+const getServerOrigin = () => "";
+
+function Sign({ questId }: { questId: string }) {
   const { data, isLoading, isError } = useAdminGetQuest(questId);
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => setOrigin(window.location.origin), []);
+  const origin = useSyncExternalStore(subscribeOrigin, getOrigin, getServerOrigin);
 
   if (isLoading) return <LoadingState label="Loading QR sign..." />;
   const quest = data?.status === 200 ? data.data : undefined;
@@ -88,11 +90,11 @@ function Sign({ questId }: { questId: number }) {
 
 export function PrintSign() {
   const { id } = useParams<{ id: string }>();
-  const questId = Number(id);
+  const validQuestId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   return (
     <MaintainerOnly>
-      {Number.isInteger(questId) && questId > 0 ? (
-        <Sign questId={questId} />
+      {validQuestId ? (
+        <Sign questId={id} />
       ) : (
         <ErrorState message="Quest not found." />
       )}

@@ -5,17 +5,11 @@ import { buttonStyles } from "@/src/components/page";
 import { ShareButton } from "@/src/components/share-button";
 import { ErrorState } from "@/src/components/states";
 import type { PairSessionOut, QuestOut } from "@/src/lib/api/hackathon.schemas";
-import {
-  useCancelPairSession,
-  useGetPairSession,
-  useStartPairSession,
-} from "@/src/lib/api/pair";
-import { useAction } from "@/src/lib/use-action";
+import { useQuestAction } from "@/src/lib/use-quest-action";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { CompletedNote } from "./result-banner";
 import { Send } from "lucide-react";
-
-const POLL_MS = 3000;
 
 function useSecondsLeft(expiresAt: string | undefined) {
   const [now, setNow] = useState(() => Date.now());
@@ -88,21 +82,10 @@ function WaitingForPartner({
 }
 
 export function PairAction({ quest }: { quest: QuestOut }) {
-  const sessionQuery = useGetPairSession(quest.id, {
-    query: {
-      refetchInterval: (query) => {
-        const response = query.state.data;
-        return response?.status === 200 && response.data?.state === "waiting"
-          ? POLL_MS
-          : false;
-      },
-    },
-  });
-  const startSession = useStartPairSession();
-  const cancelSession = useCancelPairSession();
-  const { error, run, refreshAll } = useAction();
-  const session =
-    sessionQuery.data?.status === 200 ? sessionQuery.data.data : null;
+  // The quest detail polls the quest while the host waits (see QuestDetail).
+  const { perform, pending, error } = useQuestAction(quest.id);
+  const queryClient = useQueryClient();
+  const session = quest.pair_session ?? null;
   const state = session?.state;
 
   // When the partner joins, points and progress changed: refresh everything once.
@@ -111,21 +94,17 @@ export function PairAction({ quest }: { quest: QuestOut }) {
   useEffect(() => {
     if (previousState.current === "waiting" && state === "completed") {
       setPartnerJustJoined(true);
-      refreshAll();
+      queryClient.invalidateQueries();
     }
     previousState.current = state;
-  }, [state, refreshAll]);
+  }, [state, queryClient]);
 
   async function handleStart() {
-    if (await run(() => startSession.mutateAsync({ questId: quest.id }))) {
-      await sessionQuery.refetch();
-    }
+    await perform({ type: "pair_start" });
   }
 
   async function handleCancel() {
-    if (await run(() => cancelSession.mutateAsync({ questId: quest.id }))) {
-      await sessionQuery.refetch();
-    }
+    await perform({ type: "pair_cancel" });
   }
 
   const hosting = state === "waiting" && session?.is_host;
@@ -150,7 +129,7 @@ export function PairAction({ quest }: { quest: QuestOut }) {
         )}
         <button
           className={`${buttonStyles.secondary} py-2 text-sm`}
-          disabled={startSession.isPending}
+          disabled={pending === "pair_start"}
           onClick={handleStart}
           type="button"
         >
@@ -165,7 +144,7 @@ export function PairAction({ quest }: { quest: QuestOut }) {
     <div className="flex flex-col gap-4">
       {hosting && session ? (
         <WaitingForPartner
-          cancelling={cancelSession.isPending}
+          cancelling={pending === "pair_cancel"}
           onCancel={handleCancel}
           session={session}
         />
@@ -181,11 +160,11 @@ export function PairAction({ quest }: { quest: QuestOut }) {
           )}
           <button
             className={`${buttonStyles.primary} mt-3 w-full py-3`}
-            disabled={startSession.isPending}
+            disabled={pending === "pair_start"}
             onClick={handleStart}
             type="button"
           >
-            {startSession.isPending
+            {pending === "pair_start"
               ? "Starting..."
               : "Get a code for my partner"}
           </button>

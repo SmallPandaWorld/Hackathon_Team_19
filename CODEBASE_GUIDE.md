@@ -172,8 +172,7 @@ The workspace also contains `MVP.md`, `EXTRA_FEATURES.md`, and an outer `READ.md
 This is the backend entry point used by `uvicorn main:app`.
 
 - Importing `models` registers SQLAlchemy's table definitions with `Base.metadata`.
-- The FastAPI lifespan function calls `upgrade_legacy_schema()` to extend older tables.
-- It calls `Base.metadata.create_all()` to create missing tables.
+- The FastAPI lifespan function calls `ensure_schema()` to create missing tables, archive pre-username tables, and backfill stable verification codes on current-schema quests.
 - It opens a database session and calls `seed_quests()`.
 - It includes the six router modules.
 - `GET /` returns `{"message": "Hello World"}` as a basic health endpoint.
@@ -197,16 +196,9 @@ For SQLite, a connection event enables `PRAGMA foreign_keys=ON`. Foreign-key ref
 
 ### 4.3 Legacy schema upgrades
 
-`create_all()` creates missing tables but does not add columns to existing tables. `ADDED_COLUMNS` records the fields introduced after earlier versions:
+`create_all()` creates missing tables but does not add columns to existing tables. On startup, `ensure_schema()` archives pre-username tables as `legacy_*` and creates the current UUID and username schema. For an existing current-schema database, it adds `requires_code` and `verification_code` to quests if needed, assigns each row without a code a random permanent code, and creates a unique code index. Later startups preserve the saved codes.
 
-- Player identity, hobbies, and discoverability.
-- Quest type, publishing status, coordinates, meetup details, authorship, and printed-code verification.
-- Completion approval and review details.
-- The invited player on a pair session.
-
-`upgrade_legacy_schema()` inspects each existing table and adds missing columns with `ALTER TABLE`. Defaults preserve old rows: an old quest becomes a published solo quest without code verification; an old completion becomes approved. Existing quests without a verification code receive one random code during the upgrade. Later runs leave those codes unchanged. It also ensures unique indexes for external player identity and quest verification codes.
-
-This is an additive compatibility helper, not a full migration framework. It does not provide migration versions, rollback scripts, or arbitrary schema restructuring.
+This is a one-time compatibility step, not a versioned migration framework. Archived tables are retained; their rows are not imported into the new schema.
 
 ## 5. Identity and maintainer permissions
 
@@ -225,12 +217,12 @@ The backend reads two headers forwarded by the VISCON proxy:
 
 1. Rejects a missing identity with HTTP `401`.
 2. Limits the display name to 255 characters.
-3. Finds the `User` by `viscon_user_id`.
+3. Finds the `User` by `username`, which is the `X-User-Id` value.
 4. Creates one if it does not exist, using `Player` if no name is available.
-5. Handles a simultaneous first request by rolling back an identity uniqueness conflict and fetching the row another request created.
+5. Handles a simultaneous first request by rolling back a username conflict and fetching the row another request created.
 6. Updates an existing display name when the proxy provides a new, non-empty name.
 
-An authenticated read request can therefore create a player or update their name. The internal numeric player ID is different from the external proxy identity.
+An authenticated read request can therefore create a player or update their name. The username is the user table's primary key, so users have no separate ID.
 
 ### 5.2 Maintainers
 
@@ -252,7 +244,7 @@ The deployment must ensure public traffic reaches the app through that trusted p
 
 | Class / table | Main fields | Why it exists |
 | --- | --- | --- |
-| `User` / `users` | `id`, `name`, `viscon_user_id`, `hobbies`, `discoverable` | Player identity and matching preferences |
+| `User` / `users` | `username` (primary key), `name`, `hobbies`, `discoverable` | Player identity and matching preferences |
 | `Quest` / `quests` | Text, points, kind, status, coordinates, schedule, approval/code flags, permanent verification code, author, review note | Shared quest definition |
 | `QuestStep` / `quest_steps` | Quest ID, position, title, description | Ordered multi-step content |
 | `StepProgress` / `step_progress` | Player ID, step ID, completion time | Individual completed steps |
@@ -285,11 +277,14 @@ erDiagram
 
 The diagram summarizes multiple user references on pair sessions and dismissed suggestions. A pair session can reference a host, a partner, and an invitee; only the host is required.
 
+Every non-user entity has a UUID primary key. Foreign keys to users store the
+username; foreign keys to quests and steps store UUIDs.
+
 ### 6.2 Constraints that protect saved data
 
 | Constraint | Prevents |
 | --- | --- |
-| Unique `User.viscon_user_id` | Multiple player records for one external identity |
+| Primary key `User.username` | Multiple player records for one external identity |
 | Unique `Quest.verification_code` | Two quests using the same printed code |
 | Unique completion `(player_id, quest_id)` | Multiple reward records for the same player and quest |
 | Unique step progress `(player_id, step_id)` | Saving one step twice for a player |
@@ -403,15 +398,19 @@ The backend clock decides eligibility. The frontend displays the returned state 
 
 The admin UI displays these reasons. The backend enforces them again when publishing and when editing already published content.
 
-### 8.5 Quest IDs and errors
+### 8.5 IDs and errors
 
-Built-in IDs are below 1000. `add_quest()` allocates the next ID at or above `FIRST_APP_QUEST_ID=1000`, commits the insert, and retries up to five times if another request allocated the same ID.
+New entity IDs are UUIDs generated by SQLAlchemy. Built-in quest UUIDs are
+deterministically derived from their original seed numbers, so seed runs keep
+the same IDs. Databases with the old integer-keyed schema have their tables
+archived as `legacy_*` before current tables are created. SQLite connections
+wait up to 30 seconds for another writer.
 
 `not_found()`, `conflict()`, and `bad_request()` standardize HTTP errors. `error_responses()` also declares error shapes in OpenAPI so generated clients can type them.
 
 ## 9. Backend routers and all endpoints
 
-Paths in the following tables are backend paths. Browser requests normally add `/api`. For example, backend `/me` is browser `/api/me`.
+Paths in the following tables are backend paths. Browser requests normally add `/api`. For example, backend `/players/me` is browser `/api/players/me`.
 
 Most game routes use `get_current_player`. `/admin` routes additionally require a maintainer. The root health endpoint and hobby catalog do not themselves require a player dependency.
 
@@ -419,10 +418,9 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 
 | Method | Path | Function / behavior |
 | --- | --- | --- |
-| GET | `/me` | `get_me`: profile, computed points, maintainer flag, preferences |
-| PUT | `/me/profile` | `update_profile`: validate and save hobbies and discoverability |
-| GET | `/me/badges` | `list_badges`: compute earned badges and progress |
-| GET | `/hobbies` | `list_hobbies`: return the fixed hobby catalog |
+| GET | `/players/me` | `get_me`: profile, computed points, badges, maintainer flag, preferences |
+| PUT | `/players/me` | `update_profile`: validate and save hobbies and discoverability |
+| GET | `/players/hobbies` | `list_hobbies`: return the fixed hobby catalog |
 
 `player_out()` converts a database user into the public `Player` shape. External identity is not part of that response.
 
@@ -430,21 +428,14 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 
 | Method | Path | Function / behavior |
 | --- | --- | --- |
-| GET | `/quests` | `list_quests`: all published quests, ordered by ID, personalized |
+| GET | `/quests` | `list_quests`: all published quests, ordered by creation, personalized |
 | GET | `/quests/{quest_id}` | `get_quest`: a quest the player may view |
-| POST | `/quests/{quest_id}/complete` | `complete_quest`: solo completion or meetup check-in |
-| POST | `/quests/{quest_id}/redeem` | `redeem_quest_code`: verify a printed solo-quest code and complete it |
-| POST | `/quests/{quest_id}/quiz` | `submit_quiz`: check submitted choice indexes |
-| POST | `/quests/{quest_id}/steps/{step_id}/complete` | `complete_step`: save the next ordered step |
-| POST | `/quests/{quest_id}/rsvp` | `join_meetup`: say the player plans to attend |
-| DELETE | `/quests/{quest_id}/rsvp` | `leave_meetup`: withdraw RSVP |
-| POST | `/quests/{quest_id}/report` | `report_quest`: save one report per player and quest |
-| POST | `/submissions` | `submit_quest`: create a solo idea awaiting review; returns 201 |
-| GET | `/submissions/mine` | `list_my_submissions`: the player's proposed quests, newest first |
+| POST | `/quests/{quest_id}/actions` | `act_on_quest`: `complete`, `redeem`, `quiz`, `step`, `rsvp`, `report`, `pair_start`, or `pair_cancel` |
+| POST | `/quests` | `submit_quest`: create a solo idea awaiting review; returns 201 |
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code-verified quests, so the ordinary completion endpoint cannot bypass the code. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
 
-`redeem_quest_code()` accepts `{"code": "..."}` for a published, code-verified solo quest. It trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
+The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest. `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
 
 Approval-required solo quests create pending records. Resubmitting a rejected claim reuses that row, replaces its note and submission time, clears review details, and sets it back to pending.
 
@@ -460,12 +451,12 @@ Ideas have a default reward of 10 points and start as `solo` / `pending_review`.
 
 | Method | Path | Function / behavior |
 | --- | --- | --- |
-| POST | `/quests/{quest_id}/pair` | `start_pair_session`: create a code, optionally addressed to an invitee |
-| GET | `/quests/{quest_id}/pair` | `get_pair_session`: latest session involving this player for this quest |
-| DELETE | `/quests/{quest_id}/pair` | `cancel_pair_session`: cancel this player's unfinished hosted sessions |
-| GET | `/pair/invites` | `list_pair_invites`: valid unfinished invitations addressed to this player |
-| GET | `/pair/{code}` | `get_pair_code`: preview the quest, host, and session state |
-| POST | `/pair/{code}/join` | `join_pair_session`: claim the session and complete for both players |
+| POST | `/quests/{quest_id}/actions` (`pair_start`) | `start_pair`: create a code, optionally addressed to an invitee |
+| GET | `/quests/{quest_id}` | `get_quest`: includes this player's latest pair session |
+| POST | `/quests/{quest_id}/actions` (`pair_cancel`) | `cancel_pair`: cancel this player's unfinished hosted sessions |
+| GET | `/players/me` | `get_me`: includes valid unfinished invitations addressed to this player |
+| GET | `/pair-sessions/{code}` | `get_pair_code`: preview the quest, host, and session state |
+| POST | `/pair-sessions/{code}` | `join_pair_session`: claim the session and complete for both players |
 
 Codes have six characters and live for ten minutes. The alphabet excludes `0/O` and `1/I/L` to reduce confusion. `secrets.choice()` generates characters. Lookup trims and uppercases the entered code.
 
@@ -483,22 +474,22 @@ The join then ensures both host and partner have an approved completion. Each re
 
 | Method | Path | Function / behavior |
 | --- | --- | --- |
-| GET | `/suggestions` | `list_suggestions`: discoverable players sharing hobbies |
-| POST | `/suggestions/{player_id}/dismiss` | `dismiss_suggestion`: persist hiding a player; returns 204 |
+| GET | `/players/suggestions` | `list_suggestions`: discoverable players sharing hobbies |
+| DELETE | `/players/suggestions/{username}` | `dismiss_suggestion`: persist hiding a player; returns 204 |
 
 Matching is deterministic, not AI-based. If the current player has not opted in, the response has `enabled=false` and no suggestions.
 
 Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded. A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
 
-Only shared hobby labels and the display name are included. Other hobbies and external identities are not exposed. Dismissals are one-directional and persist; duplicate dismissals are harmless. There is no restoration endpoint.
+Suggestions include the username needed for invite and dismiss actions, plus the display name and shared hobby labels. Other hobbies are not included. Dismissals are one-directional and persist; duplicate dismissals are harmless. There is no restoration endpoint.
 
 ### 9.5 `backend/routers/leaderboard.py`
 
 | Method | Path | Function / behavior |
 | --- | --- | --- |
-| GET | `/leaderboard` | `get_leaderboard`: ranked approved scores and the current player's own entry |
+| GET | `/players/leaderboard` | `get_leaderboard`: ranked approved scores and the current player's own entry |
 
-The query joins users to approved completions, sums rewards, excludes legacy users without external identity, and sorts by points descending, then name and ID for stable display.
+The query joins users to approved completions, sums rewards, excludes migration placeholder usernames, and sorts by points descending, then name and username for stable display.
 
 Equal scores share a competition rank: `1, 2, 2, 4`, for example. Rank changes when the score changes; name ordering does not break a score tie.
 
@@ -739,7 +730,7 @@ The page renders a campus motif, compact player summary, incoming pair invitatio
 
 ### 12.2 Quest detail: `frontend/app/quests/[id]/quest-detail.tsx`
 
-`QuestDetail()` reads the ID through `useParams()`, requires a positive integer, and enables the query only for a valid ID. It handles loading, missing resources, API errors, and retry where appropriate.
+`QuestDetail()` reads the UUID through `useParams()` and enables the query only for a valid ID. It handles loading, missing resources, API errors, and retry where appropriate.
 
 The detail article displays quest kind, status if unpublished, title, reward, location, author, and instructions. Coordinates enable a `/map#quest-ID` link and an external Google Maps walking-directions link. That directions URL names the destination; the component does not supply the player's device coordinates.
 
@@ -827,7 +818,7 @@ Admin pages are explained together in section 15 because they share the maintain
 
 Its fixed navigation has a z-index above Leaflet controls and incorporates the bottom safe-area inset. The content width matches the page shell.
 
-`PlayerSummary` loads `/me`. It shows a loading placeholder or error when needed, a linked name/points strip, and a compact Admin link only for maintainers.
+`PlayerSummary` loads `/players/me`. It shows a loading placeholder or error when needed, a linked name/points strip, and a compact Admin link only for maintainers.
 
 ### 13.3 Quest cards
 
@@ -871,7 +862,7 @@ The component asks players to confirm only after doing the activity. It has no s
 
 ### 14.2 `frontend/src/components/quest-actions/code-action.tsx`
 
-`CodeAction` shows a manual code field and calls `useRedeemQuestCode()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` reads that code and an effect submits it automatically when the quest loads. Scanning uses the phone's camera app, not a camera control inside the web app. A wrong code displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
+`CodeAction` shows a manual code field and sends a `redeem` action through `useQuestAction()`. A sign's QR links to `/quests/{id}?code={verification_code}`; `useSearchParams()` reads that code and an effect submits it automatically when the quest loads. Scanning uses the phone's camera app, not a camera control inside the web app. A wrong code displays the backend's error and leaves the field editable for retry. Success displays `ResultBanner` and refreshes shared data; an already completed quest displays its saved completion when opened without a scan code.
 
 ### 14.3 `frontend/src/components/quest-actions/quiz-action.tsx`
 
@@ -1057,7 +1048,7 @@ These are implementation features, not proof of a complete accessibility audit. 
 ```text
 Quest detail → SoloAction.handleComplete()
     → useCompleteQuest().mutateAsync({ questId, data })
-    → POST /api/quests/{id}/complete
+    → POST /api/quests/{id}/actions with {"type": "complete"}
     → Next.js forwards to FastAPI
     → get_current_player() resolves the authenticated player
     → complete_quest() checks publication and mechanism
@@ -1080,7 +1071,7 @@ Maintainer selects Printed code or QR, saves the quest, and opens its print page
 
 Player types the code or scans the QR with a phone camera
     → QR opens the quest detail and CodeAction submits its URL code automatically
-    → POST /api/quests/{id}/redeem with {"code": "..."}
+    → POST /api/quests/{id}/actions with {"type": "redeem", "code": "..."}
     → backend checks publication, quest type, and the saved code
     → record_completion() grants the reward once to that player
     → ResultBanner shows the result and shared queries refresh
@@ -1092,14 +1083,14 @@ Wrong or another quest's code returns an error and no points. The same sign can 
 
 ```text
 Host opens pair quest → starts a session
-    → POST /api/quests/{id}/pair
+    → POST /api/quests/{id}/actions with {"type": "pair_start"}
     → save host, code, expiry, optional invitee
     → display code and poll session every 3 seconds
 
 Partner enters code or opens invite link
-    → GET /api/pair/{code} previews the session
+    → GET /api/pair-sessions/{code} previews the session
     → partner confirms joining
-    → POST /api/pair/{code}/join
+    → POST /api/pair-sessions/{code}
     → backend conditionally claims the session
     → ensure host completion and partner completion exist
     → partner sees completion result
@@ -1112,9 +1103,9 @@ Session claiming and each completion save use separate commits. The operation is
 ### 18.4 A suggestion becomes an invitation
 
 1. Both players save hobbies with discoverability enabled.
-2. `/suggestions` finds shared interests and returns names/shared labels.
+2. `/players/suggestions` finds shared interests and returns names/shared labels.
 3. Profile selects an available pair quest, preferring one the host has not completed.
-4. Clicking Invite sends `invite_player_id` when creating a session.
+4. Clicking Invite sends `invite_username` when creating a session.
 5. The host is routed to the quest's waiting screen.
 6. The invited player's home polling sees the addressed session within its next query refresh.
 7. Joining uses the same code-preview and completion flow as an ordinary pair session.
@@ -1125,7 +1116,7 @@ This creates a quest invitation, not a persistent friendship, conversation, or c
 
 ```text
 Player submits title/instructions/location
-    → POST /api/submissions
+    → POST /api/quests/submissions
     → save Quest(kind=solo, status=pending_review, author_id=player)
     → profile shows the idea's status
 
@@ -1319,7 +1310,7 @@ Expanded coverage includes:
 
 ### 20.4 `backend/tests/test_code_verification.py`
 
-Code verification coverage includes maintainer-only access to the saved code, omission of that code from player quest responses, blocking `/complete` bypasses, wrong-code errors without points, reuse by different players, zero extra points on repeats, and preservation of the code after ordinary edits and a repeat schema upgrade. It also checks that another quest's code cannot redeem this quest.
+Code verification coverage includes maintainer-only access to the saved code, omission of that code from player quest responses, blocking `complete` action bypasses, wrong-code errors without points, reuse by different players, zero extra points on repeats, and preservation of the code after ordinary edits and a repeat schema check. It also checks that another quest's code cannot redeem this quest.
 
 This guide records test responsibilities, not a new test execution result. No test suite was run solely to create this documentation.
 
@@ -1355,7 +1346,7 @@ API tests do not replace browser checks. Particularly useful browser cases are s
 | Home grouping and priority | `frontend/app/page.tsx` | Server meetup/completion status fields |
 | Quest card presentation | `frontend/src/components/quest-card.tsx` | All pages reusing the card |
 | Quest-detail instructions layout | `frontend/app/quests/[id]/quest-detail.tsx` | Shared card styles and quest action components |
-| Player score/name strip | `frontend/src/components/player-summary.tsx` | `/me` response |
+| Player score/name strip | `frontend/src/components/player-summary.tsx` | `/players/me` response |
 | Navigation | `frontend/src/components/tab-bar.tsx` | Page padding, safe area, overlay stacking |
 | Map behavior and pins | `frontend/src/components/campus-map.tsx` | `frontend/app/map/page.tsx`, map CSS |
 | Map selection sheet | `frontend/app/map/page.tsx` | Bottom navigation dimensions |

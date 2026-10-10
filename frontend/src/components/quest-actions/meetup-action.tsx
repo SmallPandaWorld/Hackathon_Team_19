@@ -6,13 +6,8 @@ import type {
   CompletionResult,
   QuestOut,
 } from "@/src/lib/api/hackathon.schemas";
-import {
-  useCompleteQuest,
-  useJoinMeetup,
-  useLeaveMeetup,
-} from "@/src/lib/api/quests";
 import { formatMeetupTime, MEETUP_LABELS } from "@/src/lib/quest-display";
-import { useAction } from "@/src/lib/use-action";
+import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useState } from "react";
 import { CompletedNote, ResultBanner } from "./result-banner";
 
@@ -23,29 +18,18 @@ const CLOSED_MESSAGES = {
 } as const;
 
 export function MeetupAction({ quest }: { quest: QuestOut }) {
-  const checkIn = useCompleteQuest();
-  const joinMeetup = useJoinMeetup();
-  const leaveMeetup = useLeaveMeetup();
-  const { error, run, refreshAll } = useAction();
+  const { perform, pending, error } = useQuestAction(quest.id);
   const [result, setResult] = useState<CompletionResult | null>(null);
   const state = quest.meetup_state ?? "upcoming";
   const rsvpOpen = state === "upcoming" || state === "live";
 
   async function handleCheckIn() {
-    const response = await run(() =>
-      checkIn.mutateAsync({ questId: quest.id, data: null }),
-    );
-    if (response?.status === 200) {
-      setResult(response.data);
-      await refreshAll();
-    }
+    const response = await perform({ type: "complete" });
+    if (response?.completion) setResult(response.completion);
   }
 
   async function toggleRsvp() {
-    const call = quest.rsvp
-      ? () => leaveMeetup.mutateAsync({ questId: quest.id })
-      : () => joinMeetup.mutateAsync({ questId: quest.id });
-    if (await run(call)) await refreshAll();
+    await perform({ type: "rsvp", attending: !quest.rsvp });
   }
 
   return (
@@ -72,7 +56,7 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
         {rsvpOpen && !quest.completed && (
           <button
             className={`${quest.rsvp ? buttonStyles.secondary : buttonStyles.primary} mt-3 w-full py-2`}
-            disabled={joinMeetup.isPending || leaveMeetup.isPending}
+            disabled={pending === "rsvp"}
             onClick={toggleRsvp}
             type="button"
           >
@@ -88,11 +72,11 @@ export function MeetupAction({ quest }: { quest: QuestOut }) {
       ) : state === "live" ? (
         <button
           className={`${buttonStyles.primary} w-full py-4 text-lg`}
-          disabled={checkIn.isPending}
+          disabled={pending === "complete"}
           onClick={handleCheckIn}
           type="button"
         >
-          {checkIn.isPending ? "Checking in..." : "I'm here: check in"}
+          {pending === "complete" ? "Checking in..." : "I'm here: check in"}
         </button>
       ) : (
         <p className="rounded-lg bg-surface-variant p-4 text-center text-sm text-muted">

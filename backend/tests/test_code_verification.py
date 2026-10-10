@@ -1,7 +1,8 @@
 import re
+from uuid import UUID
 
-from conftest import identity
-from database import SessionLocal, upgrade_legacy_schema
+from conftest import act, identity
+from database import SessionLocal, ensure_schema
 from models import Quest
 from quests import seed_quests
 
@@ -18,23 +19,18 @@ def make_code_quest(client):
         "points": 25,
         "kind": "solo",
         "requires_code": True,
+        "status": "published",
     }
     created = client.post("/admin/quests", headers=MAINTAINER, json=payload)
-    assert created.status_code == 201
+    assert created.status_code == 201, created.text
     quest = created.json()
     assert re.fullmatch(r"[A-HJ-NP-Z2-9]{12}", quest["verification_code"])
-    published = client.post(
-        f"/admin/quests/{quest['id']}/status",
-        headers=MAINTAINER,
-        json={"status": "published"},
-    )
-    assert published.status_code == 200
-    return quest, payload
+    return quest
 
 
 def test_code_is_private_reusable_and_awarded_once_per_player(client):
-    quest, _ = make_code_quest(client)
-    other_quest, _ = make_code_quest(client)
+    quest = make_code_quest(client)
+    other_quest = make_code_quest(client)
     quest_id = quest["id"]
     code = quest["verification_code"]
     assert other_quest["verification_code"] != code
@@ -46,46 +42,42 @@ def test_code_is_private_reusable_and_awarded_once_per_player(client):
         assert code not in client.get("/quests", headers=headers).text
         assert client.get(f"/admin/quests/{quest_id}", headers=headers).status_code == 403
 
-    bypass = client.post(f"/quests/{quest_id}/complete", headers=ALICE)
+    bypass = act(client, ALICE, quest_id, "complete")
     assert bypass.status_code == 400
     assert "printed code" in bypass.json()["detail"]
 
     for wrong in ("WRONGCODE123", "é", other_quest["verification_code"]):
-        result = client.post(f"/quests/{quest_id}/redeem", headers=ALICE,
-                             json={"code": wrong})
+        result = act(client, ALICE, quest_id, "redeem", code=wrong)
         assert result.status_code == 400
         assert "not valid" in result.json()["detail"]
     assert client.get("/me", headers=ALICE).json()["total_points"] == 0
 
-    first = client.post(f"/quests/{quest_id}/redeem", headers=ALICE,
-                        json={"code": code.lower()}).json()
+    first = act(client, ALICE, quest_id, "redeem", code=code.lower()).json()["completion"]
     assert first["points_awarded"] == 25
     assert first["already_completed"] is False
-    again = client.post(f"/quests/{quest_id}/redeem", headers=ALICE,
-                        json={"code": code}).json()
+    again = act(client, ALICE, quest_id, "redeem", code=code).json()["completion"]
     assert again["points_awarded"] == 0
     assert again["already_completed"] is True
-    second_player = client.post(f"/quests/{quest_id}/redeem", headers=BOB,
-                                json={"code": code}).json()
+    second_player = act(client, BOB, quest_id, "redeem", code=code).json()["completion"]
     assert second_player["points_awarded"] == 25
     assert client.get("/me", headers=ALICE).json()["total_points"] == 25
     assert client.get("/me", headers=BOB).json()["total_points"] == 25
 
 
-def test_ordinary_edits_and_startup_upgrade_keep_printed_code(client):
-    quest, payload = make_code_quest(client)
+def test_ordinary_edits_and_startup_keep_printed_code(client):
+    quest = make_code_quest(client)
     quest_id = quest["id"]
     code = quest["verification_code"]
-    changed = client.put(f"/admin/quests/{quest_id}", headers=MAINTAINER,
-                         json={**payload, "title": "Find the updated campus sign"})
-    assert changed.status_code == 200
+    changed = client.patch(f"/admin/quests/{quest_id}", headers=MAINTAINER,
+                           json={"title": "Find the updated campus sign"})
+    assert changed.status_code == 200, changed.text
     assert changed.json()["verification_code"] == code
+    assert changed.json()["requires_code"] is True
 
-    upgrade_legacy_schema()
+    ensure_schema()
     with SessionLocal() as db:
         seed_quests(db)
-        assert db.get(Quest, quest_id).verification_code == code
+        assert db.get(Quest, UUID(quest_id)).verification_code == code
     assert client.get(f"/admin/quests/{quest_id}", headers=MAINTAINER).json()["verification_code"] == code
-    redeemed = client.post(f"/quests/{quest_id}/redeem", headers=ALICE,
-                           json={"code": code})
-    assert redeemed.json()["points_awarded"] == 25
+    redeemed = act(client, ALICE, quest_id, "redeem", code=code)
+    assert redeemed.json()["completion"]["points_awarded"] == 25

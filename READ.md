@@ -11,22 +11,31 @@
 
 ### How to Start le Backend [be in the backend folder]:
 ```
-DEV_USER_ID=dev-1 DEV_USER_NAME="Dev Player" MAINTAINER_IDS=dev-1 uvicorn main:app --reload
+DEV_USER_ID=dev-1 DEV_USER_NAME="Dev Player" uvicorn main:app --reload
 ```
-`MAINTAINER_IDS` (comma-separated VISCON user IDs) unlocks the maintainer
-tools at `/admin`: quest editor, idea reviews, completion reviews, reports.
+Environment variables:
+- `DEV_USER_ID` / `DEV_USER_NAME`: local only. Fakes the VISCON identity when
+  no `X-User-Id` header is sent; this dev player is always a maintainer.
+  Never set it in deployment.
+- `MAINTAINER_IDS`: comma-separated usernames (`X-User-Id` values) that get
+  the maintainer tools at `/admin` (quest editor, idea reviews, completion
+  reviews, reports) in production.
+- `DATABASE_URL`: SQLAlchemy URL, defaults to `backend/users.db`.
+
 Players are identified by the `X-User-Id` / `X-User-Name` headers that the
-VISCON proxy adds. Locally there is no proxy, so `DEV_USER_ID` fakes one
-player (only used when the header is missing). Never set it in deployment.
-To act as a different player, send the headers yourself:
+VISCON proxy adds. To act as a different player, send the headers yourself:
 ```
 curl -H "X-User-Id: alice" -H "X-User-Name: Alice" localhost:8000/me
 ```
 
-The built-in quests live in `backend/quests.py`. They are only inserted when
-missing, so edits made in the quest editor are never overwritten; change
-existing quests in the editor. Never change or reuse a quest `id` (built-in
-quests use IDs below 1000, quests created in the app start at 1000).
+The `X-User-Id` value is the player's unique username and primary key; users do
+not have a separate ID. Quest, step, question, completion, session, RSVP,
+report, and suggestion-record IDs are UUIDs. The built-in quests live in
+`backend/quests.py` and keep stable UUIDs so edits and saved progress survive
+restarts. They are only inserted when missing, so edits made in the quest editor
+are never overwritten; change existing quests in the editor. A database from
+before usernames were the user key is not migrated: its tables are renamed to
+`legacy_<name>` on startup and fresh tables are created.
 
 ### Backend tests [be in the backend folder]:
 ```
@@ -46,15 +55,11 @@ meetup not live), `410` expired/cancelled code.
 
 | Area | Endpoints |
 |---|---|
-| Player | `GET /me`, `PUT /me/profile` (hobbies, opt-in), `GET /me/badges`, `GET /hobbies` |
-| Quests | `GET /quests`, `GET /quests/{id}`, `POST /quests/{id}/complete` (solo, meetup check-in) |
-| Quiz / steps | `POST /quests/{id}/quiz`, `POST /quests/{id}/steps/{step_id}/complete` |
-| Meetups | `POST`/`DELETE /quests/{id}/rsvp` |
-| Partner quests | `POST`/`GET`/`DELETE /quests/{id}/pair` (optional `invite_player_id`), `GET /pair/invites`, `GET /pair/{code}`, `POST /pair/{code}/join` |
-| Ideas & reports | `POST /submissions`, `GET /submissions/mine`, `POST /quests/{id}/report` |
-| Connections | `GET /suggestions`, `POST /suggestions/{player_id}/dismiss` |
-| Ranking | `GET /leaderboard` |
-| Maintainers | `/admin/quests` (CRUD + `/status`), `/admin/completions` (+ `/review`), `/admin/reports` (+ `/resolve`) |
+| Player | `GET`/`PUT /me` (profile, points, badges, hobby options, suggestions, pair invitations, submitted ideas), `DELETE /me/suggestions/{username}`, `GET /leaderboard`, `GET /players?q=` (search discoverable players), `GET /players/{username}` (public profile) |
+| Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (propose an idea) |
+| Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `pair_start` (optional `invite_username`), `pair_cancel` |
+| Partner quests | `GET`/`POST /pair/{code}` (look up / join a code) |
+| Maintainers | `GET`/`POST /admin/quests`, `GET`/`PATCH /admin/quests/{id}` (`status` publishes/retires/rejects), `GET /admin/completions` (+ `POST …/review`), `GET /admin/reports` (+ `POST …/resolve`) |
 
 ### Game rules (defaults, change them in code)
 - **Points** are granted once per player and quest; completions keep a

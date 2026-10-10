@@ -1,10 +1,11 @@
+import logging
 import os
 from pathlib import Path
 
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from models import new_verification_code
+logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).resolve().parent
 DEFAULT_DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'users.db'}"
@@ -12,7 +13,10 @@ DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 engine_options = {"pool_pre_ping": True}
 if DATABASE_URL.startswith("sqlite"):
-    engine_options["connect_args"] = {"check_same_thread": False}
+    engine_options["connect_args"] = {
+        "check_same_thread": False,
+        "timeout": 30,
+    }
 
 engine = create_engine(DATABASE_URL, **engine_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -39,64 +43,51 @@ def get_db():
         db.close()
 
 
-# Columns added after a table was first created. create_all() only creates
-# missing tables, so existing databases get these via ALTER TABLE. Defaults
-# keep old rows valid (e.g. MVP quests become published solo quests).
-ADDED_COLUMNS = {
-    "users": {
-        "viscon_user_id": "VARCHAR(255)",
-        "hobbies": "VARCHAR(1000) NOT NULL DEFAULT ''",
-        "discoverable": "BOOLEAN NOT NULL DEFAULT 0",
-    },
-    "quests": {
-        "kind": "VARCHAR(20) NOT NULL DEFAULT 'solo'",
-        "status": "VARCHAR(20) NOT NULL DEFAULT 'published'",
-        "requires_approval": "BOOLEAN NOT NULL DEFAULT 0",
-        "requires_code": "BOOLEAN NOT NULL DEFAULT 0",
-        "verification_code": "VARCHAR(12)",
-        "latitude": "FLOAT",
-        "longitude": "FLOAT",
-        "starts_at": "DATETIME",
-        "ends_at": "DATETIME",
-        "cancelled": "BOOLEAN NOT NULL DEFAULT 0",
-        "author_id": "INTEGER REFERENCES users (id)",
-        "review_note": "TEXT",
-    },
-    "pair_sessions": {
-        "invited_player_id": "INTEGER REFERENCES users (id)",
-    },
-    "completions": {
-        "status": "VARCHAR(20) NOT NULL DEFAULT 'approved'",
-        "note": "TEXT",
-        "reviewer_id": "INTEGER REFERENCES users (id)",
-        "review_note": "TEXT",
-        "reviewed_at": "DATETIME",
-    },
-}
+def ensure_schema(bind=None) -> None:
+    """Create missing tables.
 
-
-def upgrade_legacy_schema():
-    """Add missing columns to tables created by older versions of the app.
-
-    Existing rows are kept. Prototype users without a VISCON identity simply
-    never match a login.
+    A database from before usernames became the user key (a `users` table
+    without a `username` column) is not migrated: every existing table is
+    renamed to `legacy_<name>` and a fresh schema is created. Databases already
+    using usernames receive stable quest verification codes without losing rows.
     """
-    inspector = inspect(engine)
-    tables = set(inspector.get_table_names())
-    with engine.begin() as connection:
-        for table, added in ADDED_COLUMNS.items():
-            if table not in tables:
-                continue
-            existing = {column["name"] for column in inspector.get_columns(table)}
-            for column, ddl in added.items():
-                if column not in existing:
-                    connection.execute(
-                        text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+    import models  # noqa: F401  (registers all tables)
+
+    bind = bind or engine
+    with bind.begin() as connection:
+        inspector = inspect(connection)
+        tables = inspector.get_table_names()
+        legacy_schema = False
         if "users" in tables:
-            connection.execute(text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_viscon_user_id "
-                "ON users (viscon_user_id)"))
-        if "quests" in tables:
+            columns = {column["name"] for column in inspector.get_columns("users")}
+            if "username" not in columns:
+                legacy_schema = True
+                logger.warning(
+                    "Old database schema found; renaming tables %s to legacy_* "
+                    "and starting with empty tables.", ", ".join(tables))
+                for table in tables:
+                    if table.startswith("legacy_"):
+                        continue
+                    # Index names are global in SQLite; free them for the new tables.
+                    for index in inspector.get_indexes(table):
+                        if index.get("name"):
+                            connection.exec_driver_sql(f'DROP INDEX "{index["name"]}"')
+                    target = f"legacy_{table}"
+                    suffix = 2
+                    while target in tables:
+                        target = f"legacy_{table}_{suffix}"
+                        suffix += 1
+                    connection.exec_driver_sql(f'ALTER TABLE "{table}" RENAME TO "{target}"')
+        if not legacy_schema and "quests" in tables:
+            from models import new_verification_code
+
+            columns = {column["name"] for column in inspector.get_columns("quests")}
+            if "requires_code" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quests ADD COLUMN requires_code BOOLEAN NOT NULL DEFAULT 0")
+            if "verification_code" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quests ADD COLUMN verification_code VARCHAR(12)")
             rows = connection.execute(text(
                 "SELECT id, verification_code FROM quests")).all()
             used = {code for _, code in rows if code}
@@ -110,6 +101,7 @@ def upgrade_legacy_schema():
                 connection.execute(text(
                     "UPDATE quests SET verification_code = :code WHERE id = :id"),
                     {"code": fresh, "id": quest_id})
-            connection.execute(text(
+            connection.exec_driver_sql(
                 "CREATE UNIQUE INDEX IF NOT EXISTS ix_quests_verification_code "
-                "ON quests (verification_code)"))
+                "ON quests (verification_code)")
+        Base.metadata.create_all(bind=connection)

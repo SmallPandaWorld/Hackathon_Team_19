@@ -6,8 +6,7 @@ import type {
   CompletionResult,
   QuestOut,
 } from "@/src/lib/api/hackathon.schemas";
-import { useRedeemQuestCode } from "@/src/lib/api/quests";
-import { useAction } from "@/src/lib/use-action";
+import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -23,20 +22,14 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
   const [code, setCode] = useState(scannedCode ?? "");
   const [result, setResult] = useState<CompletionResult | null>(null);
   const attemptedScan = useRef<string | null>(null);
-  const { mutateAsync, isPending } = useRedeemQuestCode();
-  const { error, run, refreshAll } = useAction();
+  const { perform, pending, error } = useQuestAction(quest.id);
 
   const redeem = useCallback(
     async (value: string) => {
-      const response = await run(() =>
-        mutateAsync({ questId: quest.id, data: { code: value.trim() } }),
-      );
-      if (response?.status === 200) {
-        setResult(response.data);
-        await refreshAll();
-      }
+      const response = await perform({ type: "redeem", code: value.trim() });
+      if (response?.completion) setResult(response.completion);
     },
-    [mutateAsync, quest.id, refreshAll, run],
+    [perform],
   );
 
   useEffect(() => {
@@ -49,7 +42,7 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (code.trim() && !isPending) void redeem(code);
+    if (code.trim() && !pending) void redeem(code);
   }
 
   if (result) return <ResultBanner result={result} />;
@@ -76,10 +69,10 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
       </label>
       <button
         className={`${buttonStyles.primary} w-full py-4 text-lg`}
-        disabled={isPending || !code.trim()}
+        disabled={!!pending || !code.trim()}
         type="submit"
       >
-        {isPending ? "Checking code..." : "Verify completion"}
+        {pending ? "Checking code..." : "Verify completion"}
       </button>
       <p className="text-center text-xs text-muted">
         You can also scan the sign’s QR code with your phone camera. Each player

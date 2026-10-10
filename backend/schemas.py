@@ -1,7 +1,8 @@
 """API request/response models. Orval generates the frontend types from these."""
 
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional, Union
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -12,13 +13,14 @@ class ErrorResponse(BaseModel):
 
 # --- Players, profile, badges -------------------------------------------------
 
-class Player(BaseModel):
-    id: int = Field(description="Internal player ID")
-    display_name: str
-    total_points: int
-    is_maintainer: bool
-    hobbies: List[str] = Field(description="Hobby keys, see GET /hobbies")
-    discoverable: bool = Field(description="Opted in to connection suggestions")
+class Badge(BaseModel):
+    key: str
+    title: str
+    description: str
+    earned: bool
+    earned_at: Optional[datetime] = None
+    progress: int = Field(description="Progress towards the badge, capped at target")
+    target: int = Field(description="Progress needed, e.g. 5 quests or 100 points")
 
 
 class ProfileUpdate(BaseModel):
@@ -31,16 +33,6 @@ class HobbyOption(BaseModel):
     label: str
 
 
-class Badge(BaseModel):
-    key: str
-    title: str
-    description: str
-    earned: bool
-    earned_at: Optional[datetime] = None
-    progress: int = Field(description="Progress towards the badge, capped at target")
-    target: int = Field(description="Progress needed, e.g. 5 quests or 100 points")
-
-
 # --- Quests (player view) -----------------------------------------------------
 
 QuestKind = Literal["solo", "pair", "quiz", "multi_step", "meetup"]
@@ -49,8 +41,24 @@ CompletionStatus = Literal["approved", "pending", "rejected"]
 MeetupState = Literal["upcoming", "live", "past", "cancelled"]
 
 
+PairState = Literal["waiting", "completed", "expired", "cancelled"]
+
+
+class PairSessionOut(BaseModel):
+    code: str
+    quest_id: UUID
+    quest_title: str
+    host_name: str
+    partner_name: Optional[str] = None
+    is_host: bool
+    state: PairState
+    expires_at: datetime
+    invited_name: Optional[str] = Field(
+        default=None, description="Player the host invited, if any")
+
+
 class StepOut(BaseModel):
-    id: int
+    id: UUID
     position: int
     title: str
     description: str
@@ -58,14 +66,14 @@ class StepOut(BaseModel):
 
 
 class QuizQuestionOut(BaseModel):
-    id: int
+    id: UUID
     position: int
     prompt: str
     choices: List[str]
 
 
 class QuestOut(BaseModel):
-    id: int
+    id: UUID
     title: str
     description: str = Field(description="Instructions for the activity")
     location: Optional[str] = None
@@ -91,12 +99,8 @@ class QuestOut(BaseModel):
     rsvp: bool = False
     rsvp_count: int = 0
     reported: bool = False
-
-
-class CompleteRequest(BaseModel):
-    note: Optional[str] = Field(
-        default=None, max_length=500,
-        description="What the player did (shown to reviewers on approval quests)")
+    pair_session: Optional[PairSessionOut] = Field(
+        default=None, description="My latest pair session for this quest (host or partner)")
 
 
 class CodeRedemption(BaseModel):
@@ -104,7 +108,7 @@ class CodeRedemption(BaseModel):
 
 
 class CompletionResult(BaseModel):
-    quest_id: int
+    quest_id: UUID
     completed: bool = Field(description="True once the completion is approved")
     status: CompletionStatus
     already_completed: bool = Field(
@@ -115,57 +119,74 @@ class CompletionResult(BaseModel):
     completed_at: datetime
 
 
-class QuizSubmission(BaseModel):
-    answers: List[int] = Field(description="Chosen choice index per question, in order")
-
-
 class QuizResult(BaseModel):
     passed: bool
     correct_count: int
     total: int
     correct: List[bool] = Field(description="Per question, whether the answer was right")
-    completion: Optional[CompletionResult] = None
 
 
-class StepResult(BaseModel):
-    step_id: int
-    steps_done: int
-    steps_total: int
-    completion: Optional[CompletionResult] = Field(
-        default=None, description="Set when this step finished the quest")
+# --- Quest actions (POST /quests/{quest_id}/actions) ---------------------------
+
+class CompleteAction(BaseModel):
+    """Complete a solo quest or check in at a live meetup."""
+    type: Literal["complete"]
+    note: Optional[str] = Field(
+        default=None, max_length=500,
+        description="What the player did (shown to reviewers on approval quests)")
 
 
-class RsvpResult(BaseModel):
-    rsvp: bool
-    rsvp_count: int
+class RedeemAction(BaseModel):
+    """Redeem a printed code for a solo quest."""
+    type: Literal["redeem"]
+    code: str = Field(min_length=1, max_length=40)
 
 
-class ReportRequest(BaseModel):
+class QuizAction(BaseModel):
+    type: Literal["quiz"]
+    answers: List[int] = Field(description="Chosen choice index per question, in order")
+
+
+class StepAction(BaseModel):
+    """Mark the next step of a multi-step quest as done."""
+    type: Literal["step"]
+    step_id: UUID
+
+
+class RsvpAction(BaseModel):
+    type: Literal["rsvp"]
+    attending: bool
+
+
+class ReportAction(BaseModel):
+    type: Literal["report"]
     reason: str = Field(min_length=5, max_length=500)
 
 
-# --- Pair quests --------------------------------------------------------------
-
-PairState = Literal["waiting", "completed", "expired", "cancelled"]
-
-
-class PairSessionOut(BaseModel):
-    code: str
-    quest_id: int
-    quest_title: str
-    host_name: str
-    partner_name: Optional[str] = None
-    is_host: bool
-    state: PairState
-    expires_at: datetime
-    invited_name: Optional[str] = Field(
-        default=None, description="Player the host invited, if any")
-
-
-class PairStartRequest(BaseModel):
-    invite_player_id: Optional[int] = Field(
+class PairStartAction(BaseModel):
+    """Start a pair quest and get a code (replaces your earlier open code)."""
+    type: Literal["pair_start"]
+    invite_username: Optional[str] = Field(
         default=None,
-        description="Invite a suggested player: the code appears on their home screen")
+        description="Invite a suggested username: the code appears on their home screen")
+
+
+class PairCancelAction(BaseModel):
+    type: Literal["pair_cancel"]
+
+
+QuestAction = Annotated[
+    Union[CompleteAction, RedeemAction, QuizAction, StepAction, RsvpAction, ReportAction,
+          PairStartAction, PairCancelAction],
+    Field(discriminator="type"),
+]
+
+
+class QuestActionResult(BaseModel):
+    quest: QuestOut = Field(description="The quest as it is after the action")
+    completion: Optional[CompletionResult] = Field(
+        default=None, description="Set when the action completed or submitted the quest")
+    quiz: Optional[QuizResult] = Field(default=None, description="Set for type=quiz")
 
 
 class PairJoinResult(BaseModel):
@@ -182,7 +203,7 @@ class QuestSubmission(BaseModel):
 
 
 class SubmissionOut(BaseModel):
-    id: int
+    id: UUID
     title: str
     description: str
     location: Optional[str] = None
@@ -193,9 +214,24 @@ class SubmissionOut(BaseModel):
 # --- Connections --------------------------------------------------------------
 
 class Suggestion(BaseModel):
-    player_id: int
+    username: str
     display_name: str
     shared_hobbies: List[str] = Field(description="Labels of hobbies you share")
+
+
+class PlayerSearchResult(BaseModel):
+    username: str
+    display_name: str
+
+
+class PublicPlayer(BaseModel):
+    """What other players may see of a discoverable player."""
+
+    username: str
+    display_name: str
+    total_points: int
+    hobbies: List[str] = Field(description="Hobby keys, see Me.hobby_options")
+    badges: List[Badge]
 
 
 class Suggestions(BaseModel):
@@ -203,11 +239,26 @@ class Suggestions(BaseModel):
     suggestions: List[Suggestion]
 
 
+# --- Current player -----------------------------------------------------------
+
+class Me(BaseModel):
+    username: str
+    display_name: str
+    total_points: int
+    is_maintainer: bool
+    hobbies: List[str] = Field(description="Chosen hobby keys, see hobby_options")
+    discoverable: bool = Field(description="Opted in to connection suggestions")
+    badges: List[Badge]
+    hobby_options: List[HobbyOption] = Field(description="All selectable hobbies")
+    suggestions: Suggestions
+    invitations: List[PairSessionOut] = Field(description="Open pair invites addressed to me")
+    submissions: List[SubmissionOut] = Field(description="Quests I proposed, newest first")
+
+
 # --- Leaderboard --------------------------------------------------------------
 
 class LeaderboardEntry(BaseModel):
     rank: int = Field(description="Players with equal points share a rank")
-    player_id: int
     display_name: str
     points: int
     is_current_player: bool
@@ -253,6 +304,7 @@ class AdminQuestIn(BaseModel):
     cancelled: bool = False
     steps: List[StepIn] = Field(default=[], max_length=20)
     questions: List[QuizQuestionIn] = Field(default=[], max_length=20)
+    status: Literal["draft", "published"] = "draft"
 
     @model_validator(mode="after")
     def valid_verification(self):
@@ -263,12 +315,47 @@ class AdminQuestIn(BaseModel):
         return self
 
 
+# Fields of AdminQuestPatch that may not be sent as null.
+NOT_NULL_PATCH_FIELDS = (
+    "title", "description", "points", "kind", "requires_approval", "requires_code", "cancelled",
+    "steps", "questions", "status",
+)
+
+
+class AdminQuestPatch(BaseModel):
+    """Change only the fields you send (status changes publish, retire or reject)."""
+    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    description: Optional[str] = Field(default=None, min_length=1, max_length=2000)
+    location: Optional[str] = Field(default=None, max_length=255)
+    points: Optional[int] = Field(default=None, ge=0, le=1000)
+    kind: Optional[QuestKind] = None
+    requires_approval: Optional[bool] = None
+    requires_code: Optional[bool] = None
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    cancelled: Optional[bool] = None
+    steps: Optional[List[StepIn]] = Field(default=None, max_length=20)
+    questions: Optional[List[QuizQuestionIn]] = Field(default=None, max_length=20)
+    status: Optional[Literal["draft", "published", "rejected", "retired"]] = None
+    review_note: Optional[str] = Field(
+        default=None, max_length=1000, description="Shown to the author on rejection")
+
+    @model_validator(mode="after")
+    def required_fields_not_null(self):
+        nulls = [name for name in NOT_NULL_PATCH_FIELDS
+                 if name in self.model_fields_set and getattr(self, name) is None]
+        if nulls:
+            raise ValueError(f"These fields can't be null: {', '.join(nulls)}")
+        return self
+
 class AdminQuizQuestionOut(QuizQuestionIn):
-    id: int
+    id: UUID
 
 
 class AdminQuestOut(BaseModel):
-    id: int
+    id: UUID
     title: str
     description: str
     location: Optional[str] = None
@@ -293,15 +380,9 @@ class AdminQuestOut(BaseModel):
         description="Why the quest can't be published yet (empty if it can)")
 
 
-class StatusChange(BaseModel):
-    status: Literal["draft", "published", "rejected", "retired"]
-    note: Optional[str] = Field(
-        default=None, max_length=1000, description="Shown to the author on rejection")
-
-
 class AdminCompletionOut(BaseModel):
-    id: int
-    quest_id: int
+    id: UUID
+    quest_id: UUID
     quest_title: str
     player_name: str
     note: Optional[str] = None
@@ -316,8 +397,8 @@ class CompletionReview(BaseModel):
 
 
 class AdminReportOut(BaseModel):
-    id: int
-    quest_id: int
+    id: UUID
+    quest_id: UUID
     quest_title: str
     quest_status: QuestStatus
     reporter_name: str

@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-function Editor({ questId }: { questId: number }) {
+function Editor({ questId }: { questId: string }) {
   const { data, isLoading, isError } = useAdminGetQuest(questId);
   const quest = data?.status === 200 ? data.data : undefined;
 
@@ -28,7 +28,8 @@ function Editor({ questId }: { questId: number }) {
 
 export function EditQuest() {
   const { id } = useParams<{ id: string }>();
-  const questId = Number(id);
+  const questId = id;
+  const validQuestId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
   return (
     <>
@@ -40,7 +41,7 @@ export function EditQuest() {
       </Link>
       <PageTitle eyebrow="Maintainers">Edit quest</PageTitle>
       <MaintainerOnly>
-        {Number.isInteger(questId) && questId > 0 ? (
+        {validQuestId ? (
           <Editor questId={questId} />
         ) : (
           <ErrorState message="Quest not found." />

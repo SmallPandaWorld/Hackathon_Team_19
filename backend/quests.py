@@ -4,8 +4,8 @@ Seeding only inserts quests whose ID is missing, so edits made by
 maintainers in the app are never overwritten. To change a built-in quest
 on an existing deployment, use the quest editor.
 
-IDs are stable and below 1000 (quests created in the app start at 1000):
-never reuse or renumber an ID, because saved completions point to it.
+Built-in IDs are stable UUIDs derived from their original seed numbers. Never
+change those values, because saved completions use them.
 
 DRAFT CONTENT: titles, wording, times and points still need team approval.
 Map pins are WGS84 coordinates, looked up on OpenStreetMap.
@@ -16,11 +16,12 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from ids import builtin_quest_id
 from models import MEETUP, MULTI_STEP, PAIR, QUIZ, SOLO, Quest, QuestStep, QuizQuestion
 
 QUESTS = [
     {
-        "id": 1,
+        "id": builtin_quest_id(1),
         "kind": SOLO,
         "title": "View from the Polyterrasse",
         "description": (
@@ -34,7 +35,7 @@ QUESTS = [
         "longitude": 8.54652,
     },
     {
-        "id": 2,
+        "id": builtin_quest_id(2),
         "kind": SOLO,
         "title": "Meet someone new",
         "description": (
@@ -46,7 +47,7 @@ QUESTS = [
         "points": 20,
     },
     {
-        "id": 3,
+        "id": builtin_quest_id(3),
         "kind": SOLO,
         "title": "Coffee break with a stranger",
         "description": (
@@ -59,7 +60,7 @@ QUESTS = [
         "longitude": 8.54654,
     },
     {
-        "id": 4,
+        "id": builtin_quest_id(4),
         "kind": PAIR,
         "title": "Rock-paper-scissors duel",
         "description": (
@@ -71,7 +72,7 @@ QUESTS = [
         "points": 25,
     },
     {
-        "id": 5,
+        "id": builtin_quest_id(5),
         "kind": QUIZ,
         "title": "ETH trivia",
         "description": (
@@ -91,7 +92,7 @@ QUESTS = [
         ],
     },
     {
-        "id": 6,
+        "id": builtin_quest_id(6),
         "kind": MULTI_STEP,
         "title": "Main building tour",
         "description": (
@@ -112,7 +113,7 @@ QUESTS = [
         ],
     },
     {
-        "id": 7,
+        "id": builtin_quest_id(7),
         "kind": MEETUP,
         "title": "VISCON group photo",
         "description": (

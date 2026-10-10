@@ -6,29 +6,22 @@ import type {
   CompletionResult,
   QuestOut,
 } from "@/src/lib/api/hackathon.schemas";
-import { useCompleteQuest } from "@/src/lib/api/quests";
-import { useAction } from "@/src/lib/use-action";
+import { useQuestAction } from "@/src/lib/use-quest-action";
 import { useState } from "react";
 import { CompletedNote, ResultBanner } from "./result-banner";
 
 // Solo quests: self-reported, or reviewed by a maintainer if requires_approval.
 export function SoloAction({ quest }: { quest: QuestOut }) {
-  const completeQuest = useCompleteQuest();
-  const { error, run, refreshAll } = useAction();
+  const { perform, pending, error } = useQuestAction(quest.id);
   const [result, setResult] = useState<CompletionResult | null>(null);
   const [note, setNote] = useState("");
 
   async function handleComplete() {
-    const response = await run(() =>
-      completeQuest.mutateAsync({
-        questId: quest.id,
-        data: quest.requires_approval ? { note: note.trim() || null } : null,
-      }),
-    );
-    if (response?.status === 200) {
-      setResult(response.data);
-      await refreshAll();
-    }
+    const response = await perform({
+      type: "complete",
+      note: quest.requires_approval ? note.trim() || null : null,
+    });
+    if (response?.completion) setResult(response.completion);
   }
 
   if (result) return <ResultBanner result={result} />;
@@ -82,11 +75,11 @@ export function SoloAction({ quest }: { quest: QuestOut }) {
       )}
       <button
         className={`${buttonStyles.primary} w-full py-4 text-lg`}
-        disabled={completeQuest.isPending}
+        disabled={pending !== null}
         onClick={handleComplete}
         type="button"
       >
-        {completeQuest.isPending
+        {pending
           ? "Saving..."
           : quest.requires_approval
             ? "Submit for review"

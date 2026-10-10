@@ -1,22 +1,32 @@
 """Game rules shared by the routers: scoring, visibility, meetups, validation."""
 
 import json
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
+from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from hobbies import HOBBIES, parse_hobbies
 from models import (
     APPROVED,
+    COMPLETION_REJECTED,
     MEETUP,
     MULTI_STEP,
+    PAIR,
+    PENDING,
     PUBLISHED,
     QUIZ,
+    SOLO,
     Completion,
+    DismissedSuggestion,
     MeetupRsvp,
+    PairSession,
     Quest,
     QuestReport,
     QuestStep,
@@ -24,7 +34,21 @@ from models import (
     StepProgress,
     User,
 )
-from schemas import CompletionResult, ErrorResponse, QuestOut, QuizQuestionOut, StepOut
+from schemas import (
+    CompletionResult,
+    ErrorResponse,
+    PairSessionOut,
+    QuestOut,
+    QuizQuestionOut,
+    QuizResult,
+    StepOut,
+    Suggestion,
+    SubmissionOut,
+    Suggestions,
+)
+
+# Quests have UUID keys, so creation order comes from SQLite's rowid.
+QUEST_CREATION_ORDER = literal_column("quests.rowid")
 
 # Meetup check-in opens this long before the start time.
 CHECK_IN_EARLY = timedelta(minutes=15)
@@ -79,13 +103,13 @@ def bad_request(message: str) -> HTTPException:
 
 # --- Scoring ------------------------------------------------------------------
 
-def total_points(db: Session, player_id: int) -> int:
+def total_points(db: Session, player_id: str) -> int:
     query = select(func.coalesce(func.sum(Completion.points_awarded), 0)).where(
         Completion.player_id == player_id, Completion.status == APPROVED)
     return db.scalar(query)
 
 
-def find_completion(db: Session, player_id: int, quest_id: int) -> Optional[Completion]:
+def find_completion(db: Session, player_id: str, quest_id: UUID) -> Optional[Completion]:
     return db.scalars(select(Completion).where(
         Completion.player_id == player_id,
         Completion.quest_id == quest_id,
@@ -94,7 +118,7 @@ def find_completion(db: Session, player_id: int, quest_id: int) -> Optional[Comp
 
 def record_completion(
     db: Session,
-    player_id: int,
+    player_id: str,
     quest: Quest,
     completion_status: str = APPROVED,
     note: Optional[str] = None,
@@ -125,7 +149,7 @@ def record_completion(
 
 
 def completion_result(
-    db: Session, player_id: int, completion: Completion, created: bool
+    db: Session, player_id: str, completion: Completion, created: bool
 ) -> CompletionResult:
     return CompletionResult(
         quest_id=completion.quest_id,
@@ -140,7 +164,7 @@ def completion_result(
 
 # --- Visibility and quest views -----------------------------------------------
 
-def get_playable_quest(db: Session, quest_id: int, kind: Optional[str] = None) -> Quest:
+def get_playable_quest(db: Session, quest_id: UUID, kind: Optional[str] = None) -> Quest:
     """A published quest the player can act on, optionally of a given kind."""
     quest = db.get(Quest, quest_id)
     if quest is None or quest.status != PUBLISHED:
@@ -153,8 +177,8 @@ def get_playable_quest(db: Session, quest_id: int, kind: Optional[str] = None) -
 def can_view(db: Session, player: User, quest: Quest) -> bool:
     return (
         quest.status == PUBLISHED
-        or quest.author_id == player.id
-        or find_completion(db, player.id, quest.id) is not None
+        or quest.author_id == player.username
+        or find_completion(db, player.username, quest.id) is not None
     )
 
 
@@ -173,18 +197,18 @@ def meetup_state(quest: Quest, now: Optional[datetime] = None) -> Optional[str]:
     return "past"
 
 
-def ordered_steps(db: Session, quest_id: int) -> List[QuestStep]:
+def ordered_steps(db: Session, quest_id: UUID) -> List[QuestStep]:
     return list(db.scalars(
         select(QuestStep).where(QuestStep.quest_id == quest_id).order_by(QuestStep.position)))
 
 
-def ordered_questions(db: Session, quest_id: int) -> List[QuizQuestion]:
+def ordered_questions(db: Session, quest_id: UUID) -> List[QuizQuestion]:
     return list(db.scalars(
         select(QuizQuestion).where(QuizQuestion.quest_id == quest_id)
         .order_by(QuizQuestion.position)))
 
 
-def done_step_ids(db: Session, player_id: int, steps: List[QuestStep]) -> set:
+def done_step_ids(db: Session, player_id: str, steps: List[QuestStep]) -> set:
     if not steps:
         return set()
     return set(db.scalars(select(StepProgress.step_id).where(
@@ -198,30 +222,43 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
     if not quests:
         return []
     ids = [quest.id for quest in quests]
-    completions: Dict[int, Completion] = {
+    completions: Dict[UUID, Completion] = {
         c.quest_id: c for c in db.scalars(select(Completion).where(
-            Completion.player_id == player.id, Completion.quest_id.in_(ids)))
+            Completion.player_id == player.username, Completion.quest_id.in_(ids)))
     }
-    steps_by_quest: Dict[int, List[QuestStep]] = {}
+    steps_by_quest: Dict[UUID, List[QuestStep]] = {}
     for step in db.scalars(select(QuestStep).where(QuestStep.quest_id.in_(ids))
                            .order_by(QuestStep.position)):
         steps_by_quest.setdefault(step.quest_id, []).append(step)
-    questions_by_quest: Dict[int, List[QuizQuestion]] = {}
+    questions_by_quest: Dict[UUID, List[QuizQuestion]] = {}
     for question in db.scalars(select(QuizQuestion).where(QuizQuestion.quest_id.in_(ids))
                                .order_by(QuizQuestion.position)):
         questions_by_quest.setdefault(question.quest_id, []).append(question)
     done = set(db.scalars(select(StepProgress.step_id).where(
-        StepProgress.player_id == player.id)))
+        StepProgress.player_id == player.username)))
     rsvp_counts = dict(db.execute(
         select(MeetupRsvp.quest_id, func.count()).where(MeetupRsvp.quest_id.in_(ids))
         .group_by(MeetupRsvp.quest_id)).all())
     my_rsvps = set(db.scalars(select(MeetupRsvp.quest_id).where(
-        MeetupRsvp.player_id == player.id, MeetupRsvp.quest_id.in_(ids))))
+        MeetupRsvp.player_id == player.username, MeetupRsvp.quest_id.in_(ids))))
     my_reports = set(db.scalars(select(QuestReport.quest_id).where(
-        QuestReport.player_id == player.id, QuestReport.quest_id.in_(ids))))
+        QuestReport.player_id == player.username, QuestReport.quest_id.in_(ids))))
+    pair_sessions: Dict[UUID, PairSession] = {}
+    pair_ids = [quest.id for quest in quests if quest.kind == PAIR]
+    if pair_ids:
+        for session in db.scalars(
+            select(PairSession)
+            .where(
+                PairSession.quest_id.in_(pair_ids),
+                or_(PairSession.host_id == player.username,
+                    PairSession.partner_id == player.username),
+            )
+            .order_by(PairSession.created_at.desc())
+        ):
+            pair_sessions.setdefault(session.quest_id, session)
     author_ids = {quest.author_id for quest in quests if quest.author_id}
     authors = dict(db.execute(
-        select(User.id, User.name).where(User.id.in_(author_ids))).all()) if author_ids else {}
+        select(User.username, User.name).where(User.username.in_(author_ids))).all()) if author_ids else {}
 
     now = utcnow()
     views = []
@@ -261,6 +298,8 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             rsvp=quest.id in my_rsvps,
             rsvp_count=rsvp_counts.get(quest.id, 0),
             reported=quest.id in my_reports,
+            pair_session=(session_out(db, pair_sessions[quest.id], player)
+                          if quest.id in pair_sessions else None),
         ))
     return views
 
@@ -300,22 +339,370 @@ def publish_problems(db: Session, quest: Quest) -> List[str]:
 
 # --- Creating quests ----------------------------------------------------------
 
-FIRST_APP_QUEST_ID = 1000
-
-
 def add_quest(db: Session, **fields) -> Quest:
-    """Insert a quest with the next free ID (>= 1000) and commit it.
+    """Insert a quest (with a generated UUID) and commit it."""
+    quest = Quest(**fields)
+    db.add(quest)
+    db.commit()
+    return quest
 
-    IDs are assigned here because built-in quests own the IDs below 1000.
+
+def submission_out(quest: Quest) -> SubmissionOut:
+    """A player-submitted quest as its author sees it."""
+    return SubmissionOut(
+        id=quest.id,
+        title=quest.title,
+        description=quest.description,
+        location=quest.location,
+        status=quest.status,
+        review_note=quest.review_note,
+    )
+
+
+# --- Quest actions --------------------------------------------------------------
+
+WRONG_ACTION = {
+    PAIR: "This quest needs a partner: start it and let another player enter your code.",
+    QUIZ: "Answer the quiz questions to complete this quest.",
+    MULTI_STEP: "Complete the steps of this quest one by one.",
+}
+
+MEETUP_CLOSED = {
+    "upcoming": "Check-in opens 15 minutes before the meetup starts.",
+    "past": "This meetup is over.",
+    "cancelled": "This meetup was cancelled.",
+}
+
+
+def complete_quest(db: Session, player: User, quest: Quest,
+                   note: Optional[str]) -> CompletionResult:
+    """Complete a solo quest, or check in at a live meetup.
+
+    Idempotent: completing again returns the existing completion with
+    `already_completed: true` and `points_awarded: 0`. Quests with
+    `requires_approval` create a pending completion that awards points only
+    once a maintainer approves it; a rejected one can be resubmitted.
     """
-    for _ in range(5):
-        highest = db.scalar(select(func.max(Quest.id))) or 0
-        quest = Quest(id=max(highest + 1, FIRST_APP_QUEST_ID), **fields)
-        db.add(quest)
+    if quest.kind in WRONG_ACTION:
+        raise bad_request(WRONG_ACTION[quest.kind])
+    if quest.requires_code:
+        raise bad_request("Enter the printed code to complete this quest.")
+
+    existing = find_completion(db, player.username, quest.id)
+    if quest.kind == MEETUP and existing is None:
+        state = meetup_state(quest)
+        if state != "live":
+            raise conflict(MEETUP_CLOSED[state])
+
+    note = (note or "").strip() or None
+    if quest.kind == SOLO and quest.requires_approval:
+        if existing is not None and existing.status == COMPLETION_REJECTED:
+            existing.status = PENDING
+            existing.note = note
+            existing.completed_at = utcnow()
+            existing.review_note = None
+            existing.reviewer_id = None
+            existing.reviewed_at = None
+            db.commit()
+            return completion_result(db, player.username, existing, created=True)
+        completion, created = record_completion(db, player.username, quest, PENDING, note)
+    else:
+        completion, created = record_completion(db, player.username, quest, APPROVED)
+    return completion_result(db, player.username, completion, created)
+
+
+def redeem_quest_code(db: Session, player: User, quest: Quest,
+                      code: str) -> CompletionResult:
+    """Check a quest's stable printed code, then award this player once."""
+    if not quest.requires_code:
+        raise bad_request("This quest does not use a printed code.")
+    normalized = code.strip().upper()
+    if not normalized.isascii() or not hmac.compare_digest(
+        normalized, quest.verification_code or ""
+    ):
+        raise bad_request("That code is not valid for this quest.")
+    completion, created = record_completion(db, player.username, quest, APPROVED)
+    return completion_result(db, player.username, completion, created)
+
+
+def submit_quiz(db: Session, player: User, quest: Quest,
+                answers: List[int]) -> Tuple[QuizResult, Optional[CompletionResult]]:
+    """Check quiz answers. All must be right to pass; retries are unlimited
+    and the reward is granted only once."""
+    questions = ordered_questions(db, quest.id)
+    if len(answers) != len(questions):
+        raise bad_request("Answer every question.")
+    correct = [answer == question.correct_index
+               for answer, question in zip(answers, questions)]
+    passed = all(correct)
+    completion = None
+    if passed:
+        saved, created = record_completion(db, player.username, quest, APPROVED)
+        completion = completion_result(db, player.username, saved, created)
+    result = QuizResult(passed=passed, correct_count=sum(correct),
+                        total=len(questions), correct=correct)
+    return result, completion
+
+
+def complete_step(db: Session, player: User, quest: Quest,
+                  step_id: UUID) -> Optional[CompletionResult]:
+    """Mark the next step as done; the last step completes the quest.
+
+    Steps must be done in order. Points come only with the whole quest.
+    """
+    steps = ordered_steps(db, quest.id)
+    step = next((s for s in steps if s.id == step_id), None)
+    if step is None:
+        raise not_found("Step")
+
+    done = done_step_ids(db, player.username, steps)
+    if step.id not in done:
+        next_step = next(s for s in steps if s.id not in done)
+        if next_step.id != step.id:
+            raise conflict(f"Do step {next_step.position} first.")
+        db.add(StepProgress(player_id=player.username, step_id=step.id, completed_at=utcnow()))
         try:
             db.commit()
-            return quest
         except IntegrityError:
-            # Another request took this ID at the same moment; try the next.
-            db.rollback()
-    raise conflict("Could not create the quest, please try again.")
+            db.rollback()  # double tap: already saved
+        done = done_step_ids(db, player.username, steps)
+
+    if len(done) == len(steps):
+        saved, created = record_completion(db, player.username, quest, APPROVED)
+        return completion_result(db, player.username, saved, created)
+    return None
+
+
+def set_rsvp(db: Session, player: User, quest: Quest, attending: bool) -> None:
+    """Say you're coming to a meetup, or withdraw (check-in works without it)."""
+    if attending:
+        state = meetup_state(quest)
+        if state in ("past", "cancelled"):
+            raise conflict(MEETUP_CLOSED[state])
+        db.add(MeetupRsvp(player_id=player.username, quest_id=quest.id, created_at=utcnow()))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()  # already joined
+        return
+    rsvp = db.scalars(select(MeetupRsvp).where(
+        MeetupRsvp.quest_id == quest.id, MeetupRsvp.player_id == player.username)).first()
+    if rsvp is not None:
+        db.delete(rsvp)
+        db.commit()
+
+
+def report_quest(db: Session, player: User, quest: Quest, reason: str) -> None:
+    """Report inappropriate quest content to the maintainers (once per player)."""
+    db.add(QuestReport(player_id=player.username, quest_id=quest.id,
+                       reason=reason.strip(), created_at=utcnow()))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise conflict("You already reported this quest.")
+
+
+# --- Pair sessions ----------------------------------------------------------------
+# The host starts a session and shows a code (or the /join/CODE link); a
+# different player enters it. Both get the reward once.
+
+CODE_LENGTH = 6
+# No 0/O, 1/I/L, so codes are easy to read aloud and type.
+CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+CODE_LIFETIME = timedelta(minutes=10)
+
+
+def session_state(session: PairSession) -> str:
+    if session.completed_at is not None:
+        return "completed"
+    if session.cancelled:
+        return "cancelled"
+    if utcnow() > session.expires_at:
+        return "expired"
+    return "waiting"
+
+
+def session_out(db: Session, session: PairSession, player: User) -> PairSessionOut:
+    quest = db.get(Quest, session.quest_id)
+    host = db.get(User, session.host_id)
+    partner = db.get(User, session.partner_id) if session.partner_id else None
+    invited = db.get(User, session.invited_player_id) if session.invited_player_id else None
+    return PairSessionOut(
+        code=session.code,
+        quest_id=quest.id,
+        quest_title=quest.title,
+        host_name=host.name,
+        partner_name=partner.name if partner else None,
+        is_host=session.host_id == player.username,
+        state=session_state(session),
+        expires_at=as_utc(session.expires_at),
+        invited_name=invited.name if invited else None,
+    )
+
+
+def new_code(db: Session) -> str:
+    while True:
+        code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+        in_use = db.scalars(select(PairSession.id).where(
+            PairSession.code == code,
+            PairSession.expires_at >= utcnow(),
+        )).first()
+        if in_use is None:
+            return code
+
+
+def find_by_code(db: Session, code: str) -> PairSession:
+    session = db.scalars(
+        select(PairSession)
+        .where(PairSession.code == code.strip().upper())
+        .order_by(PairSession.created_at.desc())
+    ).first()
+    if session is None:
+        raise not_found("Code")
+    return session
+
+
+def cancel_pair(db: Session, player: User, quest: Quest) -> None:
+    """Cancel the player's open code for this quest (idempotent)."""
+    db.execute(
+        update(PairSession)
+        .where(
+            PairSession.quest_id == quest.id,
+            PairSession.host_id == player.username,
+            PairSession.completed_at.is_(None),
+        )
+        .values(cancelled=True))
+    db.commit()
+
+
+def start_pair(db: Session, player: User, quest: Quest,
+               invite_username: Optional[str]) -> PairSession:
+    """Start a two-player quest and create a code for the partner.
+
+    Replaces the player's earlier open code for this quest. Hosts who already
+    completed the quest may host again to help others; only the partner
+    earns points then. With `invite_username` the code also appears on that
+    player's home screen; both players must have opted in to suggestions.
+    """
+    if invite_username is not None:
+        if invite_username == player.username:
+            raise bad_request("You can't invite yourself.")
+        invitee = db.get(User, invite_username)
+        if invitee is None or not invitee.discoverable or not player.discoverable:
+            # Same rule as suggestions: only between players who opted in.
+            raise bad_request("You can only invite players from your suggestions.")
+    db.execute(
+        update(PairSession)
+        .where(
+            PairSession.quest_id == quest.id,
+            PairSession.host_id == player.username,
+            PairSession.completed_at.is_(None),
+        )
+        .values(cancelled=True))
+    now = utcnow()
+    session = PairSession(
+        quest_id=quest.id,
+        host_id=player.username,
+        code=new_code(db),
+        created_at=now,
+        expires_at=now + CODE_LIFETIME,
+        invited_player_id=invite_username,
+    )
+    db.add(session)
+    db.commit()
+    return session
+
+
+def join_pair(db: Session, player: User, code: str) -> Tuple[PairSession, CompletionResult]:
+    """Join a partner's session. Completes the quest for both players; each
+    gets the reward once (none if already completed). Retrying your own
+    successful join is harmless."""
+    session = find_by_code(db, code)
+    if session.host_id == player.username:
+        raise bad_request("You can't join your own code. Show it to another player.")
+
+    if session.partner_id != player.username:  # not a retry of our own join
+        state = session_state(session)
+        if state == "cancelled":
+            raise HTTPException(status.HTTP_410_GONE, detail="This code was cancelled.")
+        if state == "expired":
+            raise HTTPException(
+                status.HTTP_410_GONE,
+                detail="This code has expired. Ask your partner to start the quest again.")
+        if state == "completed":
+            raise conflict("This code was already used by another player.")
+        quest = db.get(Quest, session.quest_id)
+        if quest.status != PUBLISHED:
+            raise conflict("This quest is no longer available.")
+
+        # Claim the session atomically: only one partner can win.
+        now = utcnow()
+        claimed = db.execute(
+            update(PairSession)
+            .where(
+                PairSession.id == session.id,
+                PairSession.partner_id.is_(None),
+                PairSession.cancelled.is_(False),
+                PairSession.expires_at >= now,
+            )
+            .values(partner_id=player.username, completed_at=now)
+        ).rowcount
+        db.commit()
+        db.refresh(session)
+        if not claimed and session.partner_id != player.username:
+            raise conflict("This code was already used by another player.")
+
+    quest = db.get(Quest, session.quest_id)
+    record_completion(db, session.host_id, quest, APPROVED)
+    completion, created = record_completion(db, player.username, quest, APPROVED)
+    return session, completion_result(db, player.username, completion, created)
+
+
+def open_invitations(db: Session, player: User) -> List[PairSessionOut]:
+    """Open pair invitations addressed to the player, newest first."""
+    sessions = db.scalars(
+        select(PairSession)
+        .where(
+            PairSession.invited_player_id == player.username,
+            PairSession.completed_at.is_(None),
+            PairSession.cancelled.is_(False),
+            PairSession.expires_at >= utcnow(),
+        )
+        .order_by(PairSession.created_at.desc())
+    )
+    return [session_out(db, session, player) for session in sessions]
+
+
+# --- Connection suggestions ---------------------------------------------------------
+# Consent rules: only players who opted in (`discoverable`) appear in
+# suggestions, and only they receive suggestions. A suggestion shows the
+# display name and shared hobbies, nothing else. Dismissed players are never
+# suggested again.
+
+MAX_SUGGESTIONS = 20
+
+
+def suggestions_for(db: Session, player: User) -> Suggestions:
+    """Discoverable players sharing at least one hobby, most shared first."""
+    if not player.discoverable:
+        return Suggestions(enabled=False, suggestions=[])
+    mine = set(parse_hobbies(player.hobbies))
+    dismissed = set(db.scalars(select(DismissedSuggestion.dismissed_player_id).where(
+        DismissedSuggestion.player_id == player.username)))
+    candidates = db.scalars(select(User).where(
+        User.discoverable.is_(True), User.username != player.username))
+
+    suggestions = []
+    for other in candidates:
+        if other.username in dismissed:
+            continue
+        shared = [key for key in parse_hobbies(other.hobbies) if key in mine]
+        if shared:
+            suggestions.append(Suggestion(
+                username=other.username,
+                display_name=other.name,
+                shared_hobbies=[HOBBIES[key] for key in shared],
+            ))
+    suggestions.sort(key=lambda s: (-len(s.shared_hobbies), s.display_name.lower()))
+    return Suggestions(enabled=True, suggestions=suggestions[:MAX_SUGGESTIONS])
