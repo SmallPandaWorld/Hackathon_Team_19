@@ -88,6 +88,8 @@ class Quest(Base):
     verification_code: Mapped[Optional[str]] = mapped_column(
         String(12), nullable=True, unique=True, index=True,
         default=new_verification_code)
+    verification_starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    verification_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

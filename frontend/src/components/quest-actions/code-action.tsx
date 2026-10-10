@@ -7,6 +7,7 @@ import type {
   QuestOut,
 } from "@/src/lib/api/hackathon.schemas";
 import { useQuestAction } from "@/src/lib/use-quest-action";
+import { formatZurichDateTime } from "@/src/lib/quest-display";
 import { useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -33,8 +34,7 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
   );
 
   useEffect(() => {
-    if (!scannedCode || attemptedScan.current === scannedCode)
-      return;
+    if (!scannedCode || attemptedScan.current === scannedCode) return;
     attemptedScan.current = scannedCode;
     setCode(scannedCode);
     void redeem(scannedCode);
@@ -51,6 +51,20 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
 
   return (
     <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+      {(quest.verification_starts_at || quest.verification_ends_at) && (
+        <p className="text-sm text-muted">
+          {quest.verification_starts_at && (
+            <>
+              Valid from {formatZurichDateTime(quest.verification_starts_at)}
+              .{" "}
+            </>
+          )}
+          {quest.verification_ends_at && (
+            <>Expires at {formatZurichDateTime(quest.verification_ends_at)}. </>
+          )}
+          Times are shown in Europe/Zurich.
+        </p>
+      )}
       <label
         className="text-sm font-medium text-on-surface-variant"
         htmlFor="quest-code"

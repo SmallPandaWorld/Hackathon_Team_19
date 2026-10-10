@@ -99,6 +99,8 @@ def admin_quest_out(db: Session, quest: Quest) -> AdminQuestOut:
         requires_approval=quest.requires_approval,
         requires_code=quest.requires_code,
         verification_code=quest.verification_code,
+        verification_starts_at=as_utc(quest.verification_starts_at),
+        verification_ends_at=as_utc(quest.verification_ends_at),
         latitude=quest.latitude,
         longitude=quest.longitude,
         starts_at=as_utc(quest.starts_at),
@@ -134,6 +136,10 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     quest.kind = data.kind
     quest.requires_approval = data.requires_approval and data.kind == SOLO
     quest.requires_code = data.requires_code and data.kind == SOLO
+    quest.verification_starts_at = (
+        to_naive_utc(data.verification_starts_at) if quest.requires_code else None)
+    quest.verification_ends_at = (
+        to_naive_utc(data.verification_ends_at) if quest.requires_code else None)
     quest.latitude = data.latitude
     quest.longitude = data.longitude
     is_meetup = data.kind == MEETUP
@@ -187,6 +193,8 @@ def quest_input(db: Session, quest: Quest) -> dict:
         "kind": quest.kind,
         "requires_approval": quest.requires_approval,
         "requires_code": quest.requires_code,
+        "verification_starts_at": as_utc(quest.verification_starts_at),
+        "verification_ends_at": as_utc(quest.verification_ends_at),
         "latitude": quest.latitude,
         "longitude": quest.longitude,
         "starts_at": as_utc(quest.starts_at),

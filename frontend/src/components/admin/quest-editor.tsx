@@ -3,10 +3,7 @@
 import { CampusMap } from "@/src/components/campus-map";
 import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
-import {
-  useAdminCreateQuest,
-  useAdminUpdateQuest,
-} from "@/src/lib/api/admin";
+import { useAdminCreateQuest, useAdminUpdateQuest } from "@/src/lib/api/admin";
 import type {
   AdminQuestIn,
   AdminQuestInKind,
@@ -16,9 +13,12 @@ import type {
   StepIn,
 } from "@/src/lib/api/hackathon.schemas";
 import {
+  formatZurichDateTime,
   formatZurich,
+  fromZurichInput,
   KIND_LABELS,
   STATUS_LABELS,
+  toZurichInput,
 } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import { Check, X } from "lucide-react";
@@ -82,6 +82,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   const updateQuest = useAdminUpdateQuest();
   const { error, run, refreshAll } = useAction();
   const [saved, setSaved] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
 
   const [title, setTitle] = useState(quest?.title ?? "");
   const [description, setDescription] = useState(quest?.description ?? "");
@@ -93,6 +94,12 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   );
   const [requiresCode, setRequiresCode] = useState(
     quest?.requires_code ?? false,
+  );
+  const [verificationStartsAt, setVerificationStartsAt] = useState(
+    toZurichInput(quest?.verification_starts_at),
+  );
+  const [verificationEndsAt, setVerificationEndsAt] = useState(
+    toZurichInput(quest?.verification_ends_at),
   );
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
     quest?.latitude != null && quest?.longitude != null
@@ -123,6 +130,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
   function edited<T>(setter: (value: T) => void) {
     return (value: T) => {
       setSaved(false);
+      setTimeError(null);
       setter(value);
     };
   }
@@ -136,6 +144,14 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
       kind,
       requires_approval: kind === "solo" && requiresApproval,
       requires_code: kind === "solo" && requiresCode,
+      verification_starts_at:
+        kind === "solo" && requiresCode
+          ? fromZurichInput(verificationStartsAt, quest?.verification_starts_at)
+          : null,
+      verification_ends_at:
+        kind === "solo" && requiresCode
+          ? fromZurichInput(verificationEndsAt, quest?.verification_ends_at)
+          : null,
       latitude: pin?.lat ?? null,
       longitude: pin?.lng ?? null,
       starts_at: kind === "meetup" ? fromLocalInput(startsAt) : null,
@@ -148,19 +164,34 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    let data: AdminQuestIn;
+    try {
+      data = buildInput();
+      if (
+        data.verification_starts_at &&
+        data.verification_ends_at &&
+        Date.parse(data.verification_starts_at) >=
+          Date.parse(data.verification_ends_at)
+      ) {
+        setTimeError("Verification end must be after its start.");
+        return;
+      }
+      setTimeError(null);
+    } catch (cause) {
+      setTimeError(
+        cause instanceof Error ? cause.message : "Invalid verification time.",
+      );
+      return;
+    }
     if (quest) {
       if (
-        await run(() =>
-          updateQuest.mutateAsync({ questId: quest.id, data: buildInput() }),
-        )
+        await run(() => updateQuest.mutateAsync({ questId: quest.id, data }))
       ) {
         setSaved(true);
         await refreshAll();
       }
     } else {
-      const response = await run(() =>
-        createQuest.mutateAsync({ data: buildInput() }),
-      );
+      const response = await run(() => createQuest.mutateAsync({ data }));
       if (response?.status === 201) {
         await refreshAll();
         router.replace(`/admin/quests/${response.data.id}`);
@@ -184,11 +215,7 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
     ) {
       return;
     }
-    if (
-      await run(() =>
-        updateQuest.mutateAsync({ questId: quest.id, data }),
-      )
-    ) {
+    if (await run(() => updateQuest.mutateAsync({ questId: quest.id, data }))) {
       await refreshAll();
     }
   }
@@ -252,6 +279,16 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           <code className="text-xl font-bold tracking-widest">
             {quest.verification_code}
           </code>
+          {quest.verification_starts_at && (
+            <p className="text-sm">
+              Valid from {formatZurichDateTime(quest.verification_starts_at)}
+            </p>
+          )}
+          {quest.verification_ends_at && (
+            <p className="text-sm">
+              Expires at {formatZurichDateTime(quest.verification_ends_at)}
+            </p>
+          )}
           <Link
             className="font-semibold text-link hover:underline"
             href={`/admin/quests/${quest.id}/print`}
@@ -377,6 +414,40 @@ export function QuestEditor({ quest }: { quest?: AdminQuestOut }) {
           </fieldset>
         )}
       </Card>
+
+      {kind === "solo" && requiresCode && (
+        <Card className="flex flex-col gap-4">
+          <h2 className="font-semibold">Code validity window</h2>
+          <p className="text-sm text-muted">
+            Optional. Leave both empty to keep the permanent code valid
+            whenever this quest is published. Changing these times keeps
+            the printed code and QR the same.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-on-surface-variant">
+              Valid from (Europe/Zurich)
+              <input
+                className={inputStyles}
+                onChange={(e) =>
+                  edited(setVerificationStartsAt)(e.target.value)
+                }
+                type="datetime-local"
+                value={verificationStartsAt}
+              />
+            </label>
+            <label className="text-sm font-medium text-on-surface-variant">
+              Expires at (Europe/Zurich)
+              <input
+                className={inputStyles}
+                onChange={(e) => edited(setVerificationEndsAt)(e.target.value)}
+                type="datetime-local"
+                value={verificationEndsAt}
+              />
+            </label>
+          </div>
+          {timeError && <ErrorState message={timeError} />}
+        </Card>
+      )}
 
       {kind === "meetup" && (
         <Card className="flex flex-col gap-4">

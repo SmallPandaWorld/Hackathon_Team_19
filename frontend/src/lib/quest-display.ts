@@ -78,6 +78,56 @@ export function formatZurich(iso: string): string {
   return zurichFormat.format(new Date(iso));
 }
 
+const zurichDateTime = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Zurich",
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZoneName: "short",
+});
+
+const zurichInput = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Zurich",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+export function formatZurichDateTime(iso: string): string {
+  return zurichDateTime.format(new Date(iso));
+}
+
+export function toZurichInput(iso?: string | null): string {
+  if (!iso) return "";
+  const parts = Object.fromEntries(
+    zurichInput
+      .formatToParts(new Date(iso))
+      .map(({ type, value }) => [type, value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+export function fromZurichInput(
+  value: string,
+  original?: string | null,
+): string | null {
+  if (!value) return null;
+  if (original && toZurichInput(original) === value) return original;
+  const wallTime = Date.parse(`${value}:00Z`);
+  for (const offsetHours of [2, 1]) {
+    const iso = new Date(wallTime - offsetHours * 60 * 60 * 1000).toISOString();
+    if (toZurichInput(iso) === value) return iso;
+  }
+  throw new Error(
+    "This time does not exist in Europe/Zurich. Choose another time.",
+  );
+}
+
 export function formatMeetupTime(startsAt: string, endsAt: string): string {
   return `${zurichFormat.format(new Date(startsAt))}–${zurichTime.format(new Date(endsAt))} (Zurich time)`;
 }

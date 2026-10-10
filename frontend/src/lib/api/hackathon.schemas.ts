@@ -88,6 +88,8 @@ export interface AdminQuestIn {
   kind?: AdminQuestInKind;
   requires_approval?: boolean;
   requires_code?: boolean;
+  verification_starts_at?: string | null;
+  verification_ends_at?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -150,6 +152,8 @@ export interface AdminQuestOut {
   requires_code: boolean;
   /** Stable code for the printable QR; maintainers only */
   verification_code: string;
+  verification_starts_at?: string | null;
+  verification_ends_at?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -197,6 +201,8 @@ export interface AdminQuestPatch {
   kind?: AdminQuestPatchKind;
   requires_approval?: boolean | null;
   requires_code?: boolean | null;
+  verification_starts_at?: string | null;
+  verification_ends_at?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -506,6 +512,8 @@ export interface QuestOut {
   requires_approval: boolean;
   /** Enter the printed code or scan its QR to complete */
   requires_code: boolean;
+  verification_starts_at?: string | null;
+  verification_ends_at?: string | null;
   /** Map pin (WGS84) */
   latitude?: number | null;
   /** Map pin (WGS84) */

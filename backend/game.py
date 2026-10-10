@@ -275,6 +275,8 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             status=quest.status,
             requires_approval=quest.requires_approval,
             requires_code=quest.requires_code,
+            verification_starts_at=as_utc(quest.verification_starts_at),
+            verification_ends_at=as_utc(quest.verification_ends_at),
             latitude=quest.latitude,
             longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),
@@ -421,6 +423,11 @@ def redeem_quest_code(db: Session, player: User, quest: Quest,
         normalized, quest.verification_code or ""
     ):
         raise bad_request("That code is not valid for this quest.")
+    now = utcnow()
+    if quest.verification_starts_at is not None and now < quest.verification_starts_at:
+        raise conflict("This code is not valid yet. Check the start time shown on the quest.")
+    if quest.verification_ends_at is not None and now >= quest.verification_ends_at:
+        raise conflict("This code's validity period has ended. No points can be awarded.")
     completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
 

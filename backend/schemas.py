@@ -1,6 +1,6 @@
 """API request/response models. Orval generates the frontend types from these."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, List, Literal, Optional, Union
 from uuid import UUID
 
@@ -82,6 +82,8 @@ class QuestOut(BaseModel):
     status: QuestStatus
     requires_approval: bool
     requires_code: bool = Field(description="Enter the printed code or scan its QR to complete")
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
@@ -297,6 +299,8 @@ class AdminQuestIn(BaseModel):
     kind: QuestKind = "solo"
     requires_approval: bool = False
     requires_code: bool = False
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -312,6 +316,12 @@ class AdminQuestIn(BaseModel):
             raise ValueError("Code verification is available for solo quests only")
         if self.requires_code and self.requires_approval:
             raise ValueError("Choose code verification or maintainer approval")
+        if self.verification_starts_at is not None and self.verification_ends_at is not None:
+            def utc(value: datetime) -> datetime:
+                return (value.replace(tzinfo=timezone.utc) if value.tzinfo is None
+                        else value.astimezone(timezone.utc))
+            if utc(self.verification_starts_at) >= utc(self.verification_ends_at):
+                raise ValueError("Verification end must be after its start")
         return self
 
 
@@ -331,6 +341,8 @@ class AdminQuestPatch(BaseModel):
     kind: Optional[QuestKind] = None
     requires_approval: Optional[bool] = None
     requires_code: Optional[bool] = None
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -365,6 +377,8 @@ class AdminQuestOut(BaseModel):
     requires_approval: bool
     requires_code: bool
     verification_code: str = Field(description="Stable code for the printable QR; maintainers only")
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     starts_at: Optional[datetime] = None

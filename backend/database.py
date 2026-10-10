@@ -88,6 +88,12 @@ def ensure_schema(bind=None) -> None:
             if "verification_code" not in columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE quests ADD COLUMN verification_code VARCHAR(12)")
+            if "verification_starts_at" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quests ADD COLUMN verification_starts_at DATETIME")
+            if "verification_ends_at" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE quests ADD COLUMN verification_ends_at DATETIME")
             rows = connection.execute(text(
                 "SELECT id, verification_code FROM quests")).all()
             used = {code for _, code in rows if code}
