@@ -189,6 +189,34 @@ class MeetupRsvp(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class MeetupPhoto(Base):
+    """A photo in a meetup album, shown on profiles of opted-in attendees."""
+
+    __tablename__ = "meetup_photos"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    quest_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("quests.id"), nullable=False, index=True)
+    uploader_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class QuestPhoto(Base):
+    """A player's photo from a completed meetup, pair, or multi-step quest."""
+
+    __tablename__ = "quest_photos"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    quest_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("quests.id"), nullable=False, index=True)
+    uploader_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    media_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class QuestReport(Base):
     __tablename__ = "quest_reports"
     __table_args__ = (UniqueConstraint("player_id", "quest_id"),)
@@ -226,6 +254,23 @@ class Friendship(Base):
         String(20), nullable=False, default=FRIEND_PENDING, server_default=FRIEND_PENDING)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class EarnedBadge(Base):
+    """A badge that must outlive what unlocked it (e.g. a removed friend).
+
+    Most badges are computed from completions (see badges.py); only these are
+    stored. One row per player and badge, so it can never be issued twice.
+    """
+
+    __tablename__ = "earned_badges"
+    __table_args__ = (UniqueConstraint("player_id", "badge_key"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    player_id: Mapped[str] = mapped_column(
+        ForeignKey("users.username"), nullable=False, index=True)
+    badge_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    earned_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class DismissedSuggestion(Base):

@@ -1,6 +1,7 @@
 "use client";
 
 import { apiErrorMessage } from "@/src/lib/api-error";
+import { ProfilePicture } from "@/src/components/profile-picture";
 import { useGetMe } from "@/src/lib/api/players";
 import { Wrench } from "lucide-react";
 import Link from "next/link";
@@ -15,7 +16,9 @@ export function PlayerSummary() {
     : apiErrorMessage(data);
 
   if (isLoading) {
-    return <div className="h-14 animate-pulse rounded-2xl bg-surface-variant" />;
+    return (
+      <div className="h-14 animate-pulse rounded-2xl bg-surface-variant" />
+    );
   }
   if (error || !player) {
     return (
@@ -34,9 +37,11 @@ export function PlayerSummary() {
         className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-outline-variant bg-surface px-3 py-2.5 shadow-card hover:border-outline dark:bg-surface-variant"
         href="/profile"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary">
-          {player.display_name.charAt(0).toUpperCase()}
-        </span>
+        <ProfilePicture
+          displayName={player.display_name}
+          size="small"
+          username={player.username}
+        />
         <span className="min-w-0 flex-1 truncate font-semibold">
           {player.display_name}
         </span>

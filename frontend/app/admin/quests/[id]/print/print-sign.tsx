@@ -64,8 +64,9 @@ function Sign({ questId }: { questId: string }) {
         <h1 className="text-3xl font-bold">{quest.title}</h1>
         {quest.location && <p>{quest.location}</p>}
         <p className="max-w-md">
-          Complete the activity, then scan this QR code with your phone camera
-          or enter the code on the quest page.
+          {quest.kind === "meetup"
+            ? "You made it! Scan this QR code with your phone camera or enter the code on the quest page to check in."
+            : "Complete the activity, then scan this QR code with your phone camera or enter the code on the quest page."}
         </p>
         {origin && (
           <QRCodeSVG

@@ -1,6 +1,7 @@
 "use client";
 
 import { CampusMap } from "@/src/components/campus-map";
+import { MeetupPhotoManager } from "@/src/components/admin/meetup-photo-manager";
 import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
 import { useAdminCreateQuest, useAdminUpdateQuest } from "@/src/lib/api/admin";
@@ -145,7 +146,7 @@ export function QuestEditor({
       points: Number(points) || 0,
       kind,
       requires_approval: kind === "solo" && requiresApproval,
-      requires_code: kind === "solo" && requiresCode,
+      requires_code: (kind === "solo" || kind === "meetup") && requiresCode,
       requires_password: kind === "solo" && requiresPassword,
       ...(kind === "solo" && requiresPassword && password.trim()
         ? { password: password.trim() }
@@ -353,7 +354,7 @@ export function QuestEditor({
             />
           </label>
           <label className="text-sm font-medium text-on-surface-variant">
-            Points
+            Points {playerCreate && <span className="text-muted">(fixed)</span>}
             <input
               className={`${inputStyles} disabled:cursor-not-allowed disabled:bg-surface-container disabled:text-muted`}
               disabled={playerCreate}
@@ -374,6 +375,33 @@ export function QuestEditor({
           <p className="text-xs text-muted">
             Changing points only affects future completions.
           </p>
+        )}
+        {kind === "meetup" && (
+          <fieldset className="flex flex-col gap-2 text-sm">
+            <legend className="font-semibold">Check-in method</legend>
+            <label className="flex items-center gap-2">
+              <input
+                checked={!requiresCode}
+                onChange={() => edited(setRequiresCode)(false)}
+                name="check-in-method"
+                type="radio"
+              />
+              Players tap “I’m here” while the meetup is live
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                checked={requiresCode}
+                onChange={() => edited(setRequiresCode)(true)}
+                name="check-in-method"
+                type="radio"
+              />
+              Players scan the organiser’s QR code
+            </label>
+            <p className="text-xs text-muted">
+              Print the QR sign after saving and bring it to the meetup. The
+              code only works during the check-in window.
+            </p>
+          </fieldset>
         )}
         {kind === "solo" && (
           <fieldset className="flex flex-col gap-2 text-sm">
@@ -512,6 +540,9 @@ export function QuestEditor({
             </span>
           </label>
         </Card>
+      )}
+      {kind === "meetup" && quest?.kind === "meetup" && (
+        <MeetupPhotoManager questId={quest.id} />
       )}
 
       {kind === "multi_step" && (

@@ -7,6 +7,9 @@ services:
       - 127.0.0.1:8000:8000
     environment:
       DATABASE_URL: sqlite:////data/users.db
+      AVATAR_STORAGE_DIR: /data/avatars
+      MEETUP_PHOTO_STORAGE_DIR: /data/meetup_photos
+      QUEST_PHOTO_STORAGE_DIR: /data/quest_photos
       # Comma-separated VISCON user IDs (X-User-Id) of quest maintainers.
       # Set it on the server, e.g. in a .env file next to this file.
       MAINTAINER_IDS: ${MAINTAINER_IDS:-}

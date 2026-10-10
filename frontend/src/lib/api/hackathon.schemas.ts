@@ -360,18 +360,31 @@ export interface HobbyOption {
   label: string;
 }
 
+export type LeaderboardScope =
+  (typeof LeaderboardScope)[keyof typeof LeaderboardScope];
+
+export const LeaderboardScope = {
+  global: "global",
+  friends: "friends",
+} as const;
+
 export interface LeaderboardEntry {
   /** Players with equal points share a rank */
   rank: number;
+  /** Username when the viewer may view this profile */
+  username?: string | null;
   display_name: string;
   points: number;
   is_current_player: boolean;
 }
 
 export interface Leaderboard {
-  /** Players with at least one point, best first */
+  scope: LeaderboardScope;
+  /** Ranked best first. Global: everyone with at least one point (top 50). Friends: you and all your accepted friends. */
   entries: LeaderboardEntry[];
   current_player: LeaderboardEntry;
+  /** Accepted friends of the current player (0 means the Friends view is empty) */
+  friend_count: number;
 }
 
 export interface Suggestion {
@@ -585,7 +598,7 @@ export interface QuestOut {
   kind: QuestOutKind;
   status: QuestOutStatus;
   requires_approval: boolean;
-  /** Enter the printed code or scan its QR to complete */
+  /** Enter the printed code or scan its QR to complete (meetups: to check in) */
   requires_code: boolean;
   /** Enter the creator-set password to complete */
   requires_password: boolean;
@@ -638,7 +651,8 @@ export interface QuizAction {
 }
 
 /**
- * Redeem a printed code or creator-set password for a solo quest.
+ * Redeem a printed code or solo password, or check in at a live meetup
+ * whose organiser shows the QR code.
  */
 export interface RedeemAction {
   type: "redeem";
@@ -684,6 +698,21 @@ export type SearchPlayersParams = {
    */
   q: string;
 };
+
+export type GetLeaderboardParams = {
+  /**
+   * `global`: all players; `friends`: you and your accepted friends
+   */
+  scope?: GetLeaderboardScope;
+};
+
+export type GetLeaderboardScope =
+  (typeof GetLeaderboardScope)[keyof typeof GetLeaderboardScope];
+
+export const GetLeaderboardScope = {
+  global: "global",
+  friends: "friends",
+} as const;
 
 export type AdminListQuestsParams = {
   status?: AdminListQuestsStatus;

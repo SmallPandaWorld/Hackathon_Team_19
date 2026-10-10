@@ -40,9 +40,37 @@ function codeFromQr(value: string, questId: string) {
   return code;
 }
 
-export function CodeAction({ quest }: { quest: QuestOut }) {
+export type CodeCopy = {
+  label: string;
+  placeholder: string;
+  button: string;
+  hint: string;
+};
+
+const SOLO_COPY: CodeCopy = {
+  label: "Code from the quest sign",
+  placeholder: "Enter the printed code",
+  button: "Verify completion",
+  hint: "Scan the sign or enter its printed code. Each player earns points once.",
+};
+
+const PASSWORD_COPY: CodeCopy = {
+  label: "Quest password",
+  placeholder: "Enter the password",
+  button: "Verify completion",
+  hint: "Enter the password shared by the quest creator. Each player earns points once.",
+};
+
+export function CodeAction({
+  quest,
+  copy = SOLO_COPY,
+}: {
+  quest: QuestOut;
+  copy?: CodeCopy;
+}) {
   const searchParams = useSearchParams();
   const scannedCode = quest.requires_password ? null : searchParams.get("code");
+  const activeCopy = quest.requires_password ? PASSWORD_COPY : copy;
   const [code, setCode] = useState(scannedCode ?? "");
   const [result, setResult] = useState<CompletionResult | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -124,9 +152,7 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
           className="text-sm font-medium text-on-surface-variant"
           htmlFor="quest-code"
         >
-          {quest.requires_password
-            ? "Quest password"
-            : "Code from the quest sign"}
+          {activeCopy.label}
           <input
             autoComplete="off"
             className={`${inputStyles} font-mono`}
@@ -139,11 +165,7 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
                   : event.target.value.toUpperCase(),
               )
             }
-            placeholder={
-              quest.requires_password
-                ? "Enter the password"
-                : "Enter the printed code"
-            }
+            placeholder={activeCopy.placeholder}
             required
             type={quest.requires_password ? "password" : "text"}
             value={code}
@@ -158,14 +180,10 @@ export function CodeAction({ quest }: { quest: QuestOut }) {
             ? quest.requires_password
               ? "Checking password..."
               : "Checking code..."
-            : "Verify completion"}
+            : activeCopy.button}
         </button>
       </form>
-      <p className="text-center text-xs text-muted">
-        {quest.requires_password
-          ? "Enter the password shared by the quest creator. Each player earns points once."
-          : "Scan the sign or enter its printed code. Each player earns points once."}
-      </p>
+      <p className="text-center text-xs text-muted">{activeCopy.hint}</p>
       {error && <ErrorState message={error} />}
     </div>
   );

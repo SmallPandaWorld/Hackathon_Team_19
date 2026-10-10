@@ -44,7 +44,7 @@ There are five quest types:
 | `multi_step` | Work through ordered activities | Complete the steps in order; the last step completes the quest |
 | `meetup` | Attend a scheduled campus event | Check in during the allowed time window |
 
-Printed verification is optional for solo quests. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. This is separate from the temporary codes used to join pair quests.
+Printed verification is optional for solo quests and meetups. A maintainer chooses the completion method and prints a sign containing the quest's permanent code and a QR link. On a code-verified quest, players can enter the printed code or scan the sign from the quest screen with the in-app ZXing WASM scanner. A phone's camera app can still open the printed link, and the web app submits its code automatically. For a meetup it replaces the "I'm here" button: the organiser brings the printed sign and players scan it to check in, still only during the check-in window. This is separate from the temporary codes used to join pair quests.
 
 Password verification is another solo completion method. A creator sets a 1–40 character password and shares it with players after they finish the activity. The backend stores a salted password hash; admin and player responses never return the password. Maintainers can replace it by entering a new one when editing. Password quests have no QR scanner.
 
@@ -129,7 +129,7 @@ Hackathon_Team_19/
 │   ├── models.py                   SQLAlchemy database tables
 │   ├── schemas.py                  API request and response models
 │   ├── game.py                     Shared scoring and game rules
-│   ├── badges.py                   Computed achievements
+│   ├── badges.py                   Achievements (computed, friend badge stored)
 │   ├── hobbies.py                  Fixed hobby catalog
 │   ├── friendships.py              Friend request rules and friends view
 │   ├── routers/
@@ -244,7 +244,7 @@ The deployment must ensure public traffic reaches the app through that trusted p
 
 ## 6. Database models and relationships
 
-`backend/models.py` defines ten tables. It uses SQLAlchemy's typed `Mapped` fields and `mapped_column()`. Relationships are represented by foreign keys; the code generally queries them explicitly rather than defining ORM `relationship()` collections.
+`backend/models.py` defines twelve tables. It uses SQLAlchemy's typed `Mapped` fields and `mapped_column()`. Relationships are represented by foreign keys; the code generally queries them explicitly rather than defining ORM `relationship()` collections.
 
 | Class / table | Main fields | Why it exists |
 | --- | --- | --- |
@@ -256,6 +256,8 @@ The deployment must ensure public traffic reaches the app through that trusted p
 | `Completion` / `completions` | Player ID, quest ID, status, awarded points, time, player note, review details | The authoritative completion and reward record |
 | `PairSession` / `pair_sessions` | Quest, host, code, expiry, partner, completion time, cancellation, invitee | A two-player quest attempt |
 | `MeetupRsvp` / `meetup_rsvps` | Player, quest, creation time | Intention to attend, separate from check-in |
+| `MeetupPhoto` / `meetup_photos` | Meetup, uploader, media type, upload time | Event album photo; appears on checked-in players' profiles only while opted in |
+| `QuestPhoto` / `quest_photos` | Quest, player uploader, media type, upload time | Player-uploaded photo from a completed meetup, pair, or multi-step quest |
 | `QuestReport` / `quest_reports` | Player, quest, reason, time, resolved flag | Content moderation reports |
 | `DismissedSuggestion` / `dismissed_suggestions` | Player and dismissed player | Persistent hiding of a suggestion |
 
@@ -273,6 +275,10 @@ erDiagram
     USERS ||--o{ PAIR_SESSIONS : hosts_or_joins
     USERS ||--o{ MEETUP_RSVPS : attends
     QUESTS ||--o{ MEETUP_RSVPS : receives
+    USERS ||--o{ MEETUP_PHOTOS : uploads
+    QUESTS ||--o{ MEETUP_PHOTOS : contains
+    USERS ||--o{ QUEST_PHOTOS : uploads
+    QUESTS ||--o{ QUEST_PHOTOS : contains
     USERS ||--o{ QUEST_REPORTS : submits
     QUESTS ||--o{ QUEST_REPORTS : receives
     USERS ||--o{ DISMISSED_SUGGESTIONS : hides
@@ -439,7 +445,7 @@ Most game routes use `get_current_player`. `/admin` routes additionally require 
 
 `complete_quest()` rejects pair, quiz, and multi-step quests with instructions to use their dedicated mechanisms. It also rejects code- and password-verified quests, so the ordinary completion endpoint cannot bypass verification. For a meetup's first completion, it requires `live`. An existing meetup completion can be returned without awarding again after the window closes, provided the quest remains published.
 
-The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest. `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
+The `redeem` action accepts `{"type": "redeem", "code": "..."}` for a published, code-verified solo quest or meetup (for a meetup the live check-in window still applies, except for players who already checked in). `redeem_quest_code()` trims and uppercases input, rejects non-ASCII normalized values, checks it against that quest's saved code, and returns a readable 400 error for a mismatch without awarding points. A valid code calls `record_completion()`: multiple players can use the same sign, but each player/quest pair receives at most one reward. A repeat returns `already_completed=true` and zero newly awarded points.
 
 The same `redeem` action accepts the password in its `code` field for password-verified solo quests. It compares a case-sensitive, trimmed password with the stored PBKDF2 hash. A mismatch awards no points; a match follows the same one-reward-per-player rule.
 
@@ -485,7 +491,7 @@ The join then ensures both host and partner have an approved completion. Each re
 | POST | `/friends/{username}/accept` | `accept_friend_request`: only the addressee of an open request; 404 otherwise |
 | DELETE | `/friends/{username}` | `remove_friend`: declines an incoming request, cancels an outgoing one, or ends a friendship; 404 if nothing exists |
 
-Every endpoint returns the caller's updated `Friends` view. The rules live in `backend/friendships.py`; `GET /players/{username}` adds `friend_status` (`none`, `outgoing`, `incoming`, `friends`) so the profile page can show the right button. The frontend lives in `frontend/src/components/friends.tsx` (`FriendActions` on another player's profile, `FriendsCard` on your own).
+`GET /leaderboard?scope=friends` ranks the caller and their accepted friends with the same scoring as the global board (everyone in the group is listed, points or not; `friend_count` lets the UI show an empty state). Every friends endpoint returns the caller's updated `Friends` view. The rules live in `backend/friendships.py`; `GET /players/{username}` adds `friend_status` (`none`, `outgoing`, `incoming`, `friends`) so the profile page can show the right button. The frontend lives in `frontend/src/components/friends.tsx` (`FriendActions` on another player's profile, `FriendsCard` on your own).
 
 ### 9.4 `backend/routers/social.py`
 
@@ -496,7 +502,7 @@ Every endpoint returns the caller's updated `Friends` view. The rules live in `b
 
 Matching is deterministic, not AI-based. If the current player has not opted in, the response has `enabled=false` and no suggestions.
 
-Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded. A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
+Candidates must be discoverable, have an external identity, and be someone other than the current player. Previously dismissed candidates are excluded, and so are friends and players with an open friend request in either direction (they show in the friends section instead; they can be suggested again once that relation is removed). A candidate must share at least one hobby. Results sort by the number of shared hobbies descending, then display name case-insensitively, with at most 20 returned.
 
 Suggestions include the username needed for invite and dismiss actions, plus the display name and shared hobby labels. Other hobbies are not included. Dismissals are one-directional and persist; duplicate dismissals are harmless. There is no restoration endpoint.
 
@@ -543,9 +549,15 @@ Status changes accept `draft`, `published`, or `retired`. Publishing requires no
 
 Only pending completion claims can be reviewed. Approval records the current quest reward; rejection records zero. Both decisions save reviewer, note, and review time.
 
+### 9.7 `backend/routers/photos.py`
+
+Maintainers upload and delete PNG, JPEG, or WebP photos on meetup quests. Photos are stored under `MEETUP_PHOTO_STORAGE_DIR`; Compose maps that directory into the persistent backend data volume. Published meetup pages show their album. An opted-in player sees photos from meetups they checked into on their profile. Profile-photo metadata and image routes check both discoverability and attendance, so opting out hides the profile gallery.
+
+Players can also add a PNG, JPEG, or WebP photo (up to 8 MiB) after completing a meetup, pair, or multi-step quest, and delete their own photos from quest and profile galleries. Player photos appear in that quest's gallery and on the uploader's profile only when they opted into connection suggestions. Compose stores them under `QUEST_PHOTO_STORAGE_DIR` in the persistent backend data volume.
+
 “Remove quest” in report moderation means retire it, not delete database history. Retiring through a report also marks every report for that quest resolved. Dismissing only closes the selected report.
 
-### 9.7 Error semantics
+### 9.8 Error semantics
 
 | HTTP status | Meaning here |
 | --- | --- |
@@ -588,7 +600,7 @@ Never reuse a quest ID for a different activity, because saved history refers to
 
 ### 10.2 `backend/badges.py`
 
-Badges are computed rather than stored in a badge table. `player_badges()` reads approved completions ordered by completion time and ID, joins quest type, and evaluates the catalog:
+Quest badges are computed rather than stored. `player_badges()` reads approved completions ordered by completion time and ID, joins quest type, and evaluates the catalog. The friend badge is the exception, because it must outlive the friendship that unlocked it:
 
 | Key | Badge | Rule |
 | --- | --- | --- |
@@ -599,6 +611,9 @@ Badges are computed rather than stored in a badge table. `player_badges()` reads
 | `tour` | Pathfinder | Complete a multi-step quest |
 | `meetup` | Showed up | Complete a meetup check-in |
 | `century` | Century | Reach 100 approved points |
+| `first_friend` | New friend | Have a friend request accepted, as sender or addressee |
+
+`first_friend` is stored in the `earned_badges` table (one row per player and badge, unique). `accept_request()` in `friendships.py` calls `award_badge()` for both players in the same transaction as the acceptance; an existing row is left untouched, so more friends or removing and re-adding a friend never issue it again, and removing the friendship keeps it. Self, pending, declined, and cancelled requests never pass through acceptance, so they cannot unlock it. Friendships accepted before the table existed still count: the badge also takes the oldest current accepted friendship into account.
 
 Each response includes whether the badge is earned, the unlocking completion timestamp, capped progress, and target. Pending or rejected completions do not contribute. For an approval-required quest, the badge timestamp follows the stored completion timestamp, not necessarily the later review time.
 
@@ -825,6 +840,9 @@ Admin pages are explained together in section 15 because they share the maintain
 | `frontend/src/components/icons.tsx` | Central quest and badge icon maps |
 | `frontend/src/components/campus-motif.tsx` | Reusable campus illustration |
 | `frontend/src/components/campus-map.tsx` | Browser-side Leaflet map; detailed in section 16 |
+| `frontend/src/components/meetup-photo-gallery.tsx` | Meetup album and opted-in attendee profile gallery |
+| `frontend/src/components/quest-photo-gallery.tsx` | Player quest-photo upload, quest album, and opted-in profile gallery |
+| `frontend/src/components/admin/meetup-photo-manager.tsx` | Maintainer upload and deletion controls for meetup albums |
 
 ### 13.1 Layout and feedback
 
@@ -962,6 +980,7 @@ The editor owns local state for text, reward, kind, completion method, pin, sche
 Type-specific editing:
 
 - Solo: choose player confirmation, printed code/QR, creator-set password, or maintainer approval. Only one method can be selected.
+- Meetup: choose the "I'm here" button or QR check-in with the printed sign.
 - Meetup: start/end local datetime inputs, cancellation, and Zurich-time preview.
 - Multi-step: ordered titles/details, add/remove controls, minimum two visible steps, maximum 20.
 - Quiz: questions, choice strings, one correct answer per question, minimum two choices, maximum eight choices and 20 questions. Removing a choice adjusts the correct index.

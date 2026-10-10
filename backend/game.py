@@ -26,6 +26,7 @@ from models import (
     SOLO,
     Completion,
     DismissedSuggestion,
+    Friendship,
     MeetupRsvp,
     PairSession,
     Quest,
@@ -79,6 +80,8 @@ ERROR_DESCRIPTIONS = {
     404: "Not found",
     409: "Conflicts with the current state",
     410: "Code expired or cancelled",
+    413: "Payload too large",
+    415: "Unsupported media type",
 }
 
 
@@ -382,7 +385,10 @@ def complete_quest(db: Session, player: User, quest: Quest,
     if quest.kind in WRONG_ACTION:
         raise bad_request(WRONG_ACTION[quest.kind])
     if quest.requires_code:
-        raise bad_request("Enter the printed code to complete this quest.")
+        raise bad_request(
+            "Scan the QR code shown at the meetup to check in."
+            if quest.kind == MEETUP else
+            "Enter the printed code to complete this quest.")
     if quest.requires_password:
         raise bad_request("Enter the password to complete this quest.")
 
@@ -411,8 +417,12 @@ def complete_quest(db: Session, player: User, quest: Quest,
 
 def redeem_quest_code(db: Session, player: User, quest: Quest,
                       code: str) -> CompletionResult:
-    """Check a solo quest's printed code or password, then award once."""
+    """Check a solo quest's printed code or password, or a live meetup's QR code."""
+    if quest.kind not in (SOLO, MEETUP):
+        raise bad_request(WRONG_ACTION.get(quest.kind, "This quest does not use a code."))
     if quest.requires_password:
+        if quest.kind != SOLO:
+            raise bad_request("Only solo quests use passwords.")
         if not verify_quest_password(code.strip(), quest.password_hash):
             raise bad_request("That password is not valid for this quest.")
     elif quest.requires_code:
@@ -423,6 +433,10 @@ def redeem_quest_code(db: Session, player: User, quest: Quest,
             raise bad_request("That code is not valid for this quest.")
     else:
         raise bad_request("This quest does not use a code or password.")
+    if quest.kind == MEETUP and find_completion(db, player.username, quest.id) is None:
+        state = meetup_state(quest)
+        if state != "live":
+            raise conflict(MEETUP_CLOSED[state])
     completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
 
@@ -700,7 +714,8 @@ def open_invitations(db: Session, player: User) -> List[PairSessionOut]:
 # Consent rules: only players who opted in (`discoverable`) appear in
 # suggestions, and only they receive suggestions. A suggestion shows the
 # display name and shared hobbies, nothing else. Dismissed players are never
-# suggested again.
+# suggested again; friends and players with an open friend request (either
+# way) aren't suggested while that relation exists.
 
 MAX_SUGGESTIONS = 20
 
@@ -712,12 +727,20 @@ def suggestions_for(db: Session, player: User) -> Suggestions:
     mine = set(parse_hobbies(player.hobbies))
     dismissed = set(db.scalars(select(DismissedSuggestion.dismissed_player_id).where(
         DismissedSuggestion.player_id == player.username)))
+    connected = set()
+    for requester_id, addressee_id in db.execute(
+        select(Friendship.requester_id, Friendship.addressee_id).where(or_(
+            Friendship.requester_id == player.username,
+            Friendship.addressee_id == player.username,
+        ))
+    ):
+        connected.add(addressee_id if requester_id == player.username else requester_id)
     candidates = db.scalars(select(User).where(
         User.discoverable.is_(True), User.username != player.username))
 
     suggestions = []
     for other in candidates:
-        if other.username in dismissed:
+        if other.username in dismissed or other.username in connected:
             continue
         shared = [key for key in parse_hobbies(other.hobbies) if key in mine]
         if shared:

@@ -55,7 +55,7 @@ meetup not live), `410` expired/cancelled code.
 
 | Area | Endpoints |
 |---|---|
-| Player | `GET`/`PUT /me` (profile, points, badges, hobby options, connection suggestions, pair invitations, created quests), `DELETE /me/suggestions/{username}`, `GET /leaderboard`, `GET /players?q=` (search discoverable players), `GET /players/{username}` (public profile) |
+| Player | `GET`/`PUT /me` (profile, points, badges, hobby options, connection suggestions, pair invitations, created quests), `DELETE /me/suggestions/{username}`, `GET /leaderboard?scope=global|friends`, `GET /players?q=` (search discoverable players), `GET /players/{username}` (public profile) |
 | Quests | `GET /quests`, `GET /quests/{id}` (incl. your latest `pair_session`), `POST /quests` (publish a quest immediately) |
 | Quest actions | `POST /quests/{id}/actions` with `type`: `complete` (solo, meetup check-in), `quiz`, `step`, `rsvp`, `report`, `pair_start` (optional `invite_username`), `pair_cancel` |
 | Partner quests | `GET`/`POST /pair/{code}` (look up / join a code) |
