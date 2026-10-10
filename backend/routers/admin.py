@@ -102,6 +102,8 @@ def admin_quest_out(db: Session, quest: Quest) -> AdminQuestOut:
         requires_code=quest.requires_code,
         requires_password=quest.requires_password,
         verification_code=quest.verification_code,
+        verification_starts_at=as_utc(quest.verification_starts_at),
+        verification_ends_at=as_utc(quest.verification_ends_at),
         latitude=quest.latitude,
         longitude=quest.longitude,
         starts_at=as_utc(quest.starts_at),
@@ -145,6 +147,10 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
         while db.scalar(select(Quest.id).where(Quest.verification_code == code)):
             code = new_verification_code()
         quest.verification_code = code
+    quest.verification_starts_at = (
+        to_naive_utc(data.verification_starts_at) if quest.requires_code else None)
+    quest.verification_ends_at = (
+        to_naive_utc(data.verification_ends_at) if quest.requires_code else None)
     quest.requires_password = data.requires_password and data.kind == SOLO
     if quest.requires_password:
         if data.password is not None:
@@ -207,6 +213,8 @@ def quest_input(db: Session, quest: Quest) -> dict:
         "requires_approval": quest.requires_approval,
         "requires_code": quest.requires_code,
         "requires_password": quest.requires_password,
+        "verification_starts_at": as_utc(quest.verification_starts_at),
+        "verification_ends_at": as_utc(quest.verification_ends_at),
         "latitude": quest.latitude,
         "longitude": quest.longitude,
         "starts_at": as_utc(quest.starts_at),

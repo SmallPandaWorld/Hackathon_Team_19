@@ -7,6 +7,7 @@ import type {
   QuestOut,
 } from "@/src/lib/api/hackathon.schemas";
 import { useQuestAction } from "@/src/lib/use-quest-action";
+import { formatZurichDateTime } from "@/src/lib/quest-display";
 import { useSearchParams } from "next/navigation";
 import { ScanQrCode } from "lucide-react";
 import {
@@ -123,6 +124,24 @@ export function CodeAction({
 
   return (
     <div className="flex flex-col gap-3">
+      {!quest.requires_password &&
+        (quest.verification_starts_at || quest.verification_ends_at) && (
+          <p className="text-sm text-muted">
+            {quest.verification_starts_at && (
+              <>
+                Valid from {formatZurichDateTime(quest.verification_starts_at)}
+                .{" "}
+              </>
+            )}
+            {quest.verification_ends_at && (
+              <>
+                Expires at {formatZurichDateTime(quest.verification_ends_at)}
+                .{" "}
+              </>
+            )}
+            Times are shown in Europe/Zurich.
+          </p>
+        )}
       {!quest.requires_password && !scannerOpen && (
         <button
           aria-expanded={scannerOpen}

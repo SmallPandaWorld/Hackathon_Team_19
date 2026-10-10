@@ -90,6 +90,8 @@ class Quest(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
     verification_code: Mapped[Optional[str]] = mapped_column(
         String(12), nullable=True, unique=True, index=True)
+    verification_starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    verification_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

@@ -16,9 +16,12 @@ import type {
   StepIn,
 } from "@/src/lib/api/hackathon.schemas";
 import {
+  formatZurichDateTime,
   formatZurich,
+  fromZurichInput,
   KIND_LABELS,
   STATUS_LABELS,
+  toZurichInput,
 } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import { useCreateQuest } from "@/src/lib/api/quests";
@@ -89,6 +92,7 @@ export function QuestEditor({
   const updateQuest = useAdminUpdateQuest();
   const { error, run, refreshAll } = useAction();
   const [saved, setSaved] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
 
   const [title, setTitle] = useState(quest?.title ?? "");
   const [description, setDescription] = useState(quest?.description ?? "");
@@ -100,6 +104,12 @@ export function QuestEditor({
   );
   const [requiresCode, setRequiresCode] = useState(
     quest?.requires_code ?? false,
+  );
+  const [verificationStartsAt, setVerificationStartsAt] = useState(
+    toZurichInput(quest?.verification_starts_at),
+  );
+  const [verificationEndsAt, setVerificationEndsAt] = useState(
+    toZurichInput(quest?.verification_ends_at),
   );
   const [requiresPassword, setRequiresPassword] = useState(
     playerCreate || (quest?.requires_password ?? false),
@@ -134,6 +144,7 @@ export function QuestEditor({
   function edited<T>(setter: (value: T) => void) {
     return (value: T) => {
       setSaved(false);
+      setTimeError(null);
       setter(value);
     };
   }
@@ -151,6 +162,14 @@ export function QuestEditor({
       ...(kind === "solo" && requiresPassword && password.trim()
         ? { password: password.trim() }
         : {}),
+      verification_starts_at:
+        (kind === "solo" || kind === "meetup") && requiresCode
+          ? fromZurichInput(verificationStartsAt, quest?.verification_starts_at)
+          : null,
+      verification_ends_at:
+        (kind === "solo" || kind === "meetup") && requiresCode
+          ? fromZurichInput(verificationEndsAt, quest?.verification_ends_at)
+          : null,
       latitude: pin?.lat ?? null,
       longitude: pin?.lng ?? null,
       starts_at: kind === "meetup" ? fromLocalInput(startsAt) : null,
@@ -187,20 +206,35 @@ export function QuestEditor({
       }
       return;
     }
+    let data: AdminQuestIn;
+    try {
+      data = buildInput();
+      if (
+        data.verification_starts_at &&
+        data.verification_ends_at &&
+        Date.parse(data.verification_starts_at) >=
+          Date.parse(data.verification_ends_at)
+      ) {
+        setTimeError("Verification end must be after its start.");
+        return;
+      }
+      setTimeError(null);
+    } catch (cause) {
+      setTimeError(
+        cause instanceof Error ? cause.message : "Invalid verification time.",
+      );
+      return;
+    }
     if (quest) {
       if (
-        await run(() =>
-          updateQuest.mutateAsync({ questId: quest.id, data: buildInput() }),
-        )
+        await run(() => updateQuest.mutateAsync({ questId: quest.id, data }))
       ) {
         setSaved(true);
         setPassword("");
         await refreshAll();
       }
     } else {
-      const response = await run(() =>
-        createQuest.mutateAsync({ data: buildInput() }),
-      );
+      const response = await run(() => createQuest.mutateAsync({ data }));
       if (response?.status === 201) {
         await refreshAll();
         router.replace(`/admin/quests/${response.data.id}`);
@@ -286,6 +320,16 @@ export function QuestEditor({
           <code className="text-xl font-bold tracking-widest">
             {quest.verification_code}
           </code>
+          {quest.verification_starts_at && (
+            <p className="text-sm">
+              Valid from {formatZurichDateTime(quest.verification_starts_at)}
+            </p>
+          )}
+          {quest.verification_ends_at && (
+            <p className="text-sm">
+              Expires at {formatZurichDateTime(quest.verification_ends_at)}
+            </p>
+          )}
           <Link
             className="font-semibold text-link hover:underline"
             href={`/admin/quests/${quest.id}/print`}
@@ -497,6 +541,43 @@ export function QuestEditor({
           </fieldset>
         )}
       </Card>
+
+      {(kind === "solo" || kind === "meetup") &&
+        requiresCode &&
+        !playerCreate && (
+          <Card className="flex flex-col gap-4">
+            <h2 className="font-semibold">Code validity window</h2>
+            <p className="text-sm text-muted">
+              Optional. Leave both empty to use the quest’s usual availability.
+              Changing these times keeps the printed code and QR the same.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-on-surface-variant">
+                Valid from (Europe/Zurich)
+                <input
+                  className={inputStyles}
+                  onChange={(e) =>
+                    edited(setVerificationStartsAt)(e.target.value)
+                  }
+                  type="datetime-local"
+                  value={verificationStartsAt}
+                />
+              </label>
+              <label className="text-sm font-medium text-on-surface-variant">
+                Expires at (Europe/Zurich)
+                <input
+                  className={inputStyles}
+                  onChange={(e) =>
+                    edited(setVerificationEndsAt)(e.target.value)
+                  }
+                  type="datetime-local"
+                  value={verificationEndsAt}
+                />
+              </label>
+            </div>
+            {timeError && <ErrorState message={timeError} />}
+          </Card>
+        )}
 
       {kind === "meetup" && (
         <Card className="flex flex-col gap-4">

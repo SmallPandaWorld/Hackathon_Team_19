@@ -1,6 +1,6 @@
 """API request/response models. Orval generates the frontend types from these."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, List, Literal, Optional, Union
 from uuid import UUID
 
@@ -84,6 +84,8 @@ class QuestOut(BaseModel):
     requires_code: bool = Field(
         description="Enter the printed code or scan its QR to complete (meetups: to check in)")
     requires_password: bool = Field(description="Enter the creator-set password to complete")
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
@@ -379,6 +381,8 @@ class AdminQuestIn(BaseModel):
     requires_code: bool = False
     requires_password: bool = False
     password: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -403,6 +407,12 @@ class AdminQuestIn(BaseModel):
                 raise ValueError("A password needs password verification")
             if not self.password.strip():
                 raise ValueError("Password cannot be blank")
+        if self.verification_starts_at is not None and self.verification_ends_at is not None:
+            def utc(value: datetime) -> datetime:
+                return (value.replace(tzinfo=timezone.utc) if value.tzinfo is None
+                        else value.astimezone(timezone.utc))
+            if utc(self.verification_starts_at) >= utc(self.verification_ends_at):
+                raise ValueError("Verification end must be after its start")
         return self
 
 
@@ -425,6 +435,8 @@ class AdminQuestPatch(BaseModel):
     requires_code: Optional[bool] = None
     requires_password: Optional[bool] = None
     password: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -458,6 +470,8 @@ class AdminQuestOut(BaseModel):
     requires_code: bool
     requires_password: bool
     verification_code: Optional[str] = Field(description="Stable code for the printable QR; maintainers only")
+    verification_starts_at: Optional[datetime] = None
+    verification_ends_at: Optional[datetime] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     starts_at: Optional[datetime] = None

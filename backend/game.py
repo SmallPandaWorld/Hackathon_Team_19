@@ -280,6 +280,8 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             requires_approval=quest.requires_approval,
             requires_code=quest.requires_code,
             requires_password=quest.requires_password,
+            verification_starts_at=as_utc(quest.verification_starts_at),
+            verification_ends_at=as_utc(quest.verification_ends_at),
             latitude=quest.latitude,
             longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),
@@ -429,6 +431,11 @@ def redeem_quest_code(db: Session, player: User, quest: Quest,
             normalized, quest.verification_code or ""
         ):
             raise bad_request("That code is not valid for this quest.")
+        now = utcnow()
+        if quest.verification_starts_at is not None and now < quest.verification_starts_at:
+            raise conflict("This code is not valid yet. Check the start time shown on the quest.")
+        if quest.verification_ends_at is not None and now >= quest.verification_ends_at:
+            raise conflict("This code's validity period has ended. No points can be awarded.")
     else:
         raise bad_request("This quest does not use a code or password.")
     if quest.kind == MEETUP and find_completion(db, player.username, quest.id) is None:
