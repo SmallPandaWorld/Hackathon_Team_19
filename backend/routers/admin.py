@@ -97,6 +97,8 @@ def admin_quest_out(db: Session, quest: Quest) -> AdminQuestOut:
         kind=quest.kind,
         status=quest.status,
         requires_approval=quest.requires_approval,
+        requires_code=quest.requires_code,
+        verification_code=quest.verification_code,
         latitude=quest.latitude,
         longitude=quest.longitude,
         starts_at=as_utc(quest.starts_at),
@@ -131,6 +133,7 @@ def apply_quest_input(db: Session, quest: Quest, data: AdminQuestIn) -> None:
     quest.points = data.points
     quest.kind = data.kind
     quest.requires_approval = data.requires_approval and data.kind == SOLO
+    quest.requires_code = data.requires_code and data.kind == SOLO
     quest.latitude = data.latitude
     quest.longitude = data.longitude
     is_meetup = data.kind == MEETUP
@@ -183,6 +186,7 @@ def quest_input(db: Session, quest: Quest) -> dict:
         "points": quest.points,
         "kind": quest.kind,
         "requires_approval": quest.requires_approval,
+        "requires_code": quest.requires_code,
         "latitude": quest.latitude,
         "longitude": quest.longitude,
         "starts_at": as_utc(quest.starts_at),

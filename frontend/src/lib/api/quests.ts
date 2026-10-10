@@ -30,6 +30,7 @@ import type {
   QuestOut,
   QuestSubmission,
   QuizAction,
+  RedeemAction,
   ReportAction,
   RsvpAction,
   StepAction,
@@ -617,6 +618,7 @@ export const getActOnQuestUrl = (questId: string) => {
  *
  * - `complete`: complete a solo quest or check in at a live meetup
  *   (idempotent; approval quests create a pending completion).
+ * - `redeem`: complete a code-verified solo quest with its printed code.
  * - `quiz`: check answers; all must be right, retries are unlimited.
  * - `step`: mark the next step of a multi-step quest done (in order).
  * - `rsvp`: say you're coming to a meetup (`attending: false` withdraws).
@@ -631,8 +633,9 @@ export const getActOnQuestUrl = (questId: string) => {
  */
 export const actOnQuest = async (
   questId: string,
-  completeActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction:
+  completeActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction:
     | CompleteAction
+    | RedeemAction
     | QuizAction
     | StepAction
     | RsvpAction
@@ -670,7 +673,7 @@ export const actOnQuest = async (
       ...getHeaders(options?.headers),
     },
     body: JSON.stringify(
-      completeActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction,
+      completeActionRedeemActionQuizActionStepActionRsvpActionReportActionPairStartActionPairCancelAction,
     ),
   });
 
@@ -729,6 +732,7 @@ export type ActOnQuestMutationResult = NonNullable<
 >;
 export type ActOnQuestMutationBody =
   | CompleteAction
+  | RedeemAction
   | QuizAction
   | StepAction
   | RsvpAction
@@ -740,6 +744,7 @@ export type ActOnQuestMutationVariables = {
   questId: string;
   data:
     | CompleteAction
+    | RedeemAction
     | QuizAction
     | StepAction
     | RsvpAction

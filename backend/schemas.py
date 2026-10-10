@@ -81,6 +81,7 @@ class QuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
+    requires_code: bool = Field(description="Enter the printed code or scan its QR to complete")
     latitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     longitude: Optional[float] = Field(default=None, description="Map pin (WGS84)")
     starts_at: Optional[datetime] = None
@@ -100,6 +101,10 @@ class QuestOut(BaseModel):
     reported: bool = False
     pair_session: Optional[PairSessionOut] = Field(
         default=None, description="My latest pair session for this quest (host or partner)")
+
+
+class CodeRedemption(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
 
 
 class CompletionResult(BaseModel):
@@ -129,6 +134,12 @@ class CompleteAction(BaseModel):
     note: Optional[str] = Field(
         default=None, max_length=500,
         description="What the player did (shown to reviewers on approval quests)")
+
+
+class RedeemAction(BaseModel):
+    """Redeem a printed code for a solo quest."""
+    type: Literal["redeem"]
+    code: str = Field(min_length=1, max_length=40)
 
 
 class QuizAction(BaseModel):
@@ -165,7 +176,7 @@ class PairCancelAction(BaseModel):
 
 
 QuestAction = Annotated[
-    Union[CompleteAction, QuizAction, StepAction, RsvpAction, ReportAction,
+    Union[CompleteAction, RedeemAction, QuizAction, StepAction, RsvpAction, ReportAction,
           PairStartAction, PairCancelAction],
     Field(discriminator="type"),
 ]
@@ -285,6 +296,7 @@ class AdminQuestIn(BaseModel):
     points: int = Field(ge=0, le=1000)
     kind: QuestKind = "solo"
     requires_approval: bool = False
+    requires_code: bool = False
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -294,10 +306,18 @@ class AdminQuestIn(BaseModel):
     questions: List[QuizQuestionIn] = Field(default=[], max_length=20)
     status: Literal["draft", "published"] = "draft"
 
+    @model_validator(mode="after")
+    def valid_verification(self):
+        if self.requires_code and self.kind != "solo":
+            raise ValueError("Code verification is available for solo quests only")
+        if self.requires_code and self.requires_approval:
+            raise ValueError("Choose code verification or maintainer approval")
+        return self
+
 
 # Fields of AdminQuestPatch that may not be sent as null.
 NOT_NULL_PATCH_FIELDS = (
-    "title", "description", "points", "kind", "requires_approval", "cancelled",
+    "title", "description", "points", "kind", "requires_approval", "requires_code", "cancelled",
     "steps", "questions", "status",
 )
 
@@ -310,6 +330,7 @@ class AdminQuestPatch(BaseModel):
     points: Optional[int] = Field(default=None, ge=0, le=1000)
     kind: Optional[QuestKind] = None
     requires_approval: Optional[bool] = None
+    requires_code: Optional[bool] = None
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     starts_at: Optional[datetime] = None
@@ -329,7 +350,6 @@ class AdminQuestPatch(BaseModel):
             raise ValueError(f"These fields can't be null: {', '.join(nulls)}")
         return self
 
-
 class AdminQuizQuestionOut(QuizQuestionIn):
     id: UUID
 
@@ -343,6 +363,8 @@ class AdminQuestOut(BaseModel):
     kind: QuestKind
     status: QuestStatus
     requires_approval: bool
+    requires_code: bool
+    verification_code: str = Field(description="Stable code for the printable QR; maintainers only")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     starts_at: Optional[datetime] = None

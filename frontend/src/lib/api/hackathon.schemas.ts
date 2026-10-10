@@ -87,6 +87,7 @@ export interface AdminQuestIn {
   points: number;
   kind?: AdminQuestInKind;
   requires_approval?: boolean;
+  requires_code?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -146,6 +147,9 @@ export interface AdminQuestOut {
   kind: AdminQuestOutKind;
   status: AdminQuestOutStatus;
   requires_approval: boolean;
+  requires_code: boolean;
+  /** Stable code for the printable QR; maintainers only */
+  verification_code: string;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -192,6 +196,7 @@ export interface AdminQuestPatch {
   points?: number | null;
   kind?: AdminQuestPatchKind;
   requires_approval?: boolean | null;
+  requires_code?: boolean | null;
   latitude?: number | null;
   longitude?: number | null;
   starts_at?: string | null;
@@ -499,6 +504,8 @@ export interface QuestOut {
   kind: QuestOutKind;
   status: QuestOutStatus;
   requires_approval: boolean;
+  /** Enter the printed code or scan its QR to complete */
+  requires_code: boolean;
   /** Map pin (WGS84) */
   latitude?: number | null;
   /** Map pin (WGS84) */
@@ -559,6 +566,18 @@ export interface QuizAction {
   type: "quiz";
   /** Chosen choice index per question, in order */
   answers: number[];
+}
+
+/**
+ * Redeem a printed code for a solo quest.
+ */
+export interface RedeemAction {
+  type: "redeem";
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  code: string;
 }
 
 export interface ReportAction {

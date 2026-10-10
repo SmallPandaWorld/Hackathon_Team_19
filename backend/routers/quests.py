@@ -15,6 +15,7 @@ from game import (
     can_view,
     cancel_pair,
     complete_quest,
+    redeem_quest_code,
     complete_step,
     conflict,
     error_responses,
@@ -30,6 +31,7 @@ from game import (
 from models import MEETUP, MULTI_STEP, PAIR, PENDING_REVIEW, PUBLISHED, QUIZ, SOLO, Quest, User
 from schemas import (
     CompleteAction,
+    RedeemAction,
     PairCancelAction,
     PairStartAction,
     QuestAction,
@@ -125,6 +127,7 @@ def act_on_quest(
 
     - `complete`: complete a solo quest or check in at a live meetup
       (idempotent; approval quests create a pending completion).
+    - `redeem`: complete a code-verified solo quest with its printed code.
     - `quiz`: check answers; all must be right, retries are unlimited.
     - `step`: mark the next step of a multi-step quest done (in order).
     - `rsvp`: say you're coming to a meetup (`attending: false` withdraws).
@@ -142,6 +145,9 @@ def act_on_quest(
         case CompleteAction(note=note):
             quest = get_playable_quest(db, quest_id)
             completion = complete_quest(db, player, quest, note)
+        case RedeemAction(code=code):
+            quest = get_playable_quest(db, quest_id, SOLO)
+            completion = redeem_quest_code(db, player, quest, code)
         case QuizAction(answers=answers):
             quest = get_playable_quest(db, quest_id, QUIZ)
             quiz, completion = submit_quiz(db, player, quest, answers)

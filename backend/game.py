@@ -1,6 +1,7 @@
 """Game rules shared by the routers: scoring, visibility, meetups, validation."""
 
 import json
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -273,6 +274,7 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             kind=quest.kind,
             status=quest.status,
             requires_approval=quest.requires_approval,
+            requires_code=quest.requires_code,
             latitude=quest.latitude,
             longitude=quest.longitude,
             starts_at=as_utc(quest.starts_at),
@@ -383,6 +385,8 @@ def complete_quest(db: Session, player: User, quest: Quest,
     """
     if quest.kind in WRONG_ACTION:
         raise bad_request(WRONG_ACTION[quest.kind])
+    if quest.requires_code:
+        raise bad_request("Enter the printed code to complete this quest.")
 
     existing = find_completion(db, player.username, quest.id)
     if quest.kind == MEETUP and existing is None:
@@ -404,6 +408,20 @@ def complete_quest(db: Session, player: User, quest: Quest,
         completion, created = record_completion(db, player.username, quest, PENDING, note)
     else:
         completion, created = record_completion(db, player.username, quest, APPROVED)
+    return completion_result(db, player.username, completion, created)
+
+
+def redeem_quest_code(db: Session, player: User, quest: Quest,
+                      code: str) -> CompletionResult:
+    """Check a quest's stable printed code, then award this player once."""
+    if not quest.requires_code:
+        raise bad_request("This quest does not use a printed code.")
+    normalized = code.strip().upper()
+    if not normalized.isascii() or not hmac.compare_digest(
+        normalized, quest.verification_code or ""
+    ):
+        raise bad_request("That code is not valid for this quest.")
+    completion, created = record_completion(db, player.username, quest, APPROVED)
     return completion_result(db, player.username, completion, created)
 
 

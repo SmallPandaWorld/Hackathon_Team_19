@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+import secrets
 from typing import Optional
 
 from sqlalchemy import (
@@ -35,6 +36,13 @@ PUBLISHED = "published"
 REJECTED = "rejected"
 RETIRED = "retired"
 QUEST_STATUSES = (DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED, RETIRED)
+
+VERIFICATION_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_verification_code() -> str:
+    """A printable, hard-to-guess code; never derived from quest data."""
+    return "".join(secrets.choice(VERIFICATION_ALPHABET) for _ in range(12))
 
 # Completion statuses. Only approved completions count for points.
 APPROVED = "approved"
@@ -74,6 +82,12 @@ class Quest(Base):
         String(20), nullable=False, default=PUBLISHED, server_default=PUBLISHED)
     requires_approval: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0"))
+    # Generated once per quest; only code-verified solo quests use it.
+    requires_code: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0"))
+    verification_code: Mapped[Optional[str]] = mapped_column(
+        String(12), nullable=True, unique=True, index=True,
+        default=new_verification_code)
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
