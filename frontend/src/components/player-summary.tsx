@@ -24,21 +24,21 @@ export function PlayerSummary() {
   if (error || !player) return null;
 
   return (
-    <div className="flex justify-end">
+    <div className="flex items-center justify-end gap-2">
       <Link
         aria-label={`Your profile, ${player.total_points} points`}
-        className="inline-flex items-center gap-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         href="/profile"
       >
         <span className="rounded-md bg-accent px-2 py-0.5 text-sm font-bold text-on-accent">
           {player.total_points}
         </span>
-        <ProfilePicture
-          displayName={player.display_name}
-          size="medium"
-          username={player.username}
-        />
       </Link>
+      <ProfilePicture
+        displayName={player.display_name}
+        size="medium"
+        username={player.username}
+      />
     </div>
   );
 }

@@ -51,25 +51,25 @@ function EntryRow({ entry }: { entry: LeaderboardEntry }) {
       </span>
       <div className="flex min-w-0 shrink items-center gap-2">
         {entry.username ? (
-          <Link
-            className="flex min-w-0 items-center gap-2 text-link hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-            href={`/profile?player=${encodeURIComponent(entry.username)}`}
-            title={`View ${entry.display_name}'s profile`}
-          >
-            <span className="min-w-0 truncate">
+          <>
+            <Link
+              className="min-w-0 truncate text-link hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              href={`/profile?player=${encodeURIComponent(entry.username)}`}
+              title={`View ${entry.display_name}'s profile`}
+            >
               {entry.display_name}
               {entry.is_current_player && (
                 <span className="ml-2 rounded-md bg-accent px-1.5 py-0.5 text-xs font-semibold text-on-accent">
                   you
                 </span>
               )}
-            </span>
+            </Link>
             <ProfilePicture
               displayName={entry.display_name}
               size="small"
               username={entry.username}
             />
-          </Link>
+          </>
         ) : (
           <>
             <span className="min-w-0 truncate">{entry.display_name}</span>

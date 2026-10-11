@@ -6,10 +6,7 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { initials } from "@/src/lib/initials";
 import type { Me } from "@/src/lib/api/hackathon.schemas";
-import {
-  useDismissSuggestion,
-  useSearchPlayers,
-} from "@/src/lib/api/players";
+import { useDismissSuggestion, useSearchPlayers } from "@/src/lib/api/players";
 import { useActOnQuest, useListQuests } from "@/src/lib/api/quests";
 import { useAction } from "@/src/lib/use-action";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -187,16 +184,19 @@ function SearchResults({ query }: { query: string }) {
       className={`flex flex-col gap-2 transition ${isFetching ? "opacity-60" : ""}`}
     >
       {results.map((result) => (
-        <li key={result.username}>
+        <li
+          className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 transition hover:ring-2 hover:ring-primary dark:bg-surface-container"
+          key={result.username}
+        >
+          <ProfilePicture
+            displayName={result.display_name}
+            size="small"
+            username={result.username}
+          />
           <Link
-            className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 transition hover:ring-2 hover:ring-primary dark:bg-surface-container"
+            className="flex min-w-0 flex-1 items-center gap-3"
             href={profileHref(result.username)}
           >
-            <ProfilePicture
-              displayName={result.display_name}
-              size="small"
-              username={result.username}
-            />
             <span className="min-w-0 flex-1 truncate font-semibold">
               {result.display_name}
             </span>

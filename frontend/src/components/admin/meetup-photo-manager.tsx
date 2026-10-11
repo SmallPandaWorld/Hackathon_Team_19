@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { buttonStyles, Card } from "@/src/components/page";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { useEffect, useState, type ChangeEvent } from "react";
+import { PhotoPreview } from "@/src/components/photo-preview";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -138,13 +138,10 @@ export function MeetupPhotoManager({ questId }: { questId: string }) {
           {photos.map((photo) => (
             <figure className="min-w-0" key={photo.id}>
               <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                <Image
+                <PhotoPreview
                   alt={`Photo from ${photo.quest_title}`}
-                  className="object-cover"
-                  fill
                   sizes="(max-width: 640px) 45vw, 220px"
                   src={`/api/meetup-photos/${photo.id}`}
-                  unoptimized
                 />
                 <button
                   aria-label="Delete meetup photo"

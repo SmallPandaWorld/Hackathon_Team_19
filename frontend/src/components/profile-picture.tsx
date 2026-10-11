@@ -2,7 +2,13 @@
 
 import Image from "next/image";
 import { Camera, ImagePlus, X } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type MouseEvent,
+} from "react";
 import { initials } from "@/src/lib/initials";
 
 const MAX_PICTURE_BYTES = 2 * 1024 * 1024;
@@ -31,6 +37,7 @@ export function ProfilePicture({
   size = "large",
 }: ProfilePictureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const previewDialogRef = useRef<HTMLDialogElement>(null);
   const cameraStream = useRef<MediaStream | null>(null);
   const [pictureVersion, setPictureVersion] = useState(0);
   const [pictureState, setPictureState] = useState<
@@ -40,6 +47,7 @@ export function ProfilePicture({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const letters = initials(displayName);
@@ -65,7 +73,21 @@ export function ProfilePicture({
 
   useEffect(() => {
     setPictureState(username ? "loading" : "missing");
+    setPreviewOpen(false);
   }, [username]);
+
+  useEffect(() => {
+    const dialog = previewDialogRef.current;
+    if (previewOpen && dialog && !dialog.open) dialog.showModal();
+  }, [previewOpen]);
+
+  function closePreview() {
+    previewDialogRef.current?.close();
+  }
+
+  function closePreviewFromBackdrop(event: MouseEvent<HTMLDialogElement>) {
+    if (event.target === event.currentTarget) closePreview();
+  }
 
   async function uploadPicture(file: File | undefined) {
     if (!file) return;
@@ -251,19 +273,27 @@ export function ProfilePicture({
           {letters}
         </span>
         {username && pictureState !== "missing" && (
-          <Image
-            alt={`${displayName}'s profile picture`}
-            className="object-cover"
-            fill
-            key={username}
-            onError={() => setPictureState("missing")}
-            onLoad={() => setPictureState("loaded")}
-            sizes={
-              size === "small" ? "36px" : size === "medium" ? "40px" : "80px"
-            }
-            src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
-            unoptimized
-          />
+          <button
+            aria-label={`View ${displayName}'s profile picture`}
+            className="absolute inset-0 cursor-zoom-in rounded-full focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait"
+            disabled={pictureState !== "loaded"}
+            onClick={() => setPreviewOpen(true)}
+            type="button"
+          >
+            <Image
+              alt={`${displayName}'s profile picture`}
+              className="object-cover"
+              fill
+              key={username}
+              onError={() => setPictureState("missing")}
+              onLoad={() => setPictureState("loaded")}
+              sizes={
+                size === "small" ? "36px" : size === "medium" ? "40px" : "80px"
+              }
+              src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
+              unoptimized
+            />
+          </button>
         )}
         {editable && pictureState === "loaded" && (
           <button
@@ -277,6 +307,35 @@ export function ProfilePicture({
           </button>
         )}
       </div>
+      {previewOpen && username && pictureState === "loaded" && (
+        <dialog
+          aria-label={`${displayName}'s profile picture`}
+          className="m-auto max-h-[90dvh] max-w-[96vw] overflow-visible border-0 bg-transparent p-0 text-on-surface backdrop:bg-black/85"
+          onClick={closePreviewFromBackdrop}
+          onClose={() => setPreviewOpen(false)}
+          ref={previewDialogRef}
+        >
+          <div className="relative h-[min(85dvh,48rem)] w-[min(90vw,48rem)] overflow-hidden rounded-2xl bg-black shadow-2xl">
+            <Image
+              alt={`${displayName}'s profile picture`}
+              className="object-contain"
+              fill
+              sizes="(max-width: 768px) 90vw, 48rem"
+              src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
+              unoptimized
+            />
+            <button
+              aria-label="Close profile picture"
+              autoFocus
+              className="absolute right-3 top-3 z-10 rounded-full bg-surface p-2 text-on-surface shadow-card hover:bg-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              onClick={closePreview}
+              type="button"
+            >
+              <X aria-hidden className="h-5 w-5" />
+            </button>
+          </div>
+        </dialog>
+      )}
       {editable && (
         <div className="flex items-center justify-end gap-1.5">
           <button

@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 import Link from "next/link";
 import { buttonStyles, Card } from "@/src/components/page";
+import { PhotoPreview } from "@/src/components/photo-preview";
 
 type QuestPhoto = {
   id: string;
@@ -265,13 +265,10 @@ export function QuestPhotoGallery({
           <figure className="min-w-0" key={photo.id}>
             <div className="relative">
               <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                <Image
+                <PhotoPreview
                   alt={`Photo from ${photo.quest_title}`}
-                  className="object-cover"
-                  fill
                   sizes="(max-width: 640px) 45vw, 220px"
                   src={`/api/quest-photos/${photo.id}`}
-                  unoptimized
                 />
               </div>
               {photo.is_mine && (
@@ -532,13 +529,10 @@ export function ProfileQuestPhotoGallery({
             <figure className="min-w-0" key={photo.id}>
               <div className="relative">
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                  <Image
+                  <PhotoPreview
                     alt={`Photo from ${photo.quest_title}`}
-                    className="object-cover"
-                    fill
                     sizes="(max-width: 640px) 45vw, 220px"
                     src={`${url}/${photo.id}/image`}
-                    unoptimized
                   />
                 </div>
                 {photo.is_mine && (
