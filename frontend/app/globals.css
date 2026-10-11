@@ -4,7 +4,7 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
- * Design tokens. Main colour teal #57CDB9 (primary: buttons, quest tiles,
+ * Design tokens. Light teal #57CDB9 and dark teal #00F0C0 (primary: buttons, quest tiles,
  * active nav, progress, focus); highlight light gold #FFE5AC (accent: points,
  * earned badges, the current player, live/highlighted states; never used as
  * text on white). Plain white surfaces in light mode, neutral near-black in
@@ -21,9 +21,10 @@
   --on-surface: #2b3136;
   --on-surface-variant: #474f55;
   --on-surface-muted: #5f6a6e;
-  /* Logo: on white the gold is faint, so the trail is teal and the pin gold. */
+  /* On white the gold is faint, so the trail is teal and the pin gold. */
   --motif-trail: #57cdb9;
   --motif-pin: #f2c75a;
+  --page-trail: #a8c9c2;
   --outline: #8a9397;
   --outline-variant: #e4e8ea;
   --primary: #57cdb9;
@@ -49,24 +50,25 @@
 }
 
 :root[data-theme="dark"] {
-  --surface: #0e1113;
-  --surface-variant: #16191c;
-  --surface-container: #1f2327;
-  --on-surface: #f2f4f5;
-  --on-surface-variant: #cfd5d8;
-  --on-surface-muted: #a1abb0;
-  --motif-trail: #ffe5ac;
-  --motif-pin: #57cdb9;
-  --outline: #6f7a80;
-  --outline-variant: #2c3136;
-  --primary: #57cdb9;
-  --primary-hover: #74d9c8;
-  --on-primary: #0f1f1b;
+  --surface: #0a0c10;
+  --surface-variant: #11171c;
+  --surface-container: #192126;
+  --on-surface: #f1f4f5;
+  --on-surface-variant: #c2cdd1;
+  --on-surface-muted: #94a2a8;
+  --motif-trail: #00f0c0;
+  --motif-pin: #ffe5ac;
+  --page-trail: #58716f;
+  --outline: #617078;
+  --outline-variant: #283239;
+  --primary: #00f0c0;
+  --primary-hover: #42f5ce;
+  --on-primary: #06231e;
   --accent: #ffe5ac;
   --accent-hover: #ffebbf;
   --on-accent: #2a1f08;
-  --link: #57cdb9;
-  --success: #57cdb9;
+  --link: #00f0c0;
+  --success: #00f0c0;
   --success-surface: #12332d;
   --warning: #ffe5ac;
   --warning-surface: #3a2f18;
@@ -121,6 +123,21 @@ body {
   font-optical-sizing: auto;
 }
 
+/* Restrained color wash gives each screen a little depth at its outer edges. */
+.page-canvas {
+  background-image:
+    radial-gradient(
+      ellipse at top right,
+      color-mix(in srgb, var(--primary) 4%, transparent),
+      transparent 30rem
+    ),
+    radial-gradient(
+      ellipse at bottom left,
+      color-mix(in srgb, var(--accent) 3%, transparent),
+      transparent 24rem
+    );
+}
+
 h1,
 h2,
 h3 {
@@ -155,9 +172,9 @@ h3 {
 }
 /* Dark mode: turn the light OSM tiles into a dark map. */
 [data-theme="dark"] .osm-tiles {
-  /* Higher contrast keeps street and building labels readable. */
-  filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.25)
-    saturate(0.55);
+  /* Keep streets readable while muting the original bright OSM palette. */
+  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(1.12)
+    saturate(0.48);
 }
 .quest-pin {
   background: none;

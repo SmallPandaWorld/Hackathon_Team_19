@@ -11,7 +11,7 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useListQuests } from "@/src/lib/api/quests";
 import { sortQuests } from "@/src/lib/quest-sections";
-import { ArrowRight, ChevronDown, Plus, Lightbulb, Send } from "lucide-react";
+import { ArrowRight, ChevronDown, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -95,24 +95,30 @@ export default function Home() {
   return (
     <Page>
       <header className="relative">
-        <p className="text-sm font-semibold uppercase tracking-wider text-link">
-          VISCON 2026
-        </p>
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <h1 className="min-w-0 text-3xl font-bold tracking-tight sm:text-4xl lg:text-6xl">
-            Campus Voyager
-          </h1>
-          <div className="shrink-0 -translate-y-1 lg:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase leading-none tracking-wider text-link">
+              VISCON 2026 <span className="px-1 text-muted">/</span> ETH ZURICH
+            </p>
+            <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-6xl">
+              Campus Voyager
+            </h1>
+          </div>
+          <div className="shrink-0 lg:hidden">
             <PlayerSummary />
           </div>
         </div>
-        <CampusMotif className="mt-4 h-28 w-full text-outline sm:h-40 lg:h-52" />
+        <CampusMotif className="mt-5 h-28 w-full text-outline sm:h-40 lg:h-52 dark:text-[#88969c]" />
       </header>
 
       <PairInvites />
       <div className="lg:hidden">
         <JoinWithCode />
       </div>
+
+      <Collapsible compact defaultOpen={isNewPlayer} title="How it works">
+        <HowItWorks />
+      </Collapsible>
 
       {isLoading ? (
         <LoadingState label="Loading quests..." />
@@ -123,12 +129,6 @@ export default function Home() {
         />
       ) : (
         <>
-          {isNewPlayer && (
-            <Collapsible compact defaultOpen title="How it works">
-              <HowItWorks />
-            </Collapsible>
-          )}
-
           <Section count={sections.available.length} title="Available now">
             {sections.available.length > 0 ? (
               <>
@@ -170,12 +170,6 @@ export default function Home() {
               title={`Completed (${sections.completed.length})`}
             >
               <QuestList quests={sections.completed} />
-            </Collapsible>
-          )}
-
-          {!isNewPlayer && (
-            <Collapsible compact title="How it works">
-              <HowItWorks />
             </Collapsible>
           )}
         </>

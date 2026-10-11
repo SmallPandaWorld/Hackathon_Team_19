@@ -51,7 +51,7 @@ export default function MapPage() {
   );
 
   return (
-    <Page>
+    <Page cornerTrails={false}>
       <PageTitle eyebrow="ETH Zentrum">Campus map</PageTitle>
 
       {isLoading ? (

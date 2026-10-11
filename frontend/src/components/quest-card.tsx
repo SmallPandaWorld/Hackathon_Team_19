@@ -45,7 +45,7 @@ function DateTile({ iso }: { iso: string }) {
   const date = new Date(iso);
   return (
     <span className="flex h-12 w-12 shrink-0 flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface text-center leading-none text-on-surface dark:bg-surface-container">
-      <span className="bg-primary py-0.5 text-[10px] font-bold uppercase text-on-primary">
+      <span className="bg-accent py-0.5 text-[10px] font-bold uppercase text-on-accent">
         {tileMonth.format(date)}
       </span>
       <span className="flex flex-1 items-center justify-center text-lg font-bold">
@@ -95,7 +95,13 @@ export function QuestCard({ quest }: { quest: QuestOut }) {
           {quest.title}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
-          <Chip className="border border-outline-variant text-on-surface-variant">
+          <Chip
+            className={
+              quest.kind === "meetup"
+                ? "border border-accent/60 bg-accent/10 text-accent"
+                : "border border-primary/40 bg-primary/10 text-link dark:text-primary"
+            }
+          >
             {KIND_LABELS[quest.kind].label}
           </Chip>
           {meetup && !done && (
