@@ -6,10 +6,40 @@ import type { ReactNode } from "react";
 // Page shell. Bottom padding leaves room for the tab bar on mobile; on
 // desktop the side padding clears the sidebar (left, 14rem) and the user
 // rail (right, 18rem + 1.5rem inset).
-export function Page({ children }: { children: ReactNode }) {
+export function Page({
+  children,
+  cornerTrails = true,
+}: {
+  children: ReactNode;
+  cornerTrails?: boolean;
+}) {
   return (
-    <main className="min-h-screen bg-surface px-4 pb-28 pt-8 text-on-surface sm:px-6 sm:pt-12 lg:pb-16 lg:pl-[calc(14rem+2.5rem)] lg:pr-[calc(18rem+3rem)]">
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 lg:max-w-4xl">
+    <main className="page-canvas relative isolate min-h-screen bg-surface px-4 pb-28 pt-8 text-on-surface sm:px-6 sm:pt-12 lg:pb-16 lg:pl-[calc(14rem+2.5rem)] lg:pr-[calc(18rem+3rem)]">
+      {cornerTrails && (
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-0 h-screen w-screen opacity-60 dark:opacity-80"
+          fill="none"
+          preserveAspectRatio="none"
+          viewBox="0 0 1000 1000"
+        >
+          <g
+            stroke="var(--page-trail)"
+            strokeDasharray="1 8"
+            strokeLinecap="round"
+            strokeWidth="2.5"
+          >
+            <path d="M902 -12c-35 42 57 37 80 83 22 44-45 57-4 94 17 15 24 30 21 47" />
+            <path d="M10 640C56 652 27 676 75 692 117 706 156 694 179 730 202 766 166 796 110 836 82 856 40 907 10 970" />
+          </g>
+          <g fill="var(--page-trail)">
+            <circle cx="999" cy="211" r="2.5" />
+            <circle cx="10" cy="640" r="2.5" />
+            <circle cx="10" cy="970" r="2.5" />
+          </g>
+        </svg>
+      )}
+      <div className="relative z-10 mx-auto flex max-w-2xl flex-col gap-6 lg:max-w-4xl">
         {children}
       </div>
     </main>

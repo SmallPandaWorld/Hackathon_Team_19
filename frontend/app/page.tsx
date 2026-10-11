@@ -11,8 +11,9 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useListQuests } from "@/src/lib/api/quests";
 import { sortQuests } from "@/src/lib/quest-sections";
-import { ArrowRight, ChevronDown, Plus, Lightbulb, Send } from "lucide-react";
+import { ArrowRight, ChevronDown, CircleHelp, Plus, Send } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 const STEPS = [
@@ -21,21 +22,72 @@ const STEPS = [
   "Confirm it in the app to collect your points and badges.",
 ];
 
+function HelpPopover({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        aria-expanded={open}
+        aria-label="How quests work"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-outline-variant transition hover:border-primary/60 hover:text-primary"
+        onClick={() => setOpen((current) => !current)}
+        title="How quests work"
+        type="button"
+      >
+        <CircleHelp aria-hidden className="h-4 w-4" />
+      </button>
+      {open && (
+        <div
+          aria-label="How it works"
+          className="absolute right-0 z-[120] mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-outline-variant bg-surface p-4 text-on-surface shadow-card dark:bg-surface-container"
+          role="dialog"
+        >
+          <h3 className="font-semibold">How it works</h3>
+          <div className="mt-2">{children}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Section({
   title,
   count,
+  help,
   children,
 }: {
   title: string;
   count: number;
+  help?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="flex items-baseline justify-between text-xl font-bold">
-        {title}
-        <span className="text-sm font-medium text-muted">{count}</span>
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <div className="flex items-center gap-2 text-sm font-medium text-muted">
+          <span>{count}</span>
+          {help && (
+            <HelpPopover>{help}</HelpPopover>
+          )}
+        </div>
+      </div>
       {children}
     </section>
   );
@@ -88,25 +140,23 @@ export default function Home() {
     ? "Could not load quests. Check your connection."
     : apiErrorMessage(data);
   const sections = quests ? sortQuests(quests) : undefined;
-  const isNewPlayer = sections
-    ? sections.completed.length === 0 && sections.inReview.length === 0
-    : false;
-
   return (
     <Page>
       <header className="relative">
-        <p className="text-sm font-semibold uppercase tracking-wider text-link">
-          VISCON 2026
-        </p>
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <h1 className="min-w-0 text-3xl font-bold tracking-tight sm:text-4xl lg:text-6xl">
-            Campus Voyager
-          </h1>
-          <div className="shrink-0 -translate-y-1 lg:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase leading-none tracking-wider text-link">
+              VISCON 2026 <span className="px-1 text-muted">/</span> ETH ZURICH
+            </p>
+            <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-6xl">
+              Campus Voyager
+            </h1>
+          </div>
+          <div className="shrink-0 lg:hidden">
             <PlayerSummary />
           </div>
         </div>
-        <CampusMotif className="mt-4 h-28 w-full text-outline sm:h-40 lg:h-52" />
+        <CampusMotif className="mt-5 h-28 w-full text-outline sm:h-40 lg:h-52 dark:text-[#88969c]" />
       </header>
 
       <PairInvites />
@@ -123,13 +173,11 @@ export default function Home() {
         />
       ) : (
         <>
-          {isNewPlayer && (
-            <Collapsible compact defaultOpen title="How it works">
-              <HowItWorks />
-            </Collapsible>
-          )}
-
-          <Section count={sections.available.length} title="Available now">
+          <Section
+            count={sections.available.length}
+            help={<HowItWorks />}
+            title="Available now"
+          >
             {sections.available.length > 0 ? (
               <>
                 <QuestList quests={sections.available.slice(0, 4)} />
@@ -173,11 +221,6 @@ export default function Home() {
             </Collapsible>
           )}
 
-          {!isNewPlayer && (
-            <Collapsible compact title="How it works">
-              <HowItWorks />
-            </Collapsible>
-          )}
         </>
       )}
 
@@ -209,7 +252,7 @@ function HowItWorks() {
     <ol className="space-y-1.5 text-xs text-on-surface-variant">
       {STEPS.map((step, index) => (
         <li className="flex gap-2" key={step}>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-on-accent">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-on-primary">
             {index + 1}
           </span>
           {step}

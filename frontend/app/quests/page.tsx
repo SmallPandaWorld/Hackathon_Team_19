@@ -128,6 +128,9 @@ export default function QuestsToDoPage() {
                 <option className="text-muted" value="recommended">
                   Recommended
                 </option>
+                <option className="text-muted" value="votes">
+                  Best rated
+                </option>
                 <option className="text-muted" value="title">
                   Name (A–Z)
                 </option>

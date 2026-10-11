@@ -2,8 +2,8 @@
 // building seen from the Polyterrasse side: a rotunda with a tall arched
 // drum, a flat copper dome with a lantern, a two-storey colonnade on a
 // rounded base with arched doors, and two wings with hipped roofs. A dotted
-// exploration trail leads to a pin; trail and pin swap teal/gold per theme
-// (--motif-trail / --motif-pin) so both stay visible. Lines use currentColor.
+// exploration trail leads to a pin; the trail is teal and the pin gold in
+// dark mode, with those accents swapped in light mode. Lines use currentColor.
 // Use it sparingly (home header, sidebar, empty states).
 export function CampusMotif({ className = "" }: { className?: string }) {
   const leftWindows = [0, 1, 2, 3, 4].map((i) => 36 + i * 15);

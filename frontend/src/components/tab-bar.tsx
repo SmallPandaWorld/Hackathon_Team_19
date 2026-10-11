@@ -38,7 +38,7 @@ export function TabBar() {
 
   return (
     // z-index above Leaflet's map panes and controls (up to 1000).
-    <nav className="fixed inset-x-0 bottom-0 z-[1100] border-t border-outline-variant bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:inset-x-auto lg:inset-y-0 lg:left-0 lg:flex lg:w-56 lg:flex-col lg:border-r lg:border-t-0 lg:bg-surface lg:pb-0 lg:backdrop-blur-none dark:lg:bg-surface-variant">
+    <nav className="fixed inset-x-0 bottom-0 z-[1100] border-t border-outline-variant bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-t-primary/30 dark:bg-surface/85 dark:shadow-[0_-1px_18px_rgba(0,240,192,0.04)] lg:inset-x-auto lg:inset-y-0 lg:left-0 lg:flex lg:w-56 lg:flex-col lg:border-r lg:border-t-0 lg:bg-surface lg:pb-0 lg:backdrop-blur-none dark:lg:border-r-outline-variant dark:lg:bg-surface-variant dark:lg:shadow-none">
       <Link
         className="hidden rounded-2xl px-6 pb-6 pt-8 lg:block"
         href="/"
@@ -61,17 +61,17 @@ export function TabBar() {
                 aria-current={active ? "page" : undefined}
                 className={`relative flex flex-col items-center gap-0.5 py-2 text-xs font-semibold transition lg:flex-row lg:gap-3 lg:rounded-xl lg:px-4 lg:py-2.5 lg:text-[15px] ${
                   active
-                    ? "text-on-surface lg:bg-surface-variant dark:lg:bg-surface-container"
+                    ? "text-on-surface dark:text-primary lg:bg-surface-variant dark:lg:bg-surface-container"
                     : "text-muted hover:text-on-surface lg:hover:bg-surface-variant dark:lg:hover:bg-surface-container"
                 }`}
                 href={tab.href}
               >
                 {active && (
-                  <span className="absolute inset-x-6 top-0 h-[3px] rounded-b-full bg-primary lg:inset-x-auto lg:inset-y-2 lg:left-0 lg:h-auto lg:w-1 lg:rounded-full" />
+                  <span className="absolute inset-x-6 top-0 h-[3px] rounded-b-full bg-primary dark:shadow-[0_0_10px_rgba(0,240,192,0.42)] lg:inset-x-auto lg:inset-y-2 lg:left-0 lg:h-auto lg:w-1 lg:rounded-full" />
                 )}
                 <Icon
                   aria-hidden
-                  className={`h-5 w-5 ${active ? "lg:text-on-surface" : ""}`}
+                  className="h-5 w-5"
                   strokeWidth={active ? 2.5 : 2}
                 />
                 {tab.label}
