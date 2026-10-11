@@ -8,7 +8,7 @@ import pytest
 # Use a throwaway database; must be set before `database` is imported.
 _db_dir = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_db_dir) / 'test.db'}"
-os.environ.pop("DEV_USER_ID", None)
+os.environ.pop("DEV_MODE", None)
 os.environ["MAINTAINER_IDS"] = "maintainer-id"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

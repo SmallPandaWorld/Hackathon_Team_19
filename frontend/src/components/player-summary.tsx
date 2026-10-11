@@ -1,6 +1,7 @@
 "use client";
 
 import { apiErrorMessage } from "@/src/lib/api-error";
+import { DevUserSwitcher } from "@/src/components/dev-user-switcher";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { useGetMe } from "@/src/lib/api/players";
 import Link from "next/link";
@@ -24,7 +25,7 @@ export function PlayerSummary() {
   if (error || !player) return null;
 
   return (
-    <div className="flex justify-end">
+    <div className="flex flex-col items-end gap-1">
       <Link
         aria-label={`Your profile, ${player.total_points} points`}
         className="inline-flex items-center gap-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -39,6 +40,7 @@ export function PlayerSummary() {
           username={player.username}
         />
       </Link>
+      <DevUserSwitcher username={player.username} />
     </div>
   );
 }

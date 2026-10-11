@@ -139,27 +139,39 @@ def test_display_name_follows_proxy_but_missing_name_keeps_it(client):
     assert me(client, {"X-User-Id": "alice-id"})["display_name"] == "Alice B"
 
 
-def test_dev_fallback_user_is_maintainer(client, monkeypatch):
-    monkeypatch.setattr(auth, "DEV_USER_ID", "dev")
-    monkeypatch.setattr(auth, "DEV_USER_NAME", "Dev Player")
-    dev = client.get("/me").json()
-    assert dev["username"] == "dev"
-    assert dev["display_name"] == "Dev Player"
-    assert dev["is_maintainer"] is True
+def test_dev_users_are_distinct_and_only_admin_is_maintainer(client, monkeypatch):
+    monkeypatch.setattr(auth, "DEV_MODE", True)
+    admin = client.get("/me").json()
+    assert (admin["username"], admin["display_name"], admin["is_maintainer"]) == (
+        "test-admin", "Test Admin", True)
     assert client.get("/admin/quests").status_code == 200
-    # Real headers still win, and other players are not maintainers.
+
+    for user_id, name in (("test-user-1", "Test User 1"),
+                          ("test-user-2", "Test User 2")):
+        client.cookies.set("dev_user", user_id)
+        player = client.get("/me").json()
+        assert (player["username"], player["display_name"], player["is_maintainer"]) == (
+            user_id, name, False)
+        assert client.get("/admin/quests").status_code == 403
+
+    client.cookies.set("dev_user", "test-user-1")
+    assert act(client, {}, quest_id(1), "complete").status_code == 200
+    assert client.get("/me").json()["total_points"] == 10
+    client.cookies.set("dev_user", "test-user-2")
+    assert client.get("/me").json()["total_points"] == 0
+
+    # Proxy identity takes precedence; unknown cookie values cannot create users.
     assert me(client)["username"] == "alice-id"
-    assert client.get("/admin/quests", headers=ALICE).status_code == 403
+    client.cookies.set("dev_user", "someone-else")
+    assert client.get("/me").json()["username"] == "test-admin"
 
 
-def test_dev_fallback_user_can_opt_out_of_maintainer(client, monkeypatch):
-    monkeypatch.setattr(auth, "DEV_USER_ID", "dev")
-    monkeypatch.setattr(auth, "DEV_USER_MAINTAINER", False)
-    assert client.get("/me").json()["is_maintainer"] is False
-    assert client.get("/admin/quests").status_code == 403
-    # MAINTAINER_IDS still grants the tools.
-    monkeypatch.setattr(auth, "DEV_USER_ID", "maintainer-id")
-    assert client.get("/me").json()["is_maintainer"] is True
+def test_dev_cookie_is_ignored_without_dev_mode(client, monkeypatch):
+    monkeypatch.setattr(auth, "DEV_MODE", False)
+    client.cookies.set("dev_user", "test-admin")
+    assert client.get("/me").status_code == 401
+    assert me(client)["is_maintainer"] is False
+    assert me(client, identity("maintainer-id"))["is_maintainer"] is True
 
 
 def test_simultaneous_first_requests_create_one_player(client):

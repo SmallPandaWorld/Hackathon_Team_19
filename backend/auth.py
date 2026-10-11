@@ -8,11 +8,9 @@ These headers are only trustworthy when every request comes through the
 managed proxy, so the backend port must not be publicly reachable
 (see docker-compose.yml).
 
-Local development without the proxy: set DEV_USER_ID (and optionally
-DEV_USER_NAME). It is used only when no X-User-Id header is present, and
-that fallback player is a maintainer by default, so the admin tools work
-locally; set DEV_USER_MAINTAINER=false to test as a regular player. Never
-set DEV_USER_ID in deployment.
+Local development without the proxy: set DEV_MODE=true. When no X-User-Id
+header is present, a cookie selects one of three fixed test players. The
+default, Test Admin, can use the admin tools. Never enable this in deployment.
 
 In production, maintainers (quest editor, reviews, reports) are the
 usernames listed in MAINTAINER_IDS (comma separated).
@@ -31,18 +29,22 @@ from database import get_db
 from models import User
 
 
-DEV_USER_ID = os.getenv("DEV_USER_ID")
-DEV_USER_NAME = os.getenv("DEV_USER_NAME", "Dev Player")
-# "false" / "0" / "no" turns the dev player into a regular (non-maintainer) player.
-DEV_USER_MAINTAINER = os.getenv("DEV_USER_MAINTAINER", "true").strip().lower() not in (
-    "false", "0", "no")
+DEV_MODE = os.getenv("DEV_MODE", "").strip().lower() in ("true", "1", "yes")
+DEV_USERS = {
+    "test-admin": {"name": "Test Admin", "is_maintainer": True},
+    "test-user-1": {"name": "Test User 1", "is_maintainer": False},
+    "test-user-2": {"name": "Test User 2", "is_maintainer": False},
+}
 
 
 def _read_identity(request: Request) -> "tuple[Optional[str], str]":
     username = (request.headers.get("x-user-id") or "").strip()
     name = unquote(request.headers.get("x-user-name") or "").strip()
-    if not username and DEV_USER_ID:
-        return DEV_USER_ID, DEV_USER_NAME
+    if not username and DEV_MODE:
+        dev_user = request.cookies.get("dev_user", "test-admin")
+        if dev_user not in DEV_USERS:
+            dev_user = "test-admin"
+        return dev_user, DEV_USERS[dev_user]["name"]
     return (username or None), name
 
 
@@ -81,9 +83,8 @@ MAINTAINER_IDS = {
 
 
 def is_maintainer(player: User) -> bool:
-    # The dev fallback identity gets the maintainer tools unless opted out.
     return player.username in MAINTAINER_IDS or (
-        bool(DEV_USER_ID) and DEV_USER_MAINTAINER and player.username == DEV_USER_ID)
+        DEV_MODE and DEV_USERS.get(player.username, {}).get("is_maintainer", False))
 
 
 def require_maintainer(player: User = Depends(get_current_player)) -> User:

@@ -215,7 +215,7 @@ The backend reads two headers forwarded by the VISCON proxy:
 | `X-User-Id` | Stable external identity; used to find the player |
 | `X-User-Name` | Percent-encoded display name; decoded before use |
 
-`_read_identity()` trims values and decodes the name. If no identity header is present and `DEV_USER_ID` is configured, it uses the development identity instead.
+`_read_identity()` trims values and decodes the name. With `DEV_MODE=true` and no identity header, it uses the `dev_user` cookie to select Test Admin, Test User 1, or Test User 2. Test Admin is the default. The cookie has no effect when development mode is off.
 
 `get_current_player()` then:
 
@@ -230,7 +230,7 @@ An authenticated read request can therefore create a player or update their name
 
 ### 5.2 Maintainers
 
-`MAINTAINER_IDS` is a comma-separated environment variable containing external identity values. `is_maintainer()` checks membership. `require_maintainer()` rejects other players with HTTP `403`.
+`MAINTAINER_IDS` is a comma-separated environment variable containing external identity values. `is_maintainer()` checks membership and grants Test Admin access when `DEV_MODE=true`. `require_maintainer()` rejects other players with HTTP `403`.
 
 The admin router applies this check to every endpoint. The frontend's `MaintainerOnly` component improves the UI, but server-side checks enforce permission.
 
@@ -240,7 +240,7 @@ Identity environment variables are read when the module is imported. Changing th
 
 The app trusts identity headers because the managed proxy is expected to authenticate users and supply them. There is no password table, token validation implementation, or custom login form in this repository.
 
-The deployment must ensure public traffic reaches the app through that trusted proxy and cannot inject a different identity. Compose binds the backend port to `127.0.0.1`, while the frontend is exposed on port 3000. The proxy setup itself is external to this repository. `DEV_USER_ID` is a local-development fallback and is not supplied by the deployment Compose file.
+The deployment must ensure public traffic reaches the app through that trusted proxy and cannot inject a different identity. Compose binds the backend port to `127.0.0.1`, while the frontend is exposed on port 3000. The proxy setup itself is external to this repository. Leave `DEV_MODE` unset in deployment.
 
 ## 6. Database models and relationships
 
@@ -1221,10 +1221,10 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-DEV_USER_ID=dev DEV_USER_NAME="Test User" MAINTAINER_IDS=dev uvicorn main:app --reload
+DEV_MODE=true uvicorn main:app --reload
 ```
 
-This supplies a local player and maintainer when no VISCON proxy is present. A Conda environment can serve the same purpose; the code does not require a particular environment manager.
+This enables three local test accounts when no VISCON proxy is present. Test Admin is selected by default; the development frontend has a selector below the account and points display for Test User 1 and Test User 2. A Conda environment can serve the same purpose; the code does not require a particular environment manager.
 
 The root `.env.example` has these local defaults. If running the backend with
 Docker Compose, copy it to `.env` first; Compose loads that file for the backend.
@@ -1277,8 +1277,7 @@ The type-check command is not a named package script. There is no frontend unit-
 | Variable | Read by | Meaning |
 | --- | --- | --- |
 | `DATABASE_URL` | Backend database module | Database connection URL; local SQLite is the default |
-| `DEV_USER_ID` | Backend auth module | Local identity fallback when no identity header is supplied |
-| `DEV_USER_NAME` | Backend auth module | Local fallback display name; default `Dev Player` |
+| `DEV_MODE` | Backend auth module | Enables the three local test identities when set to `true`; leave unset in deployment |
 | `MAINTAINER_IDS` | Backend auth module and Compose substitution | Comma-separated external IDs with admin permission |
 | `NODE_ENV` | Frontend config/runtime | Chooses local backend host versus Docker backend service |
 
@@ -1341,7 +1340,7 @@ This workflow does not run pytest, lint, or a separate type-check step before de
 
 ### 20.1 `backend/tests/conftest.py`
 
-The test setup creates a temporary SQLite directory and sets `DATABASE_URL` before importing application modules. It removes the development identity fallback and configures a test maintainer.
+The test setup creates a temporary SQLite directory and sets `DATABASE_URL` before importing application modules. It disables development mode and configures a test maintainer.
 
 The `empty_client` fixture drops test tables and opens FastAPI's `TestClient` for each test, running startup to recreate tables, so it starts with no quests like a fresh deployment. The `client` fixture builds on it and seeds the sample quests from `sample_quests.py`. The destructive reset is scoped to the temporary test engine, not the normal `users.db` configured for development or deployment.
 

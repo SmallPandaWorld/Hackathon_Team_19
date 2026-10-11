@@ -1,6 +1,7 @@
 "use client";
 
 import { JoinCodeForm } from "@/src/components/join-code-form";
+import { DevUserSwitcher } from "@/src/components/dev-user-switcher";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { useGetMe } from "@/src/lib/api/players";
 import { Wrench } from "lucide-react";
@@ -48,6 +49,8 @@ export function UserRail() {
           <span className="mt-0.5 block text-xs text-muted">points</span>
         </span>
       </Link>
+
+      <DevUserSwitcher username={player.username} />
 
       <div className="flex flex-col gap-2 border-t border-outline-variant pt-4">
         <p className="text-sm font-semibold text-on-surface-variant">
