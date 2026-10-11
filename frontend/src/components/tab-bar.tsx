@@ -47,7 +47,7 @@ export function TabBar() {
           VISCON 2026
         </span>
         <span className="mt-1 block text-xl font-bold leading-tight tracking-tight text-on-surface">
-          Campus Voyager
+          UniQuest
         </span>
         <CampusMotif className="mt-4 h-12 w-full text-outline" />
       </Link>

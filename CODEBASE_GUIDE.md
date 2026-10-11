@@ -1,4 +1,4 @@
-# Campus Voyager — the complete codebase guide
+# UniQuest — the complete codebase guide
 
 Source snapshot: 10 October 2026. This guide explains the application currently in `Hackathon_Team_19`, including the newer visual components, partner invitations, and badge progress. It describes what the source implements; it is not a claim that every flow was tested in production.
 
@@ -32,7 +32,7 @@ All paths below are relative to the repository root, `Hackathon_Team_19/`. The g
 
 ## 1. What the application does
 
-Campus Voyager turns exploring ETH campus and meeting other participants into small quests. Each player has persistent progress, points, achievement badges, optional hobbies, and optional connection suggestions.
+UniQuest turns exploring ETH campus and meeting other participants into small quests. Each player has persistent progress, points, achievement badges, optional hobbies, and optional connection suggestions.
 
 There are five quest types:
 

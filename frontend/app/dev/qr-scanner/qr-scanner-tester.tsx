@@ -26,7 +26,7 @@ export function QrScannerTester() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [decodedText, setDecodedText] = useState<string | null>(null);
   const [questHref, setQuestHref] = useState<string | null>(null);
-  const [sampleText, setSampleText] = useState("Campus Voyager QR scanner test");
+  const [sampleText, setSampleText] = useState("UniQuest QR scanner test");
 
   function handleDecode(value: string) {
     setDecodedText(value);

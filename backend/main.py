@@ -21,7 +21,7 @@ def use_function_name(route: APIRoute) -> str:
 
 
 app = FastAPI(
-    title="Campus Voyager",
+    title="UniQuest",
     root_path="/api",
     lifespan=lifespan,
     generate_unique_id_function=use_function_name,

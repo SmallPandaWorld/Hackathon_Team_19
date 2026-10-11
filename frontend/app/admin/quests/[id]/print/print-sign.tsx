@@ -59,7 +59,7 @@ function Sign({ questId }: { questId: string }) {
       </div>
       <article className="flex flex-col items-center gap-5 rounded-lg border-2 border-black p-8 text-center print:border-0">
         <p className="text-sm font-bold uppercase tracking-widest">
-          Campus Voyager quest
+          UniQuest quest
         </p>
         <h1 className="text-3xl font-bold">{quest.title}</h1>
         {quest.location && <p>{quest.location}</p>}

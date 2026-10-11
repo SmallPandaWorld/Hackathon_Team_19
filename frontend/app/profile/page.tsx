@@ -510,13 +510,12 @@ function OwnProfile({ player }: { player: Me }) {
         className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
         label={
           <>
-            <Send aria-hidden className="h-4 w-4" /> Invite a friend to Campus
-            Voyager
+            <Send aria-hidden className="h-4 w-4" /> Invite a friend to UniQuest
           </>
         }
         path="/"
-        text="Join me on Campus Voyager: explore ETH and complete quests together!"
-        title="Campus Voyager"
+        text="Join me on UniQuest: explore ETH and complete quests together!"
+        title="UniQuest"
       />
     </>
   );
