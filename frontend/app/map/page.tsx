@@ -28,14 +28,18 @@ export default function MapPage() {
   const hashId = useSyncExternalStore(subscribeHash, readHashId, () => null);
   const [picked, setSelectedId] = useState<string | null | undefined>();
   const selectedId = picked === undefined ? hashId : picked;
+  const visibleQuests = useMemo(
+    () => quests?.filter((quest) => quest.meetup_state !== "past"),
+    [quests],
+  );
 
   const pinned = useMemo(
     () =>
-      quests?.filter((q) => q.latitude != null && q.longitude != null) ?? [],
-    [quests],
+      visibleQuests?.filter((q) => q.latitude != null && q.longitude != null) ?? [],
+    [visibleQuests],
   );
   const unpinned =
-    quests?.filter((q) => q.latitude == null || q.longitude == null) ?? [];
+    visibleQuests?.filter((q) => q.latitude == null || q.longitude == null) ?? [];
   const selected = pinned.find((q) => q.id === selectedId);
   const pins = useMemo(
     () =>
