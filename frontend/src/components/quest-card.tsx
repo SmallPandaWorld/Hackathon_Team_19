@@ -6,7 +6,7 @@ import {
   MEETUP_LABELS,
   formatZurich,
 } from "@/src/lib/quest-display";
-import { Check, ThumbsUp } from "lucide-react";
+import { Check, ThumbsDown, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 
 function ProgressChip({ quest }: { quest: QuestOut }) {
@@ -52,6 +52,31 @@ function DateTile({ iso }: { iso: string }) {
         {tileDay.format(date)}
       </span>
     </span>
+  );
+}
+
+// Net score of a player-created quest: thumbs up in green, thumbs down in
+// red (showing how many votes it is below zero), neutral at exactly zero.
+function VoteChip({ score }: { score: number }) {
+  if (score < 0) {
+    return (
+      <Chip className="border border-danger text-danger">
+        <ThumbsDown aria-hidden className="mr-1 h-3 w-3" />
+        {-score}
+      </Chip>
+    );
+  }
+  return (
+    <Chip
+      className={
+        score > 0
+          ? "border border-success text-success"
+          : "border border-outline-variant text-on-surface-variant"
+      }
+    >
+      <ThumbsUp aria-hidden className="mr-1 h-3 w-3" />
+      {score}
+    </Chip>
   );
 }
 
@@ -103,20 +128,7 @@ export function QuestCard({ quest }: { quest: QuestOut }) {
           )}
           <ProgressChip quest={quest} />
           {quest.votes && quest.votes.up + quest.votes.down > 0 && (
-            <Chip
-              className={
-                quest.votes.score > 0
-                  ? "border border-success text-success"
-                  : quest.votes.score < 0
-                    ? "border border-danger text-danger"
-                    : "border border-outline-variant text-on-surface-variant"
-              }
-            >
-              <ThumbsUp aria-hidden className="mr-1 h-3 w-3" />
-              {quest.votes.score > 0
-                ? `+${quest.votes.score}`
-                : quest.votes.score}
-            </Chip>
+            <VoteChip score={quest.votes.score} />
           )}
         </span>
         {!done &&
