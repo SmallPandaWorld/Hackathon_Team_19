@@ -17,7 +17,7 @@ export function UserRail() {
 
   if (isLoading) {
     return (
-      <aside className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant">
+      <aside className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant print:hidden">
         <div className="h-12 animate-pulse rounded-xl bg-surface-variant dark:bg-surface-container" />
         <div className="h-16 animate-pulse rounded-xl bg-surface-variant dark:bg-surface-container" />
       </aside>
@@ -28,7 +28,7 @@ export function UserRail() {
   return (
     <aside
       aria-label="Your account"
-      className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant"
+      className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant print:hidden"
     >
       <Link
         className="-m-2 flex items-center gap-3 rounded-xl p-2 transition hover:bg-surface-variant dark:hover:bg-surface-container"

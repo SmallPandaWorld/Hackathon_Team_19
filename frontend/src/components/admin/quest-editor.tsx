@@ -435,7 +435,7 @@ export function QuestEditor({
                     name="completion-method"
                     type="radio"
                   />
-                  Printed code or QR
+                  QR code
                 </label>
                 <label className="flex items-center gap-2">
                   <input

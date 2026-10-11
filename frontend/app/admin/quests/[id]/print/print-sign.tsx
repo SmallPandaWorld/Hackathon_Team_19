@@ -66,28 +66,27 @@ function Sign({ questId }: { questId: string }) {
         <p className="max-w-md">
           {quest.kind === "meetup"
             ? "You made it! Scan this QR code with your phone camera or enter the code on the quest page to check in."
-            : "Complete the activity, then scan this QR code with your phone camera or enter the code on the quest page."}
+            : "Complete the instructions, then scan this QR code with your phone camera or enter the code on the quest page."}
         </p>
         {origin && (
-          <QRCodeSVG
-            aria-label={`QR code for ${quest.title}`}
-            bgColor="#FFFFFF"
-            fgColor="#000000"
-            level="M"
-            marginSize={4}
-            size={256}
-            value={redeemUrl}
-          />
+          <div className="flex flex-col items-center gap-0">
+            <QRCodeSVG
+              aria-label={`QR code for ${quest.title}`}
+              bgColor="#FFFFFF"
+              fgColor="#000000"
+              level="M"
+              marginSize={4}
+              size={256}
+              value={redeemUrl}
+              />
+            <p className="text-[10px]">
+              {redeemUrl}
+            </p>
+          </div>
         )}
         <code className="text-2xl font-bold tracking-widest">
           {quest.verification_code}
         </code>
-        <p className="text-sm">
-          {origin ? `${origin}/quests/${quest.id}` : ""}
-        </p>
-        <p className="text-sm">
-          Each player can earn the {quest.points} points once.
-        </p>
       </article>
     </main>
   );
