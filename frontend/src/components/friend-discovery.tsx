@@ -5,7 +5,6 @@ import { FriendRequestAction } from "@/src/components/friends";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
-import { initials } from "@/src/lib/initials";
 import type { Me } from "@/src/lib/api/hackathon.schemas";
 import { useListFriends } from "@/src/lib/api/friends";
 import { useDismissSuggestion, useSearchPlayers } from "@/src/lib/api/players";
@@ -140,11 +139,15 @@ function SuggestionsList({ player }: { player: Me }) {
               >
                 <Link
                   aria-hidden
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-on-primary"
+                  className="shrink-0"
                   href={profileHref(suggestion.username)}
                   tabIndex={-1}
                 >
-                  {initials(suggestion.display_name)}
+                  <ProfilePicture
+                    displayName={suggestion.display_name}
+                    size="small"
+                    username={suggestion.username}
+                  />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link
