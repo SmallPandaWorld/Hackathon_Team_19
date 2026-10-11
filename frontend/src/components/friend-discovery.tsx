@@ -1,15 +1,14 @@
 "use client";
 
 import { buttonStyles, Card, inputStyles } from "@/src/components/page";
+import { FriendRequestAction } from "@/src/components/friends";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { initials } from "@/src/lib/initials";
 import type { Me } from "@/src/lib/api/hackathon.schemas";
-import {
-  useDismissSuggestion,
-  useSearchPlayers,
-} from "@/src/lib/api/players";
+import { useListFriends } from "@/src/lib/api/friends";
+import { useDismissSuggestion, useSearchPlayers } from "@/src/lib/api/players";
 import { useActOnQuest, useListQuests } from "@/src/lib/api/quests";
 import { useAction } from "@/src/lib/use-action";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -38,12 +37,12 @@ function SuggestionsList({ player }: { player: Me }) {
   const router = useRouter();
   const { error, run, refreshAll } = useAction();
   const result = player.suggestions;
-  // Prefer a partner quest the player hasn't completed yet.
+  const [selectedPairQuestId, setSelectedPairQuestId] = useState("");
   const pairQuests =
     quests.data?.status === 200
       ? quests.data.data.filter((q) => q.kind === "pair")
       : [];
-  const pairQuest = pairQuests.find((q) => !q.completed) ?? pairQuests[0];
+  const pairQuest = pairQuests.find((q) => q.id === selectedPairQuestId);
 
   async function invite(username: string) {
     if (!pairQuest) return;
@@ -89,14 +88,54 @@ function SuggestionsList({ player }: { player: Me }) {
       ) : (
         <>
           <p className="mt-1 text-sm text-muted">
-            {pairQuest
-              ? `Invite them to “${pairQuest.title}”: they get the invitation in their app, then you meet up and complete it together.${pairQuest.completed ? " You've done it already, so they earn the points." : ""}`
-              : "Say hi when you see them on campus!"}
+            Send a friend request, or choose a partner quest if you&apos;d like
+            to invite them.
           </p>
+          {quests.isLoading ? (
+            <p className="mt-3 text-sm text-muted">Loading partner quests...</p>
+          ) : quests.isError || (quests.data && quests.data.status !== 200) ? (
+            <p className="mt-3 text-sm text-danger">
+              {apiErrorMessage(quests.data) ?? "Could not load partner quests."}
+            </p>
+          ) : pairQuests.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">
+              No partner quests are available to invite someone to yet.
+            </p>
+          ) : (
+            <div className="mt-3 max-w-xl">
+              <label
+                className="text-sm font-semibold"
+                htmlFor="invite-pair-quest"
+              >
+                Choose a partner quest
+              </label>
+              <select
+                className={inputStyles}
+                id="invite-pair-quest"
+                onChange={(event) => setSelectedPairQuestId(event.target.value)}
+                value={selectedPairQuestId}
+              >
+                <option value="">Select a quest...</option>
+                {pairQuests.map((quest) => (
+                  <option key={quest.id} value={quest.id}>
+                    {quest.title}
+                    {quest.completed ? " (completed)" : ""}
+                  </option>
+                ))}
+              </select>
+              {pairQuest && (
+                <p className="mt-1 text-xs text-muted">
+                  They&apos;ll get the invitation in their app and can join you
+                  to complete it.
+                  {pairQuest.completed && " They can still earn the points."}
+                </p>
+              )}
+            </div>
+          )}
           <ul className="mt-3 flex flex-col gap-2">
             {result.suggestions.map((suggestion) => (
               <li
-                className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
+                className="flex flex-wrap items-center gap-3 rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
                 key={suggestion.username}
               >
                 <Link
@@ -118,32 +157,41 @@ function SuggestionsList({ player }: { player: Me }) {
                     You both like {suggestion.shared_hobbies.join(", ")}
                   </p>
                 </div>
-                {pairQuest && (
+                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+                  <FriendRequestAction
+                    displayName={suggestion.display_name}
+                    status="none"
+                    username={suggestion.username}
+                  />
+                  {pairQuest && (
+                    <button
+                      className={`${buttonStyles.primary} flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm`}
+                      disabled={startSession.isPending}
+                      onClick={() => invite(suggestion.username)}
+                      type="button"
+                    >
+                      <Send aria-hidden className="h-4 w-4" /> Invite
+                    </button>
+                  )}
                   <button
-                    className={`${buttonStyles.primary} flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm`}
-                    disabled={startSession.isPending}
-                    onClick={() => invite(suggestion.username)}
+                    aria-label={`Not interested in ${suggestion.display_name}`}
+                    className="shrink-0 px-2 py-2 text-xs font-semibold text-muted hover:text-danger"
+                    disabled={dismiss.isPending}
+                    onClick={async () => {
+                      if (
+                        await run(() =>
+                          dismiss.mutateAsync({
+                            username: suggestion.username,
+                          }),
+                        )
+                      )
+                        await refreshAll();
+                    }}
                     type="button"
                   >
-                    <Send aria-hidden className="h-4 w-4" /> Invite
+                    Hide
                   </button>
-                )}
-                <button
-                  aria-label={`Not interested in ${suggestion.display_name}`}
-                  className="shrink-0 text-xs font-semibold text-muted hover:text-danger"
-                  disabled={dismiss.isPending}
-                  onClick={async () => {
-                    if (
-                      await run(() =>
-                        dismiss.mutateAsync({ username: suggestion.username }),
-                      )
-                    )
-                      await refreshAll();
-                  }}
-                  type="button"
-                >
-                  Hide
-                </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -170,7 +218,20 @@ function SearchResults({ query }: { query: string }) {
       },
     },
   );
+  const friends = useListFriends();
   const results = data?.status === 200 ? data.data : undefined;
+  const friendData =
+    friends.data?.status === 200 ? friends.data.data : undefined;
+  const friendStatus = new Map<string, "friends" | "incoming" | "outgoing">();
+  friendData?.friends.forEach((friend) =>
+    friendStatus.set(friend.username, "friends"),
+  );
+  friendData?.incoming.forEach((request) =>
+    friendStatus.set(request.username, "incoming"),
+  );
+  friendData?.outgoing.forEach((request) =>
+    friendStatus.set(request.username, "outgoing"),
+  );
   const error = isError ? "Could not search players." : apiErrorMessage(data);
 
   if (isLoading) return <LoadingState label="Searching..." />;
@@ -195,9 +256,12 @@ function SearchResults({ query }: { query: string }) {
       className={`flex flex-col gap-2 transition ${isFetching ? "opacity-60" : ""}`}
     >
       {results.map((result) => (
-        <li key={result.username}>
+        <li
+          className="flex items-center gap-2 rounded-xl bg-surface-variant p-3 dark:bg-surface-container"
+          key={result.username}
+        >
           <Link
-            className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 transition hover:ring-2 hover:ring-primary dark:bg-surface-container"
+            className="flex min-w-0 flex-1 items-center gap-3 transition hover:underline"
             href={profileHref(result.username)}
           >
             <ProfilePicture
@@ -210,6 +274,11 @@ function SearchResults({ query }: { query: string }) {
             </span>
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted" />
           </Link>
+          <FriendRequestAction
+            displayName={result.display_name}
+            status={friendStatus.get(result.username) ?? "none"}
+            username={result.username}
+          />
         </li>
       ))}
     </ul>
