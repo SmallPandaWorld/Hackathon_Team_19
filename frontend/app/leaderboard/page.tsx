@@ -132,7 +132,7 @@ function NoFriendsYet() {
       </p>
       <Link
         className={`${buttonStyles.primary} flex items-center gap-2 py-2 text-sm`}
-        href="/profile"
+        href="/friends"
       >
         <UserPlus aria-hidden className="h-4 w-4" /> Find players
       </Link>
