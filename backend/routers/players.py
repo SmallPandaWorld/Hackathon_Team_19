@@ -46,7 +46,7 @@ from schemas import (
 
 router = APIRouter(tags=["players"], responses=error_responses(401))
 
-LEADERBOARD_SIZE = 50
+LEADERBOARD_SIZE = 10
 MAX_SEARCH_RESULTS = 20
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 AVATAR_STORAGE_DIR = Path(os.getenv(
