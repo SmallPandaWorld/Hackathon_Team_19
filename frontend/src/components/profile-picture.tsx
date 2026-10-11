@@ -247,40 +247,47 @@ export function ProfilePicture({
 
   return (
     <div className="flex shrink-0 flex-col items-end gap-1">
-      <div
-        className={`relative ${dimensions} overflow-hidden rounded-full bg-primary text-on-primary shadow-card`}
-      >
-        <span
-          aria-hidden={pictureState !== "missing"}
-          aria-label={
-            pictureState === "missing"
-              ? `${displayName}'s profile picture`
-              : undefined
-          }
-          className={`flex h-full w-full items-center justify-center ${letterSize} font-semibold`}
-          role={pictureState === "missing" ? "img" : undefined}
+      {/* The remove button sits on the outer box so the circle's clipping
+          doesn't cut it off. */}
+      <div className={`relative isolate ${dimensions}`}>
+        <div
+          className={`relative h-full w-full overflow-hidden rounded-full bg-primary text-on-primary shadow-card`}
         >
-          {letters}
-        </span>
-        {username && pictureState !== "missing" && (
-          <PhotoPreviewImage
-            alt={`${displayName}'s profile picture`}
-            className="object-cover"
-            key={username}
-            onError={() => setPictureState("missing")}
-            onLoad={() => setPictureState("loaded")}
-            sizes={
-              size === "small" ? "36px" : size === "medium" ? "40px" : "80px"
+          <span
+            aria-hidden={pictureState !== "missing"}
+            aria-label={
+              pictureState === "missing"
+                ? `${displayName}'s profile picture`
+                : undefined
             }
-            src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
-          />
-        )}
+            className={`flex h-full w-full items-center justify-center ${letterSize} font-semibold`}
+            role={pictureState === "missing" ? "img" : undefined}
+          >
+            {letters}
+          </span>
+          {username && pictureState !== "missing" && (
+            <PhotoPreviewImage
+              alt={`${displayName}'s profile picture`}
+              className="object-cover"
+              key={username}
+              onError={() => setPictureState("missing")}
+              onLoad={() => setPictureState("loaded")}
+              sizes={
+                size === "small" ? "36px" : size === "medium" ? "40px" : "80px"
+              }
+              src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
+            />
+          )}
+        </div>
         {editable && pictureState === "loaded" && (
           <button
             aria-label="Remove profile picture"
-            className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-surface-variant text-on-surface shadow-card hover:bg-surface-container disabled:opacity-60 dark:border-surface-variant"
+            className="absolute right-0 top-0 z-10 flex h-7 w-7 translate-x-1/3 -translate-y-1/3 items-center justify-center rounded-full border-2 border-surface bg-surface-variant text-on-surface shadow-card hover:bg-surface-container disabled:opacity-60 dark:border-surface-variant"
             disabled={busy}
-            onClick={() => setConfirmRemove(true)}
+            onClick={(event) => {
+              event.stopPropagation();
+              setConfirmRemove(true);
+            }}
             type="button"
           >
             <X aria-hidden className="h-4 w-4" />
