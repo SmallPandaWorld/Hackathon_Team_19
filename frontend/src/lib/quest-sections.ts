@@ -1,7 +1,4 @@
-import type {
-  QuestOut,
-  QuestOutKind,
-} from "@/src/lib/api/hackathon.schemas";
+import type { QuestOut, QuestOutKind } from "@/src/lib/api/hackathon.schemas";
 import { KIND_LABELS } from "@/src/lib/quest-display";
 
 export type QuestSections = {
@@ -13,6 +10,7 @@ export type QuestSections = {
 
 export type QuestSortOrder =
   | "recommended"
+  | "votes"
   | "title"
   | "type"
   | "points_desc"
@@ -20,6 +18,11 @@ export type QuestSortOrder =
   | "soonest";
 
 export type QuestKindFilter = QuestOutKind | "all";
+
+// Net vote score; quests that can't be voted on (maintainer quests) count as 0.
+export function voteScore(quest: QuestOut): number {
+  return quest.votes?.score ?? 0;
+}
 
 // Search quest names and apply the selected stable ordering.
 export function filterAndSortQuests(
@@ -49,6 +52,8 @@ export function filterAndSortQuests(
         ) || a.title.localeCompare(b.title)
       );
     }
+    if (sortOrder === "votes")
+      return voteScore(b) - voteScore(a) || a.title.localeCompare(b.title);
     if (sortOrder === "points_desc")
       return b.points - a.points || a.title.localeCompare(b.title);
     if (sortOrder === "points_asc")
@@ -86,6 +91,8 @@ export function sortQuests(quests: QuestOut[]): QuestSections {
       // Past meetups the player missed are no longer actionable.
     } else sections.available.push(quest);
   }
+  // Best-rated first; ties keep the backend's newest-first order (stable sort).
+  sections.available.sort((a, b) => voteScore(b) - voteScore(a));
   sections.upcoming.sort((a, b) =>
     (a.starts_at ?? "").localeCompare(b.starts_at ?? ""),
   );
