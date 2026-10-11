@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY . .
 RUN npm ci
+ARG DEV_MODE=false
+ENV DEV_MODE=${DEV_MODE}
 RUN npm run build
 
 FROM node:24-alpine AS runner

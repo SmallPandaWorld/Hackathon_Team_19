@@ -22,7 +22,10 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        DEV_MODE: ${DEV_MODE:-false}
     ports:
       - 3000:3000
     depends_on:

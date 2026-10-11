@@ -1227,7 +1227,7 @@ Frontend:
 ```bash
 cd frontend
 npm ci
-npm run dev
+DEV_MODE=true npm run dev
 ```
 
 The browser app is at `http://localhost:3000/`. The direct backend is at `http://localhost:8000/`. Its interactive API documentation is at `http://localhost:8000/docs`, with the raw contract at `/openapi.json`.
@@ -1267,7 +1267,7 @@ The type-check command is not a named package script. There is no frontend unit-
 | Variable | Read by | Meaning |
 | --- | --- | --- |
 | `DATABASE_URL` | Backend database module | Database connection URL; local SQLite is the default |
-| `DEV_MODE` | Backend auth module | Enables the three local test identities when set to `true`; leave unset in deployment |
+| `DEV_MODE` | Backend auth module and frontend build/dev server | Enables the three local test identities and the test-account switcher; Compose passes it to the frontend build and `next.config.ts` exposes it to the browser; leave unset in deployment |
 | `MAINTAINER_IDS` | Backend auth module and Compose substitution | Comma-separated external IDs with admin permission |
 | `NODE_ENV` | Frontend config/runtime | Chooses local backend host versus Docker backend service |
 
@@ -1291,7 +1291,7 @@ There is no `BACKEND_URL` environment setting consumed here: `next.config.ts` cr
 
 **`backend/Dockerfile`** starts from `python:3.14-slim`, installs runtime requirements, copies backend source, and runs Uvicorn on `0.0.0.0:8000` inside the container.
 
-**`frontend/Dockerfile`** has two stages. A Node 24 Alpine builder runs `npm ci` and `npm run build`. The production runner copies public assets, the Next.js build, dependencies, and manifest, sets `NODE_ENV=production`, and starts Next.js on `0.0.0.0:3000`.
+**`frontend/Dockerfile`** has two stages. A Node 24 Alpine builder runs `npm ci` and `npm run build`, accepting `DEV_MODE` as a build argument (default `false`). Compose passes the root `DEV_MODE` setting directly so test-account switching also works in a production frontend build. Changing the flag requires rebuilding the frontend image. The production runner copies public assets, the Next.js build, dependencies, and manifest, sets `NODE_ENV=production`, and starts Next.js on `0.0.0.0:3000`.
 
 **`docker-compose.yml`** starts both services, uses the backend service hostname for internal requests, and gives both services an `unless-stopped` restart policy. The frontend depends on the backend service, but there is no explicit readiness health check.
 
