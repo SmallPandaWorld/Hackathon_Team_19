@@ -226,7 +226,7 @@ export default function Home() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <ShareButton
-          className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
+          className={`${buttonStyles.secondary} home-action-button flex w-full cursor-pointer items-center justify-center gap-2`}
           label={
             <>
               <Send aria-hidden className="h-4 w-4" /> Invite a friend
@@ -237,7 +237,7 @@ export default function Home() {
           title="UniQuest"
         />
         <Link
-          className={`${buttonStyles.secondary} flex self-start items-center justify-center gap-2`}
+          className={`${buttonStyles.secondary} home-action-button flex self-start items-center justify-center gap-2`}
           href="/create"
         >
           <Plus aria-hidden className="h-4 w-4" /> Create a quest

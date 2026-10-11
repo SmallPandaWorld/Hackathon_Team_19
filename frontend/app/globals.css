@@ -138,6 +138,22 @@ body {
     );
 }
 
+.home-action-button {
+  background-color: var(--surface-variant);
+}
+
+.home-action-button:hover {
+  background-color: var(--surface-container);
+}
+
+[data-theme="dark"] .home-action-button {
+  background-color: var(--surface-container);
+}
+
+[data-theme="dark"] .home-action-button:hover {
+  background-color: color-mix(in srgb, var(--surface-container) 90%, var(--primary));
+}
+
 h1,
 h2,
 h3 {
