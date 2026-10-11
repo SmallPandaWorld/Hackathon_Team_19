@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { Camera, ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { initials } from "@/src/lib/initials";
+import { PhotoPreviewImage } from "@/src/components/photo-preview-image";
 
 const MAX_PICTURE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -261,10 +261,9 @@ export function ProfilePicture({
           {letters}
         </span>
         {username && pictureState !== "missing" && (
-          <Image
+          <PhotoPreviewImage
             alt={`${displayName}'s profile picture`}
             className="object-cover"
-            fill
             key={username}
             onError={() => setPictureState("missing")}
             onLoad={() => setPictureState("loaded")}
@@ -272,7 +271,6 @@ export function ProfilePicture({
               size === "small" ? "36px" : size === "medium" ? "40px" : "80px"
             }
             src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
-            unoptimized
           />
         )}
         {editable && pictureState === "loaded" && (

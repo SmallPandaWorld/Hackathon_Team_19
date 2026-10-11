@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 import Link from "next/link";
 import { buttonStyles, Card } from "@/src/components/page";
+import { PhotoPreviewImage } from "@/src/components/photo-preview-image";
 
 type QuestPhoto = {
   id: string;
@@ -258,13 +258,11 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
           <figure className="min-w-0" key={photo.id}>
             <div className="relative">
               <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                <Image
+                <PhotoPreviewImage
                   alt={`Photo from ${photo.quest_title}`}
                   className="object-cover"
-                  fill
                   sizes="(max-width: 640px) 45vw, 220px"
                   src={`/api/quest-photos/${photo.id}`}
-                  unoptimized
                 />
               </div>
               {photo.is_mine && (
@@ -358,7 +356,7 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
             >
               {uploading
                 ? "Uploading…"
-                : photos.length > 0
+                : ownPhotos.length > 0
                   ? "Upload more photos"
                   : "Upload Photo"}
             </button>
@@ -514,13 +512,11 @@ export function ProfileQuestPhotoGallery({
             <figure className="min-w-0" key={photo.id}>
               <div className="relative">
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                  <Image
+                  <PhotoPreviewImage
                     alt={`Photo from ${photo.quest_title}`}
                     className="object-cover"
-                    fill
                     sizes="(max-width: 640px) 45vw, 220px"
                     src={`${url}/${photo.id}/image`}
-                    unoptimized
                   />
                 </div>
                 {photo.is_mine && (
