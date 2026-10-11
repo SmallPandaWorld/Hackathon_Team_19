@@ -8,6 +8,7 @@ import type {
   FriendOut,
   FriendRequestOut,
   PublicPlayer,
+  PublicPlayerFriendStatus,
 } from "@/src/lib/api/hackathon.schemas";
 import {
   useAcceptFriendRequest,
@@ -137,6 +138,67 @@ export function FriendActions({ player }: { player: PublicPlayer }) {
       {body}
       {actions.error && (
         <p className="mt-2 text-sm text-danger">{actions.error}</p>
+      )}
+    </div>
+  );
+}
+
+// Inline friend action for discovery results, where opening a profile first
+// would add an unnecessary step.
+export function FriendRequestAction({
+  username,
+  displayName,
+  status,
+}: {
+  username: string;
+  displayName: string;
+  status: PublicPlayerFriendStatus;
+}) {
+  const actions = useFriendActions();
+
+  let body;
+  if (status === "friends") {
+    body = <span className="text-xs font-semibold text-success">Friends</span>;
+  } else if (status === "outgoing") {
+    body = (
+      <span className="text-xs font-semibold text-muted">Request sent</span>
+    );
+  } else if (status === "incoming") {
+    body = (
+      <button
+        aria-label={`Accept friend request from ${displayName}`}
+        className={`${buttonStyles.primary} shrink-0 px-3 py-2 text-sm`}
+        disabled={actions.pending}
+        onClick={() => actions.acceptRequest(username)}
+        type="button"
+      >
+        Accept
+      </button>
+    );
+  } else {
+    body = (
+      <button
+        aria-label={`Add ${displayName} as a friend`}
+        className={`${buttonStyles.secondary} flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm`}
+        disabled={actions.pending}
+        onClick={() => actions.sendRequest(username)}
+        type="button"
+      >
+        <UserPlus aria-hidden className="h-4 w-4" /> Add friend
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end">
+      {body}
+      {actions.error && (
+        <span
+          className="mt-1 max-w-40 text-right text-xs text-danger"
+          role="alert"
+        >
+          {actions.error}
+        </span>
       )}
     </div>
   );

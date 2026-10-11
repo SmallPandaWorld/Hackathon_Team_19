@@ -1,4 +1,8 @@
-import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
+import type {
+  QuestOut,
+  QuestOutKind,
+} from "@/src/lib/api/hackathon.schemas";
+import { KIND_LABELS } from "@/src/lib/quest-display";
 
 export type QuestSections = {
   available: QuestOut[];
@@ -6,6 +10,59 @@ export type QuestSections = {
   inReview: QuestOut[];
   completed: QuestOut[];
 };
+
+export type QuestSortOrder =
+  | "recommended"
+  | "title"
+  | "type"
+  | "points_desc"
+  | "points_asc"
+  | "soonest";
+
+export type QuestKindFilter = QuestOutKind | "all";
+
+// Search quest names and apply the selected stable ordering.
+export function filterAndSortQuests(
+  quests: QuestOut[],
+  query: string,
+  sortOrder: QuestSortOrder,
+  kindFilter: QuestKindFilter = "all",
+): QuestOut[] {
+  const term = query.trim().toLocaleLowerCase();
+  const filtered = quests.filter(
+    (quest) =>
+      (kindFilter === "all" || quest.kind === kindFilter) &&
+      (!term || quest.title.toLocaleLowerCase().includes(term)),
+  );
+
+  if (sortOrder === "recommended") return filtered;
+
+  return filtered.sort((a, b) => {
+    if (sortOrder === "title")
+      return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+    if (sortOrder === "type") {
+      return (
+        KIND_LABELS[a.kind].label.localeCompare(
+          KIND_LABELS[b.kind].label,
+          undefined,
+          { sensitivity: "base" },
+        ) || a.title.localeCompare(b.title)
+      );
+    }
+    if (sortOrder === "points_desc")
+      return b.points - a.points || a.title.localeCompare(b.title);
+    if (sortOrder === "points_asc")
+      return a.points - b.points || a.title.localeCompare(b.title);
+
+    const aStart = a.starts_at
+      ? Date.parse(a.starts_at)
+      : Number.POSITIVE_INFINITY;
+    const bStart = b.starts_at
+      ? Date.parse(b.starts_at)
+      : Number.POSITIVE_INFINITY;
+    return aStart - bStart || a.title.localeCompare(b.title);
+  });
+}
 
 // Available now first, then scheduled events, then the player's history.
 export function sortQuests(quests: QuestOut[]): QuestSections {
