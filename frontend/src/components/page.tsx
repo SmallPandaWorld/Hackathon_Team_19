@@ -16,28 +16,45 @@ export function Page({
   return (
     <main className="page-canvas relative isolate min-h-screen bg-surface px-4 pb-28 pt-8 text-on-surface sm:px-6 sm:pt-12 lg:pb-16 lg:pl-[calc(14rem+2.5rem)] lg:pr-[calc(18rem+3rem)]">
       {cornerTrails && (
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 h-screen w-screen opacity-60 dark:opacity-80"
-          fill="none"
-          preserveAspectRatio="none"
-          viewBox="0 0 1000 1000"
-        >
-          <g
-            stroke="var(--page-trail)"
-            strokeDasharray="1 8"
-            strokeLinecap="round"
-            strokeWidth="2.5"
+        <>
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none fixed right-0 top-0 z-0 h-auto w-[clamp(7rem,20vw,11rem)] opacity-60 dark:opacity-80"
+            fill="none"
+            height="230"
+            viewBox="880 -12 125 230"
+            width="125"
           >
-            <path d="M902 -12c-35 42 57 37 80 83 22 44-45 57-4 94 17 15 24 30 21 47" />
-            <path d="M10 640C56 652 27 676 75 692 117 706 156 694 179 730 202 766 166 796 110 836 82 856 40 907 10 970" />
-          </g>
-          <g fill="var(--page-trail)">
-            <circle cx="999" cy="211" r="2.5" />
-            <circle cx="10" cy="640" r="2.5" />
-            <circle cx="10" cy="970" r="2.5" />
-          </g>
-        </svg>
+            <path
+              d="M902 -12c-35 42 57 37 80 83 22 44-45 57-4 94 17 15 24 30 21 47"
+              stroke="var(--page-trail)"
+              strokeDasharray="1 8"
+              strokeLinecap="round"
+              strokeWidth="2.5"
+            />
+            <circle cx="999" cy="211" fill="var(--page-trail)" r="2.5" />
+          </svg>
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none fixed bottom-0 left-0 z-0 h-auto w-[clamp(9rem,24vw,16rem)] opacity-60 dark:opacity-80"
+            fill="none"
+            height="350"
+            viewBox="0 630 220 350"
+            width="220"
+          >
+            <path
+              d="M10 640C56 652 27 676 75 692 117 706 156 694 179 730 202 766 166 796 110 836 82 856 40 907 10 970"
+              stroke="var(--page-trail)"
+              strokeDasharray="1 8"
+              strokeLinecap="round"
+              strokeWidth="2.5"
+            />
+            <g fill="var(--page-trail)">
+              <circle cx="10" cy="640" r="2.5" />
+              <circle cx="10" cy="970" r="2.5" />
+            </g>
+          </svg>
+        </>
       )}
       <div className="relative z-10 mx-auto flex max-w-2xl flex-col gap-6 lg:max-w-4xl">
         {children}
