@@ -16,8 +16,9 @@ DEV_MODE=true uvicorn main:app --reload
 Environment variables:
 - `DEV_MODE=true`: local only. Enables the three test accounts when no
   `X-User-Id` header is sent. Test Admin is the default and can use `/admin`;
-  switch to Test User 1 or Test User 2 below the account display in the
-  development frontend. Leave this unset in deployment.
+  switch to Test User 1 or Test User 2 below the account display when the
+  frontend's `DEV_MODE` flag is enabled. Docker Compose also passes
+  `DEV_MODE` to the frontend at build time. Leave this unset in deployment.
 - `MAINTAINER_IDS`: comma-separated usernames (`X-User-Id` values) that get
   the maintainer tools at `/admin` (quest editor, completion
   reviews, reports) in production.
@@ -130,8 +131,13 @@ npx orval
 
 ### To Run frontend
 ```
-npm run dev
+DEV_MODE=true npm run dev
 ```
+
+Alternatively, set `DEV_MODE=true` in `frontend/.env.local`.
+For Docker, set `DEV_MODE=true` in the root `.env` and run
+`docker compose up -d --build`. Changing this flag requires rebuilding the
+frontend image because `next.config.ts` exposes `DEV_MODE` to the browser at build time.
 
 Tailwind is for Styling (classname and so on)
 See https://tailwindcss.com/docs/styling-with-utility-classes

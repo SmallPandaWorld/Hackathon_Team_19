@@ -149,7 +149,7 @@ export default function Home() {
               VISCON 2026 <span className="px-1 text-muted">/</span> ETH ZURICH
             </p>
             <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-6xl">
-              Campus Voyager
+              UniQuest
             </h1>
           </div>
           <div className="shrink-0 lg:hidden">
@@ -233,8 +233,8 @@ export default function Home() {
             </>
           }
           path="/"
-          text="Join me on Campus Voyager: explore ETH and complete quests together!"
-          title="Campus Voyager"
+          text="Join me on UniQuest: explore ETH and complete quests together!"
+          title="UniQuest"
         />
         <Link
           className={`${buttonStyles.secondary} flex self-start items-center justify-center gap-2`}

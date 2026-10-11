@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Campus Voyager",
+  title: "UniQuest",
   description: "Explore ETH campus through quests and collect points.",
 };
 

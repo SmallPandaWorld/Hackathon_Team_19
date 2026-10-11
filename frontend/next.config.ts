@@ -3,7 +3,9 @@ import type { NextConfig } from "next";
 const BACKEND_URL = process.env.NODE_ENV == "production" ? "http://backend:8000" : "http://localhost:8000";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  env: {
+    DEV_MODE: process.env.DEV_MODE ?? "false",
+  },
   experimental: {
     agentFeedback: true,
   },

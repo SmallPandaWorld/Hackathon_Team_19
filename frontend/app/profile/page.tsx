@@ -4,11 +4,10 @@ import {
   buttonStyles,
   Card,
   Chip,
-  inputStyles,
   Page,
 } from "@/src/components/page";
 import { FriendActions } from "@/src/components/friends";
-import { BadgeIcon, KindIcon } from "@/src/components/icons";
+import { BadgeIcon } from "@/src/components/icons";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { ProfileMeetupGallery } from "@/src/components/meetup-photo-gallery";
 import { ProfileQuestPhotoGallery } from "@/src/components/quest-photo-gallery";
@@ -18,7 +17,6 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import type {
   Badge,
-  CurrentQuestOut,
   HobbyOption,
   Me,
   PublicPlayer,
@@ -28,19 +26,18 @@ import {
   useGetPlayer,
   useUpdateMe,
 } from "@/src/lib/api/players";
-import { KIND_LABELS, STATUS_LABELS } from "@/src/lib/quest-display";
+import { STATUS_LABELS } from "@/src/lib/quest-display";
 import { useAction } from "@/src/lib/use-action";
 import {
   ArrowLeft,
   Check,
   ChevronDown,
-  ChevronRight,
   Send,
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 
 function nextBadge(badges: Badge[]): Badge | undefined {
   // The unearned badge the player is closest to.
@@ -377,73 +374,6 @@ function Appearance() {
   );
 }
 
-// Quests a player joined and hasn't finished. Others only get this list for
-// players who opted in, so on someone else's profile an empty one is left out.
-function CurrentQuests({
-  quests,
-  ownDiscoverable,
-}: {
-  quests: CurrentQuestOut[];
-  // Set on your own profile: whether others see this list too.
-  ownDiscoverable?: boolean;
-}) {
-  const own = ownDiscoverable !== undefined;
-  if (!own && quests.length === 0) return null;
-
-  return (
-    <Card>
-      <h2 className="font-semibold">
-        {own ? "Quests you're doing" : "Currently doing"}
-      </h2>
-      {own && (
-        <p className="mt-1 text-sm text-muted">
-          {ownDiscoverable
-            ? "Other players see this list on your profile."
-            : "Only you see this list. Opt in under Privacy to show it on your profile."}
-        </p>
-      )}
-      {quests.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">
-          You haven&apos;t joined any quests yet.{" "}
-          <Link
-            className="font-semibold text-link hover:underline"
-            href="/quests"
-          >
-            Find one
-          </Link>
-        </p>
-      ) : (
-        <ul className="mt-3 flex flex-col gap-2">
-          {quests.map((quest) => (
-            <li key={quest.id}>
-              <Link
-                className="flex items-center gap-3 rounded-xl bg-surface-variant p-3 transition hover:ring-2 hover:ring-primary dark:bg-surface-container"
-                href={`/quests/${quest.id}`}
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary">
-                  <KindIcon kind={quest.kind} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">
-                    {quest.title}
-                  </span>
-                  <span className="block text-xs text-muted">
-                    {KIND_LABELS[quest.kind].label}
-                  </span>
-                </span>
-                <ChevronRight
-                  aria-hidden
-                  className="h-4 w-4 shrink-0 text-muted"
-                />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
 function MyCreatedQuests({ player }: { player: Me }) {
   const quests = player.created_quests;
 
@@ -554,7 +484,6 @@ function OtherProfile({
           Back to your profile
         </Link>
       </Card>
-      <CurrentQuests quests={player.current_quests} />
     </>
   );
 }
@@ -563,10 +492,6 @@ function OwnProfile({ player }: { player: Me }) {
   return (
     <>
       <Achievements player={player} />
-      <CurrentQuests
-        ownDiscoverable={player.discoverable}
-        quests={player.current_quests}
-      />
       <ProfileMeetupGallery
         username={player.username}
         visible={player.discoverable}
@@ -585,13 +510,12 @@ function OwnProfile({ player }: { player: Me }) {
         className={`${buttonStyles.secondary} flex w-full items-center justify-center gap-2`}
         label={
           <>
-            <Send aria-hidden className="h-4 w-4" /> Invite a friend to Campus
-            Voyager
+            <Send aria-hidden className="h-4 w-4" /> Invite a friend to UniQuest
           </>
         }
         path="/"
-        text="Join me on Campus Voyager: explore ETH and complete quests together!"
-        title="Campus Voyager"
+        text="Join me on UniQuest: explore ETH and complete quests together!"
+        title="UniQuest"
       />
     </>
   );

@@ -1,5 +1,9 @@
 "use client";
 
+const DEV_MODE = ["true", "1", "yes"].includes(
+  (process.env.DEV_MODE ?? "").trim().toLowerCase(),
+);
+
 const TEST_USERS = [
   { id: "test-admin", name: "Test Admin" },
   { id: "test-user-1", name: "Test User 1" },
@@ -7,10 +11,7 @@ const TEST_USERS = [
 ];
 
 export function DevUserSwitcher({ username }: { username: string }) {
-  if (
-    process.env.NODE_ENV !== "development" ||
-    !TEST_USERS.some((user) => user.id === username)
-  ) {
+  if (!DEV_MODE || !TEST_USERS.some((user) => user.id === username)) {
     return null;
   }
 

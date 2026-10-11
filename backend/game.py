@@ -30,7 +30,6 @@ from models import (
     MeetupRsvp,
     PairSession,
     Quest,
-    QuestJoin,
     QuestReport,
     QuestStep,
     QuestVote,
@@ -41,7 +40,6 @@ from models import (
 from schemas import (
     CompletionResult,
     CreatedQuestOut,
-    CurrentQuestOut,
     ErrorResponse,
     PairSessionOut,
     Participant,
@@ -231,42 +229,25 @@ def done_step_ids(db: Session, player_id: str, steps: List[QuestStep]) -> set:
 MAX_PARTICIPANTS = 20
 
 
-def others_doing(
+def other_attendees(
     db: Session, player: User, quests: List[Quest], named_for: set,
 ) -> Tuple[Dict[UUID, int], Dict[UUID, List[Participant]]]:
-    """Other players on the same quests: how many per quest and, for the
-    quests in `named_for`, those who may be named (most shared hobbies first).
-
-    A player is on a quest after joining it, until their completion is
-    approved or in review. For a meetup it is everyone who said they're coming.
-    """
+    """Other meetup RSVPs, naming opted-in attendees only for `named_for`."""
     counts: Dict[UUID, int] = {}
     names: Dict[UUID, List[Participant]] = {quest_id: [] for quest_id in named_for}
+    quest_ids = [quest.id for quest in quests if quest.kind == MEETUP]
+    if not quest_ids:
+        return counts, names
     mine = set(parse_hobbies(player.hobbies))
-    finished = select(Completion.id).where(
-        Completion.player_id == QuestJoin.player_id,
-        Completion.quest_id == QuestJoin.quest_id,
-        Completion.status.in_((APPROVED, PENDING)),
-    ).exists()
-    for model, quest_ids in (
-        (QuestJoin, [quest.id for quest in quests if quest.kind != MEETUP]),
-        (MeetupRsvp, [quest.id for quest in quests if quest.kind == MEETUP]),
-    ):
-        if not quest_ids:
-            continue
-        others = [model.quest_id.in_(quest_ids), model.player_id != player.username]
-        if model is QuestJoin:
-            others.append(~finished)
-        counts.update(db.execute(
-            select(model.quest_id, func.count()).where(*others)
-            .group_by(model.quest_id)).all())
-        named_ids = [quest_id for quest_id in quest_ids if quest_id in named_for]
-        if not named_ids:
-            continue
+    others = [MeetupRsvp.quest_id.in_(quest_ids), MeetupRsvp.player_id != player.username]
+    counts.update(db.execute(
+        select(MeetupRsvp.quest_id, func.count()).where(*others)
+        .group_by(MeetupRsvp.quest_id)).all())
+    if named_for:
         for quest_id, other in db.execute(
-            select(model.quest_id, User)
-            .join(User, User.username == model.player_id)
-            .where(*others, model.quest_id.in_(named_ids), User.discoverable.is_(True))
+            select(MeetupRsvp.quest_id, User)
+            .join(User, User.username == MeetupRsvp.player_id)
+            .where(*others, MeetupRsvp.quest_id.in_(named_for), User.discoverable.is_(True))
         ):
             names[quest_id].append(Participant(
                 username=other.username,
@@ -278,35 +259,6 @@ def others_doing(
         people.sort(key=lambda p: (-len(p.shared_hobbies), p.display_name.lower()))
         del people[MAX_PARTICIPANTS:]
     return counts, names
-
-
-MAX_CURRENT_QUESTS = 20
-
-
-def current_quests(db: Session, player: User) -> List[CurrentQuestOut]:
-    """Published quests a player is on right now, most recently joined first.
-
-    Joined and without an approved or pending completion, or a meetup they
-    said they're coming to that isn't over and that they haven't checked into.
-    """
-    finished = select(Completion.id).where(
-        Completion.player_id == player.username,
-        Completion.quest_id == Quest.id,
-        Completion.status.in_((APPROVED, PENDING)),
-    ).exists()
-    rows = []
-    for model, is_kind in ((QuestJoin, Quest.kind != MEETUP), (MeetupRsvp, Quest.kind == MEETUP)):
-        rows += db.execute(
-            select(Quest, model.created_at)
-            .join(model, model.quest_id == Quest.id)
-            .where(model.player_id == player.username, Quest.status == PUBLISHED,
-                   is_kind, ~finished)).all()
-    now = utcnow()
-    rows = [(quest, since) for quest, since in rows
-            if quest.kind != MEETUP or meetup_state(quest, now) in ("upcoming", "live")]
-    rows.sort(key=lambda row: row[1], reverse=True)
-    return [CurrentQuestOut(id=quest.id, title=quest.title, kind=quest.kind)
-            for quest, _ in rows[:MAX_CURRENT_QUESTS]]
 
 
 def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut]:
@@ -333,8 +285,6 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
         .group_by(MeetupRsvp.quest_id)).all())
     my_rsvps = set(db.scalars(select(MeetupRsvp.quest_id).where(
         MeetupRsvp.player_id == player.username, MeetupRsvp.quest_id.in_(ids))))
-    my_joins = set(db.scalars(select(QuestJoin.quest_id).where(
-        QuestJoin.player_id == player.username, QuestJoin.quest_id.in_(ids))))
     my_reports = set(db.scalars(select(QuestReport.quest_id).where(
         QuestReport.player_id == player.username, QuestReport.quest_id.in_(ids))))
     pair_sessions: Dict[UUID, PairSession] = {}
@@ -371,17 +321,12 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
 
     now = utcnow()
     states = {quest.id: meetup_state(quest, now) for quest in quests}
-    joined = {quest.id for quest in quests
-              if quest.id in (my_rsvps if quest.kind == MEETUP else my_joins)}
-    # Names are only for players on the quest themselves: joined and not
-    # finished, or coming to a meetup that isn't over.
-    doing = {
-        quest.id for quest in quests if quest.id in joined and (
-            states[quest.id] in ("upcoming", "live") if quest.kind == MEETUP
-            else quest.id not in completions
-            or completions[quest.id].status == COMPLETION_REJECTED)
+    # Attendee names are only shared with players coming to an open meetup.
+    attending = {
+        quest.id for quest in quests if quest.id in my_rsvps
+        and states[quest.id] in ("upcoming", "live")
     }
-    other_counts, other_names = others_doing(db, player, quests, doing)
+    other_counts, other_names = other_attendees(db, player, quests, attending)
 
     views = []
     for quest in quests:
@@ -420,7 +365,6 @@ def quest_views(db: Session, player: User, quests: List[Quest]) -> List[QuestOut
             ],
             rsvp=quest.id in my_rsvps,
             rsvp_count=rsvp_counts.get(quest.id, 0),
-            joined=quest.id in joined,
             participant_count=other_counts.get(quest.id, 0),
             participants=other_names.get(quest.id),
             reported=quest.id in my_reports,
@@ -494,42 +438,6 @@ MEETUP_CLOSED = {
 }
 
 
-def set_joined(db: Session, player: User, quest: Quest, joined: bool) -> None:
-    """Join a quest to work on it, or leave it again (both idempotent).
-
-    Leaving keeps saved step progress. Meetups have "I'm coming" instead.
-    """
-    if quest.kind == MEETUP:
-        raise bad_request("Say you're coming to join a meetup.")
-    if joined:
-        db.add(QuestJoin(player_id=player.username, quest_id=quest.id, created_at=utcnow()))
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()  # already joined
-        return
-    join = db.scalars(select(QuestJoin).where(
-        QuestJoin.quest_id == quest.id, QuestJoin.player_id == player.username)).first()
-    if join is not None:
-        db.delete(join)
-        db.commit()
-
-
-def require_joined(db: Session, player: User, quest: Quest) -> None:
-    """A first attempt at a quest needs a join.
-
-    Players who already have a completion (even a rejected one) are past
-    that step. Meetups are joined by checking in; a pair quest's partner
-    joins by entering the host's code.
-    """
-    if quest.kind == MEETUP:
-        return
-    joined = db.scalars(select(QuestJoin.id).where(
-        QuestJoin.quest_id == quest.id, QuestJoin.player_id == player.username)).first()
-    if joined is None and find_completion(db, player.username, quest.id) is None:
-        raise conflict("Join this quest first.")
-
-
 def complete_quest(db: Session, player: User, quest: Quest,
                    note: Optional[str]) -> CompletionResult:
     """Complete a solo quest, or check in at a live meetup.
@@ -548,8 +456,6 @@ def complete_quest(db: Session, player: User, quest: Quest,
             "Enter the printed code to complete this quest.")
     if quest.requires_password:
         raise bad_request("Enter the password to complete this quest.")
-    require_joined(db, player, quest)
-
     existing = find_completion(db, player.username, quest.id)
     if quest.kind == MEETUP and existing is None:
         state = meetup_state(quest)
@@ -580,7 +486,6 @@ def redeem_quest_code(db: Session, player: User, quest: Quest,
         raise bad_request(WRONG_ACTION.get(quest.kind, "This quest does not use a code."))
     if not (quest.requires_password or quest.requires_code):
         raise bad_request("This quest does not use a code or password.")
-    require_joined(db, player, quest)
     if quest.requires_password:
         if quest.kind != SOLO:
             raise bad_request("Only solo quests use passwords.")
@@ -624,7 +529,6 @@ def submit_quiz(db: Session, player: User, quest: Quest,
                 answers: List[int]) -> Tuple[QuizResult, Optional[CompletionResult]]:
     """Check quiz answers. All must be right to pass; retries are unlimited
     and the reward is granted only once."""
-    require_joined(db, player, quest)
     questions = ordered_questions(db, quest.id)
     if len(answers) != len(questions):
         raise bad_request("Answer every question.")
@@ -646,7 +550,6 @@ def complete_step(db: Session, player: User, quest: Quest,
 
     Steps must be done in order. Points come only with the whole quest.
     """
-    require_joined(db, player, quest)
     steps = ordered_steps(db, quest.id)
     step = next((s for s in steps if s.id == step_id), None)
     if step is None:
@@ -811,7 +714,6 @@ def start_pair(db: Session, player: User, quest: Quest,
     earns points then. With `invite_username` the code also appears on that
     player's home screen; both players must have opted in to suggestions.
     """
-    require_joined(db, player, quest)
     if invite_username is not None:
         if invite_username == player.username:
             raise bad_request("You can't invite yourself.")

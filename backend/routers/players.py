@@ -19,7 +19,6 @@ from friendships import accepted_friend_ids, friend_status, friendship_between
 from game import (
     QUEST_CREATION_ORDER,
     bad_request,
-    current_quests,
     error_responses,
     not_found,
     open_invitations,
@@ -102,7 +101,6 @@ def me_out(db: Session, player: User) -> Me:
         suggestions=suggestions_for(db, player),
         invitations=open_invitations(db, player),
         created_quests=[created_quest_out(quest) for quest in created_quests],
-        current_quests=current_quests(db, player),
     )
 
 
@@ -255,9 +253,7 @@ def get_player(
 
     Only players who opted in to suggestions are visible to others, except
     that friends and players with an open request between them can always
-    see each other; a player can always view themselves. The quests a player
-    is doing follow the naming rule of quest participants: others only see
-    them while the player is opted in.
+    see each other; a player can always view themselves.
     """
     other = db.get(User, username)
     if other is None:
@@ -270,8 +266,6 @@ def get_player(
         total_points=total_points(db, other.username),
         hobbies=parse_hobbies(other.hobbies),
         badges=player_badges(db, other.username),
-        current_quests=(current_quests(db, other)
-                        if other.discoverable or other.username == player.username else []),
         friend_status=friend_status(db, player.username, other.username),
     )
 

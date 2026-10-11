@@ -68,8 +68,8 @@ function WaitingForPartner({
           </span>
         }
         path={`/join/${session.code}`}
-        text={`Join my quest “${session.quest_title}” on Campus Voyager`}
-        title="Campus Voyager"
+        text={`Join my quest “${session.quest_title}” on UniQuest`}
+        title="UniQuest"
       />
       <button
         className="text-sm font-semibold text-muted hover:text-danger"
