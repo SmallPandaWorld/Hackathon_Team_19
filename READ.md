@@ -11,15 +11,13 @@
 
 ### How to Start le Backend [be in the backend folder]:
 ```
-DEV_USER_ID=dev-1 DEV_USER_NAME="Dev Player" uvicorn main:app --reload
+DEV_MODE=true uvicorn main:app --reload
 ```
 Environment variables:
-- `DEV_USER_ID` / `DEV_USER_NAME`: local only. Fakes the VISCON identity when
-  no `X-User-Id` header is sent; this dev player is a maintainer by default.
-  Never set it in deployment.
-- `DEV_USER_MAINTAINER=false`: local only. Makes the dev player a regular
-  player, e.g. to test the non-admin UI:
-  `DEV_USER_ID=test-player DEV_USER_NAME="Test Player" DEV_USER_MAINTAINER=false uvicorn main:app --reload`
+- `DEV_MODE=true`: local only. Enables the three test accounts when no
+  `X-User-Id` header is sent. Test Admin is the default and can use `/admin`;
+  switch to Test User 1 or Test User 2 below the account display in the
+  development frontend. Leave this unset in deployment.
 - `MAINTAINER_IDS`: comma-separated usernames (`X-User-Id` values) that get
   the maintainer tools at `/admin` (quest editor, completion
   reviews, reports) in production.
