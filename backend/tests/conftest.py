@@ -45,13 +45,6 @@ def post_action(client, headers, quest_id, action_type, **fields):
                        json={"type": action_type, **fields})
 
 
-# A first attempt at a quest is only allowed after joining it.
-NEEDS_JOIN = {"complete", "redeem", "quiz", "step", "pair_start"}
-
-
 def act(client, headers, quest_id, action_type, **fields):
-    """POST a quest action as a player who joined the quest; returns the
-    action's response. Use `post_action` to act without joining."""
-    if action_type in NEEDS_JOIN:
-        post_action(client, headers, quest_id, "join")
+    """POST a quest action directly, without any enrollment step."""
     return post_action(client, headers, quest_id, action_type, **fields)

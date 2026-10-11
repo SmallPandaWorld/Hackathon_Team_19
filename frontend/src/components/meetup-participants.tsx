@@ -5,20 +5,16 @@ import { Card } from "@/src/components/page";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import type { QuestOut } from "@/src/lib/api/hackathon.schemas";
 import { useGetMe } from "@/src/lib/api/players";
-import { useQuestAction } from "@/src/lib/use-quest-action";
 import { Users } from "lucide-react";
 import Link from "next/link";
 
-// Other players on the same quest. The backend only sends the list while
-// the player is on the quest too, and only names players who opted in to
-// suggestions; the rest are a number.
-export function QuestParticipants({ quest }: { quest: QuestOut }) {
-  const { perform, pending, error } = useQuestAction(quest.id);
+// Attendees are visible to players who RSVP'd to an upcoming or live meetup.
+// Only players who opted in to suggestions are named.
+export function MeetupParticipants({ quest }: { quest: QuestOut }) {
   const me = useGetMe();
   const people = quest.participants;
-  if (!people) return null;
+  if (quest.kind !== "meetup" || !people) return null;
 
-  const meetup = quest.kind === "meetup";
   const unnamed = Math.max(0, (quest.participant_count ?? 0) - people.length);
   const hidden = me.data?.status === 200 && !me.data.data.discoverable;
 
@@ -26,20 +22,12 @@ export function QuestParticipants({ quest }: { quest: QuestOut }) {
     <Card>
       <h2 className="flex items-center gap-2 font-semibold">
         <Users aria-hidden className="h-5 w-5" />
-        {meetup ? "Also coming" : "Also doing this quest"}
+        Also coming
       </h2>
-      {people.length === 0 && unnamed === 0 ? (
+      {people.length === 0 && unnamed === 0 && (
         <p className="mt-1 text-sm text-muted">
-          {meetup
-            ? "Nobody else has said they're coming yet."
-            : "Nobody else has joined yet. You're the first!"}
+          Nobody else has said they&apos;re coming yet.
         </p>
-      ) : (
-        quest.kind === "pair" && (
-          <p className="mt-1 text-sm text-muted">
-            Looking for a partner? Find one of them on campus.
-          </p>
-        )
       )}
       {people.length > 0 && (
         <ul className="mt-3 flex flex-col gap-2">
@@ -89,17 +77,6 @@ export function QuestParticipants({ quest }: { quest: QuestOut }) {
           to appear in this list.
         </p>
       )}
-      {!meetup && (
-        <button
-          className="mt-4 text-sm font-semibold text-muted hover:text-danger"
-          disabled={pending !== null}
-          onClick={() => perform({ type: "leave" })}
-          type="button"
-        >
-          Leave this quest
-        </button>
-      )}
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </Card>
   );
 }

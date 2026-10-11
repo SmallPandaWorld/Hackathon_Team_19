@@ -73,7 +73,7 @@ class QuizQuestionOut(BaseModel):
 
 
 class Participant(BaseModel):
-    """Another player on the same quest who opted in to being seen."""
+    """Another meetup attendee who opted in to being seen."""
     username: str
     display_name: str
     shared_hobbies: List[str] = Field(description="Labels of hobbies you share (may be empty)")
@@ -115,14 +115,12 @@ class QuestOut(BaseModel):
     questions: List[QuizQuestionOut] = []
     rsvp: bool = False
     rsvp_count: int = 0
-    joined: bool = Field(
-        default=False, description="I joined this quest (meetups: I said I'm coming)")
     participant_count: int = Field(
-        default=0, description="Other players doing this quest right now, named or not")
+        default=0, description="Other players coming to this meetup, named or not")
     participants: Optional[List[Participant]] = Field(
         default=None,
-        description="Those of them who opted in to suggestions; only set while I'm doing "
-                    "the quest myself")
+        description="Meetup attendees who opted in to suggestions; only set while I'm "
+                    "coming to a meetup that is upcoming or live")
     reported: bool = False
     votes: Optional["QuestVotes"] = Field(
         default=None, description="Up/down votes; only player-created quests can be voted on")
@@ -154,15 +152,6 @@ class QuizResult(BaseModel):
 
 
 # --- Quest actions (POST /quests/{quest_id}/actions) ---------------------------
-
-class JoinAction(BaseModel):
-    """Join a quest; needed before a first attempt at it (meetups use rsvp)."""
-    type: Literal["join"]
-
-
-class LeaveAction(BaseModel):
-    type: Literal["leave"]
-
 
 class CompleteAction(BaseModel):
     """Complete a solo quest or check in at a live meetup."""
@@ -219,7 +208,7 @@ class PairCancelAction(BaseModel):
 
 
 QuestAction = Annotated[
-    Union[JoinAction, LeaveAction, CompleteAction, RedeemAction, QuizAction, StepAction,
+    Union[CompleteAction, RedeemAction, QuizAction, StepAction,
           RsvpAction, ReportAction, VoteAction, PairStartAction, PairCancelAction],
     Field(discriminator="type"),
 ]
@@ -277,13 +266,6 @@ class CreatedQuestOut(BaseModel):
     status: QuestStatus
 
 
-class CurrentQuestOut(BaseModel):
-    """A quest a player is on right now (joined, or coming to a meetup)."""
-    id: UUID
-    title: str
-    kind: QuestKind
-
-
 # --- Connections --------------------------------------------------------------
 
 class Suggestion(BaseModel):
@@ -308,9 +290,6 @@ class PublicPlayer(BaseModel):
     total_points: int
     hobbies: List[str] = Field(description="Hobby keys, see Me.hobby_options")
     badges: List[Badge]
-    current_quests: List[CurrentQuestOut] = Field(
-        description="Quests this player is doing right now, most recently joined first; "
-                    "empty unless they opted in to suggestions")
     friend_status: FriendStatus = Field(
         description="My relation to this player: none, outgoing/incoming request, or friends")
 
@@ -357,8 +336,6 @@ class Me(BaseModel):
     suggestions: Suggestions
     invitations: List[PairSessionOut] = Field(description="Open pair invites addressed to me")
     created_quests: List[CreatedQuestOut] = Field(description="Quests I created, newest first")
-    current_quests: List[CurrentQuestOut] = Field(
-        description="Quests I'm doing right now, most recently joined first")
 
 
 # --- Leaderboard --------------------------------------------------------------
