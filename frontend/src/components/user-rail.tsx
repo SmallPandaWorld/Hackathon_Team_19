@@ -6,16 +6,24 @@ import { ProfilePicture } from "@/src/components/profile-picture";
 import { useGetMe } from "@/src/lib/api/players";
 import { Wrench } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 // Desktop-only panel in the top-right corner: who you are, the partner
 // code form and (for maintainers) the admin link. On mobile the home page
 // shows PlayerSummary and JoinWithCode instead. Errors render nothing;
 // the pages show their own.
 export function UserRail() {
+  const [hasMounted, setHasMounted] = useState(false);
   const { data, isLoading, isError } = useGetMe();
   const player = data?.status === 200 ? data.data : undefined;
 
-  if (isLoading) {
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  // React Query can already have client-side data while this part of the
+  // layout is hydrating. Keep the server and first client render identical.
+  if (!hasMounted || isLoading) {
     return (
       <aside className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface p-5 shadow-card dark:bg-surface-variant print:hidden">
         <div className="h-12 animate-pulse rounded-xl bg-surface-variant dark:bg-surface-container" />
