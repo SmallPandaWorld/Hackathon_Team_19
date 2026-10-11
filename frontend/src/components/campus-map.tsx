@@ -1,6 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
+import { AppDialog } from "@/src/components/app-dialog";
 import { KIND_ICONS } from "@/src/components/icons";
 import type { QuestOutKind } from "@/src/lib/api/hackathon.schemas";
 import type * as Leaflet from "leaflet";
@@ -200,7 +201,9 @@ export function CampusMap({
     const L = leafletRef.current;
     if (!L || !map) return;
     if (!navigator.geolocation) {
-      setLocateError("Your browser can't share your location.");
+      setLocateError(
+        "This browser doesn't support location sharing. You can still browse the campus map and quests.",
+      );
       return;
     }
     setLocating(true);
@@ -225,10 +228,12 @@ export function CampusMap({
           .addTo(map);
         map.flyTo(here, Math.max(map.getZoom(), 17));
       },
-      () => {
+      (error) => {
         setLocating(false);
         setLocateError(
-          "Location unavailable. Allow location access to see where you are.",
+          error.code === 1
+            ? "Allow location access in your browser settings, then try again. You can still browse the campus map and quests."
+            : "Your device couldn't provide a location right now. Check that location services are on, then try again.",
         );
       },
       { enableHighAccuracy: true, timeout: 10000 },
@@ -256,9 +261,15 @@ export function CampusMap({
         {locating ? "Locating…" : "Where am I?"}
       </button>
       {locateError && (
-        <p className="mt-2 text-sm text-danger" role="alert">
-          {locateError}
-        </p>
+        <AppDialog
+          confirmLabel="Got it"
+          icon={LocateFixed}
+          message={locateError}
+          onCancel={() => setLocateError(null)}
+          onConfirm={() => setLocateError(null)}
+          title="Location unavailable"
+          tone="primary"
+        />
       )}
     </div>
   );

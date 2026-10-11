@@ -2,6 +2,7 @@
 
 import { CampusMap } from "@/src/components/campus-map";
 import { MeetupPhotoManager } from "@/src/components/admin/meetup-photo-manager";
+import { AppDialog } from "@/src/components/app-dialog";
 import { buttonStyles, Card, Chip, inputStyles } from "@/src/components/page";
 import { ErrorState } from "@/src/components/states";
 import { useAdminCreateQuest, useAdminUpdateQuest } from "@/src/lib/api/admin";
@@ -89,6 +90,7 @@ export function QuestEditor({
   const updateQuest = useAdminUpdateQuest();
   const { error, run, refreshAll } = useAction();
   const [saved, setSaved] = useState(false);
+  const [confirmRetire, setConfirmRetire] = useState(false);
 
   const [title, setTitle] = useState(quest?.title ?? "");
   const [description, setDescription] = useState(quest?.description ?? "");
@@ -211,14 +213,6 @@ export function QuestEditor({
   async function changeStatus(status: StatusChange) {
     if (!quest) return;
     const data: AdminQuestPatch = { status };
-    if (
-      status === "retired" &&
-      !window.confirm(
-        "Retire this quest? Players keep their points, but nobody can play it anymore.",
-      )
-    ) {
-      return;
-    }
     if (await run(() => updateQuest.mutateAsync({ questId: quest.id, data }))) {
       await refreshAll();
     }
@@ -264,7 +258,13 @@ export function QuestEditor({
                     quest.publish_problems.length > 0)
                 }
                 key={action.status}
-                onClick={() => changeStatus(action.status)}
+                onClick={() => {
+                  if (action.status === "retired") {
+                    setConfirmRetire(true);
+                  } else {
+                    void changeStatus(action.status);
+                  }
+                }}
                 type="button"
               >
                 {action.label}
@@ -797,6 +797,19 @@ export function QuestEditor({
         )}
         {error && <ErrorState message={error} />}
       </div>
+      {confirmRetire && (
+        <AppDialog
+          cancelLabel="Keep quest active"
+          confirmLabel="Retire quest"
+          message="Players keep their points, but nobody will be able to play this quest anymore."
+          onCancel={() => setConfirmRetire(false)}
+          onConfirm={() => {
+            setConfirmRetire(false);
+            void changeStatus("retired");
+          }}
+          title="Retire this quest?"
+        />
+      )}
     </form>
   );
 }

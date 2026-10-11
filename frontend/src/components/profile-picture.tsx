@@ -2,6 +2,7 @@
 
 import { Camera, ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { AppDialog } from "@/src/components/app-dialog";
 import { initials } from "@/src/lib/initials";
 import { PhotoPreviewImage } from "@/src/components/photo-preview-image";
 
@@ -46,6 +47,7 @@ export function ProfilePicture({
         ? "loading"
         : "missing";
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -278,7 +280,7 @@ export function ProfilePicture({
             aria-label="Remove profile picture"
             className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-surface-variant text-on-surface shadow-card hover:bg-surface-container disabled:opacity-60 dark:border-surface-variant"
             disabled={busy}
-            onClick={removePicture}
+            onClick={() => setConfirmRemove(true)}
             type="button"
           >
             <X aria-hidden className="h-4 w-4" />
@@ -378,6 +380,19 @@ export function ProfilePicture({
         <span className="max-w-40 text-right text-xs text-danger" role="alert">
           {error}
         </span>
+      )}
+      {editable && confirmRemove && (
+        <AppDialog
+          cancelLabel="Keep picture"
+          confirmLabel="Remove picture"
+          message="Your initials will appear in place of your profile picture."
+          onCancel={() => setConfirmRemove(false)}
+          onConfirm={() => {
+            setConfirmRemove(false);
+            void removePicture();
+          }}
+          title="Remove your profile picture?"
+        />
       )}
     </div>
   );
