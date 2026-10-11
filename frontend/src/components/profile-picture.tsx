@@ -1,9 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { Camera, ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { AppDialog } from "@/src/components/app-dialog";
 import { initials } from "@/src/lib/initials";
+import { PhotoPreviewImage } from "@/src/components/photo-preview-image";
 
 const MAX_PICTURE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -46,6 +47,7 @@ export function ProfilePicture({
         ? "loading"
         : "missing";
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -247,7 +249,7 @@ export function ProfilePicture({
     <div className="flex shrink-0 flex-col items-end gap-1">
       {/* The remove button sits on the outer box so the circle's clipping
           doesn't cut it off. */}
-      <div className={`relative ${dimensions}`}>
+      <div className={`relative isolate ${dimensions}`}>
         <div
           className={`relative h-full w-full overflow-hidden rounded-full bg-primary text-on-primary shadow-card`}
         >
@@ -264,10 +266,9 @@ export function ProfilePicture({
             {letters}
           </span>
           {username && pictureState !== "missing" && (
-            <Image
+            <PhotoPreviewImage
               alt={`${displayName}'s profile picture`}
               className="object-cover"
-              fill
               key={username}
               onError={() => setPictureState("missing")}
               onLoad={() => setPictureState("loaded")}
@@ -275,16 +276,18 @@ export function ProfilePicture({
                 size === "small" ? "36px" : size === "medium" ? "40px" : "80px"
               }
               src={`/api/players/${encodeURIComponent(username)}/avatar?v=${pictureVersion}`}
-              unoptimized
             />
           )}
         </div>
         {editable && pictureState === "loaded" && (
           <button
             aria-label="Remove profile picture"
-            className="absolute -right-1.5 -top-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-surface-variant text-on-surface shadow-card hover:bg-surface-container disabled:opacity-60 dark:border-surface-variant"
+            className="absolute right-0 top-0 z-10 flex h-7 w-7 translate-x-1/3 -translate-y-1/3 items-center justify-center rounded-full border-2 border-surface bg-surface-variant text-on-surface shadow-card hover:bg-surface-container disabled:opacity-60 dark:border-surface-variant"
             disabled={busy}
-            onClick={removePicture}
+            onClick={(event) => {
+              event.stopPropagation();
+              setConfirmRemove(true);
+            }}
             type="button"
           >
             <X aria-hidden className="h-4 w-4" />
@@ -384,6 +387,19 @@ export function ProfilePicture({
         <span className="max-w-40 text-right text-xs text-danger" role="alert">
           {error}
         </span>
+      )}
+      {editable && confirmRemove && (
+        <AppDialog
+          cancelLabel="Keep picture"
+          confirmLabel="Remove picture"
+          message="Your initials will appear in place of your profile picture."
+          onCancel={() => setConfirmRemove(false)}
+          onConfirm={() => {
+            setConfirmRemove(false);
+            void removePicture();
+          }}
+          title="Remove your profile picture?"
+        />
       )}
     </div>
   );

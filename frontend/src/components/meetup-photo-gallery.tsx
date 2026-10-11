@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { Card } from "@/src/components/page";
 import { useEffect, useState } from "react";
+import { PhotoPreviewImage } from "@/src/components/photo-preview-image";
 
 type MeetupPhoto = {
   id: string;
@@ -50,13 +50,11 @@ function PhotoGrid({
       {photos.map((photo) => (
         <figure className="min-w-0" key={photo.id}>
           <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-            <Image
+            <PhotoPreviewImage
               alt={`Photo from ${photo.quest_title}`}
               className="object-cover"
-              fill
               sizes="(max-width: 640px) 45vw, 220px"
               src={imageUrl(photo)}
-              unoptimized
             />
           </div>
           <figcaption className="mt-1 truncate text-xs text-muted">

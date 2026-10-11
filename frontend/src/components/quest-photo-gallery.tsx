@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 import Link from "next/link";
+import { AppDialog } from "@/src/components/app-dialog";
 import { buttonStyles, Card } from "@/src/components/page";
+import { PhotoPreviewImage } from "@/src/components/photo-preview-image";
 
 type QuestPhoto = {
   id: string;
@@ -36,6 +37,7 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
   const [refresh, setRefresh] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<QuestPhoto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -214,13 +216,6 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
 
   async function deletePhoto(photo: QuestPhoto) {
     if (!photo.is_mine) return;
-    if (
-      !window.confirm(
-        "Delete this photo? It will be removed from the quest gallery and your profile.",
-      )
-    ) {
-      return;
-    }
 
     setError(null);
     setMessage(null);
@@ -258,13 +253,11 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
           <figure className="min-w-0" key={photo.id}>
             <div className="relative">
               <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                <Image
+                <PhotoPreviewImage
                   alt={`Photo from ${photo.quest_title}`}
                   className="object-cover"
-                  fill
                   sizes="(max-width: 640px) 45vw, 220px"
                   src={`/api/quest-photos/${photo.id}`}
-                  unoptimized
                 />
               </div>
               {photo.is_mine && (
@@ -272,7 +265,7 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
                   aria-label={`Delete your photo from ${photo.quest_title}`}
                   className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface text-danger shadow-card transition hover:bg-danger hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
                   disabled={deletingId !== null || uploading}
-                  onClick={() => void deletePhoto(photo)}
+                  onClick={() => setPhotoToDelete(photo)}
                   title="Delete photo"
                   type="button"
                 >
@@ -358,7 +351,7 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
             >
               {uploading
                 ? "Uploading…"
-                : photos.length > 0
+                : ownPhotos.length > 0
                   ? "Upload more photos"
                   : "Upload Photo"}
             </button>
@@ -415,6 +408,20 @@ export function QuestPhotoGallery({ questId }: { questId: string }) {
       ) : (
         <p className="text-sm text-muted">No photos are visible here yet.</p>
       )}
+      {photoToDelete && (
+        <AppDialog
+          cancelLabel="Cancel"
+          confirmLabel="Delete photo"
+          message="It will be removed from the quest gallery and your profile."
+          onCancel={() => setPhotoToDelete(null)}
+          onConfirm={() => {
+            const photo = photoToDelete;
+            setPhotoToDelete(null);
+            void deletePhoto(photo);
+          }}
+          title="Delete this photo?"
+        />
+      )}
     </Card>
   );
 }
@@ -435,6 +442,7 @@ export function ProfileQuestPhotoGallery({
   }>({ url, photos: [] });
   const [refresh, setRefresh] = useState(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<QuestPhoto | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const photos = photoResult.url === url ? photoResult.photos : [];
 
@@ -458,13 +466,6 @@ export function ProfileQuestPhotoGallery({
 
   async function deletePhoto(photo: QuestPhoto) {
     if (!photo.is_mine) return;
-    if (
-      !window.confirm(
-        "Delete this photo? It will be removed from the quest gallery and your profile.",
-      )
-    ) {
-      return;
-    }
 
     setDeleteError(null);
     setDeletingId(photo.id);
@@ -514,13 +515,11 @@ export function ProfileQuestPhotoGallery({
             <figure className="min-w-0" key={photo.id}>
               <div className="relative">
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-container">
-                  <Image
+                  <PhotoPreviewImage
                     alt={`Photo from ${photo.quest_title}`}
                     className="object-cover"
-                    fill
                     sizes="(max-width: 640px) 45vw, 220px"
                     src={`${url}/${photo.id}/image`}
-                    unoptimized
                   />
                 </div>
                 {photo.is_mine && (
@@ -528,7 +527,7 @@ export function ProfileQuestPhotoGallery({
                     aria-label={`Delete your photo from ${photo.quest_title}`}
                     className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface text-danger shadow-card transition hover:bg-danger hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
                     disabled={deletingId !== null}
-                    onClick={() => void deletePhoto(photo)}
+                    onClick={() => setPhotoToDelete(photo)}
                     title="Delete photo"
                     type="button"
                   >
@@ -555,6 +554,20 @@ export function ProfileQuestPhotoGallery({
             Browse quests
           </Link>
         </div>
+      )}
+      {photoToDelete && (
+        <AppDialog
+          cancelLabel="Cancel"
+          confirmLabel="Delete photo"
+          message="It will be removed from the quest gallery and your profile."
+          onCancel={() => setPhotoToDelete(null)}
+          onConfirm={() => {
+            const photo = photoToDelete;
+            setPhotoToDelete(null);
+            void deletePhoto(photo);
+          }}
+          title="Delete this photo?"
+        />
       )}
     </Card>
   );

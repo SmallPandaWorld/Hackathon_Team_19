@@ -1,6 +1,7 @@
 "use client";
 
 import { buttonStyles, Card } from "@/src/components/page";
+import { AppDialog } from "@/src/components/app-dialog";
 import { ProfilePicture } from "@/src/components/profile-picture";
 import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
@@ -19,7 +20,7 @@ import {
 import { useAction } from "@/src/lib/use-action";
 import { Check, UserMinus, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 export function profileHref(username: string): string {
   return `/profile?player=${encodeURIComponent(username)}`;
@@ -52,6 +53,7 @@ function useFriendActions() {
 // Add / accept / cancel / remove, depending on where we stand with this player.
 export function FriendActions({ player }: { player: PublicPlayer }) {
   const actions = useFriendActions();
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const name = player.display_name;
   const username = player.username;
 
@@ -66,10 +68,7 @@ export function FriendActions({ player }: { player: PublicPlayer }) {
           <button
             className="text-sm font-semibold text-muted hover:text-danger"
             disabled={actions.pending}
-            onClick={() => {
-              if (window.confirm(`Remove ${name} from your friends?`))
-                actions.remove(username);
-            }}
+            onClick={() => setConfirmRemove(true)}
             type="button"
           >
             Remove friend
@@ -138,6 +137,19 @@ export function FriendActions({ player }: { player: PublicPlayer }) {
       {body}
       {actions.error && (
         <p className="mt-2 text-sm text-danger">{actions.error}</p>
+      )}
+      {confirmRemove && (
+        <AppDialog
+          cancelLabel="Keep friend"
+          confirmLabel="Remove friend"
+          message={`${name} will no longer appear in your friends list.`}
+          onCancel={() => setConfirmRemove(false)}
+          onConfirm={() => {
+            setConfirmRemove(false);
+            void actions.remove(username);
+          }}
+          title={`Remove ${name} from your friends?`}
+        />
       )}
     </div>
   );
@@ -274,6 +286,7 @@ export function FriendsCard() {
     query: { refetchInterval: FRIENDS_POLL_MS },
   });
   const actions = useFriendActions();
+  const [friendToRemove, setFriendToRemove] = useState<FriendOut | null>(null);
   const friends = data?.status === 200 ? data.data : undefined;
   const error = isError
     ? "Could not load your friends."
@@ -341,14 +354,7 @@ export function FriendsCard() {
                   disabled={actions.pending}
                   friend={friend}
                   key={friend.username}
-                  onRemove={() => {
-                    if (
-                      window.confirm(
-                        `Remove ${friend.display_name} from your friends?`,
-                      )
-                    )
-                      actions.remove(friend.username);
-                  }}
+                  onRemove={() => setFriendToRemove(friend)}
                 />
               ))}
             </ul>
@@ -379,6 +385,20 @@ export function FriendsCard() {
       )}
       {actions.error && (
         <p className="mt-2 text-sm text-danger">{actions.error}</p>
+      )}
+      {friendToRemove && (
+        <AppDialog
+          cancelLabel="Keep friend"
+          confirmLabel="Remove friend"
+          message={`${friendToRemove.display_name} will no longer appear in your friends list.`}
+          onCancel={() => setFriendToRemove(null)}
+          onConfirm={() => {
+            const friend = friendToRemove;
+            setFriendToRemove(null);
+            void actions.remove(friend.username);
+          }}
+          title={`Remove ${friendToRemove.display_name} from your friends?`}
+        />
       )}
     </Card>
   );
