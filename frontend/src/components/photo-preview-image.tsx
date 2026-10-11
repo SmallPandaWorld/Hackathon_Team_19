@@ -116,7 +116,7 @@ export function PhotoPreviewImage({
       {open &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100]"
+            className="fixed inset-0 z-[100] backdrop-blur-sm"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
