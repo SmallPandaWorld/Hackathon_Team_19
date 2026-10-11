@@ -11,7 +11,7 @@ import { ErrorState, LoadingState } from "@/src/components/states";
 import { apiErrorMessage } from "@/src/lib/api-error";
 import { useListQuests } from "@/src/lib/api/quests";
 import { sortQuests } from "@/src/lib/quest-sections";
-import { ArrowRight, ChevronDown, Plus, Send } from "lucide-react";
+import { ArrowRight, ChevronDown, CircleHelp, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -24,18 +24,37 @@ const STEPS = [
 function Section({
   title,
   count,
+  help,
   children,
 }: {
   title: string;
   count: number;
+  help?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="flex items-baseline justify-between text-xl font-bold">
-        {title}
-        <span className="text-sm font-medium text-muted">{count}</span>
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <div className="flex items-center gap-2 text-sm font-medium text-muted">
+          <span>{count}</span>
+          {help && (
+            <details className="group relative">
+              <summary
+                aria-label="How quests work"
+                className="flex h-7 w-7 cursor-pointer list-none items-center justify-center rounded-full border border-outline-variant transition hover:border-primary/60 hover:text-primary [&::-webkit-details-marker]:hidden group-open:border-primary/60 group-open:text-primary"
+                title="How quests work"
+              >
+                <CircleHelp aria-hidden className="h-4 w-4" />
+              </summary>
+              <div className="absolute right-0 z-[120] mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-outline-variant bg-surface p-4 text-on-surface shadow-card dark:bg-surface-container">
+                <h3 className="font-semibold">How it works</h3>
+                <div className="mt-2">{help}</div>
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
       {children}
     </section>
   );
@@ -88,10 +107,6 @@ export default function Home() {
     ? "Could not load quests. Check your connection."
     : apiErrorMessage(data);
   const sections = quests ? sortQuests(quests) : undefined;
-  const isNewPlayer = sections
-    ? sections.completed.length === 0 && sections.inReview.length === 0
-    : false;
-
   return (
     <Page>
       <header className="relative">
@@ -116,10 +131,6 @@ export default function Home() {
         <JoinWithCode />
       </div>
 
-      <Collapsible compact defaultOpen={isNewPlayer} title="How it works">
-        <HowItWorks />
-      </Collapsible>
-
       {isLoading ? (
         <LoadingState label="Loading quests..." />
       ) : error || !sections ? (
@@ -129,7 +140,11 @@ export default function Home() {
         />
       ) : (
         <>
-          <Section count={sections.available.length} title="Available now">
+          <Section
+            count={sections.available.length}
+            help={<HowItWorks />}
+            title="Available now"
+          >
             {sections.available.length > 0 ? (
               <>
                 <QuestList quests={sections.available.slice(0, 4)} />
@@ -172,6 +187,7 @@ export default function Home() {
               <QuestList quests={sections.completed} />
             </Collapsible>
           )}
+
         </>
       )}
 
